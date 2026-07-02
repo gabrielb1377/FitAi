@@ -1,0 +1,562 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../models/achievement_model.dart';
+import '../models/corrida_model.dart';
+import '../models/historico_serie_treino_model.dart';
+import '../models/historico_treino_model.dart';
+import '../models/progresso_exercicio_model.dart';
+import '../models/treino_model.dart';
+
+class XpNivelResultado {
+  final int xp;
+  final int nivel;
+  final int xpGanho;
+  final int niveisGanhos;
+
+  const XpNivelResultado({
+    required this.xp,
+    required this.nivel,
+    required this.xpGanho,
+    required this.niveisGanhos,
+  });
+
+  bool get subiuNivel => niveisGanhos > 0;
+}
+
+class StorageService {
+  static const int xpPorNivel = 100;
+
+  static Future<void> salvarXp(int xp) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('xp', xp);
+
+    debugPrint("XP SALVO: $xp");
+  }
+
+  static Future<int> carregarXp() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    int xp = prefs.getInt('xp') ?? 0;
+
+    debugPrint("XP CARREGADO: $xp");
+
+    return xp;
+  }
+
+  static Future<void> salvarNivel(int nivel) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('nivel', nivel);
+
+    debugPrint("NIVEL SALVO: $nivel");
+  }
+
+  static Future<int> carregarNivel() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    int nivel = prefs.getInt('nivel') ?? 1;
+
+    debugPrint("NIVEL CARREGADO: $nivel");
+
+    return nivel;
+  }
+
+  static XpNivelResultado calcularNivelamento({
+    required int xp,
+    required int nivel,
+    int xpGanho = 0,
+  }) {
+    var xpRestante = xp;
+    var nivelAtual = nivel;
+    var niveisGanhos = 0;
+
+    while (xpRestante >= xpPorNivel) {
+      xpRestante -= xpPorNivel;
+      nivelAtual++;
+      niveisGanhos++;
+    }
+
+    return XpNivelResultado(
+      xp: xpRestante,
+      nivel: nivelAtual,
+      xpGanho: xpGanho,
+      niveisGanhos: niveisGanhos,
+    );
+  }
+
+  static Future<XpNivelResultado> salvarXpNivelado({
+    required int xp,
+    required int nivel,
+    int xpGanho = 0,
+  }) async {
+    final resultado = calcularNivelamento(
+      xp: xp,
+      nivel: nivel,
+      xpGanho: xpGanho,
+    );
+
+    await salvarXp(resultado.xp);
+    await salvarNivel(resultado.nivel);
+
+    return resultado;
+  }
+
+  static Future<XpNivelResultado> adicionarXp(int xpGanho) async {
+    final xpAtual = await carregarXp();
+    final nivelAtual = await carregarNivel();
+
+    return salvarXpNivelado(
+      xp: xpAtual + xpGanho,
+      nivel: nivelAtual,
+      xpGanho: xpGanho,
+    );
+  }
+
+  static Future<void> salvarPrimeiraCorrida(bool valor) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('primeiraCorrida', valor);
+  }
+
+  static Future<bool> carregarPrimeiraCorrida() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('primeiraCorrida') ?? false;
+  }
+
+  static Future<void> salvar10Km(bool valor) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('conquista10Km', valor);
+  }
+
+  static Future<bool> carregar10Km() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('conquista10Km') ?? false;
+  }
+
+  static Future<void> salvarDistancia(double distancia) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('distancia', distancia);
+  }
+
+  static Future<double> carregarDistancia() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getDouble('distancia') ?? 0.0;
+  }
+
+  static Future<void> salvarSegundos(int segundos) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('segundos', segundos);
+  }
+
+  static Future<int> carregarSegundos() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('segundos') ?? 0;
+  }
+
+  static Future<void> salvarPassos(int passos) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('passos', passos);
+  }
+
+  static Future<int> carregarPassos() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('passos') ?? 0;
+  }
+
+  static Future<void> salvarCorrida(CorridaModel corrida) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    List<String> lista = prefs.getStringList('historicoCorridas') ?? [];
+
+    lista.add(jsonEncode(corrida.toJson()));
+
+    await prefs.setStringList('historicoCorridas', lista);
+  }
+
+  static Future<List<CorridaModel>> carregarCorridas() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    List<String> lista = prefs.getStringList('historicoCorridas') ?? [];
+
+    return lista.map((item) {
+      return CorridaModel.fromJson(jsonDecode(item));
+    }).toList();
+  }
+
+  static Future<void> salvarHistoricoTreino(
+    HistoricoTreinoModel historico,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final lista = prefs.getStringList("historicoTreinos") ?? [];
+
+    lista.add(jsonEncode(historico.toJson()));
+
+    await prefs.setStringList("historicoTreinos", lista);
+  }
+
+  static Future<List<HistoricoTreinoModel>> carregarHistoricoTreinos() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final lista = prefs.getStringList("historicoTreinos") ?? [];
+    final historico = <HistoricoTreinoModel>[];
+
+    for (final item in lista) {
+      try {
+        final json = jsonDecode(item);
+
+        if (json is Map<String, dynamic>) {
+          historico.add(HistoricoTreinoModel.fromJson(json));
+        } else if (json is Map) {
+          historico.add(
+            HistoricoTreinoModel.fromJson(Map<String, dynamic>.from(json)),
+          );
+        }
+      } catch (erro) {
+        debugPrint("Erro ao carregar historico de treino: $erro");
+      }
+    }
+
+    historico.sort((a, b) => b.dataHora.compareTo(a.dataHora));
+
+    return historico;
+  }
+
+  static Future<void> limparHistoricoTreinos() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove("historicoTreinos");
+  }
+
+  static Future<void> salvarConquistas(
+    List<AchievementModel> conquistas,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final lista = conquistas
+        .map((conquista) => jsonEncode(conquista.toJson()))
+        .toList();
+
+    await prefs.setStringList("conquistas", lista);
+  }
+
+  static Future<List<AchievementModel>> carregarConquistasSalvas() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lista = prefs.getStringList("conquistas") ?? [];
+    final conquistas = <AchievementModel>[];
+
+    for (final item in lista) {
+      try {
+        final json = jsonDecode(item);
+
+        if (json is Map<String, dynamic>) {
+          conquistas.add(AchievementModel.fromJson(json));
+        } else if (json is Map) {
+          conquistas.add(
+            AchievementModel.fromJson(Map<String, dynamic>.from(json)),
+          );
+        }
+      } catch (erro) {
+        debugPrint("Erro ao carregar conquistas: $erro");
+      }
+    }
+
+    return conquistas;
+  }
+
+  static Future<void> salvarHistoricoSerieTreino(
+    HistoricoSerieTreinoModel historico,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final lista = prefs.getStringList("historicoSeriesTreino") ?? [];
+
+    final atualizados = lista.where((item) {
+      try {
+        final json = jsonDecode(item);
+        if (json is Map<String, dynamic>) {
+          return json["id"]?.toString() != historico.id;
+        }
+        if (json is Map) {
+          return json["id"]?.toString() != historico.id;
+        }
+      } catch (erro) {
+        debugPrint("Erro ao comparar historico de serie: $erro");
+      }
+
+      return true;
+    }).toList();
+
+    atualizados.add(jsonEncode(historico.toJson()));
+
+    await prefs.setStringList("historicoSeriesTreino", atualizados);
+  }
+
+  static Future<List<HistoricoSerieTreinoModel>>
+  carregarHistoricoSeriesTreino() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lista = prefs.getStringList("historicoSeriesTreino") ?? [];
+    final historico = <HistoricoSerieTreinoModel>[];
+
+    for (final item in lista) {
+      try {
+        final json = jsonDecode(item);
+
+        if (json is Map<String, dynamic>) {
+          historico.add(HistoricoSerieTreinoModel.fromJson(json));
+        } else if (json is Map) {
+          historico.add(
+            HistoricoSerieTreinoModel.fromJson(Map<String, dynamic>.from(json)),
+          );
+        }
+      } catch (erro) {
+        debugPrint("Erro ao carregar historico de serie: $erro");
+      }
+    }
+
+    historico.sort((a, b) => b.dataHora.compareTo(a.dataHora));
+
+    return historico;
+  }
+
+  static Future<List<HistoricoSerieTreinoModel>>
+  carregarHistoricoSeriesPorTreino(String treinoId) async {
+    final historico = await carregarHistoricoSeriesTreino();
+
+    return historico.where((item) => item.treinoId == treinoId).toList();
+  }
+
+  static Future<void> removerHistoricoSerieTreino(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    final lista = prefs.getStringList("historicoSeriesTreino") ?? [];
+
+    final atualizados = lista.where((item) {
+      try {
+        final json = jsonDecode(item);
+        if (json is Map<String, dynamic>) {
+          return json["id"]?.toString() != id;
+        }
+        if (json is Map) {
+          return json["id"]?.toString() != id;
+        }
+      } catch (erro) {
+        debugPrint("Erro ao remover historico de serie: $erro");
+      }
+
+      return true;
+    }).toList();
+
+    await prefs.setStringList("historicoSeriesTreino", atualizados);
+  }
+
+  static Future<Set<String>> carregarFavoritosExercicios() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lista = prefs.getStringList("favoritosExercicios") ?? [];
+
+    return lista.toSet();
+  }
+
+  static Future<void> salvarFavoritosExercicios(Set<String> favoritos) async {
+    final prefs = await SharedPreferences.getInstance();
+    final lista = favoritos.where((id) => id.trim().isNotEmpty).toList()
+      ..sort();
+
+    await prefs.setStringList("favoritosExercicios", lista);
+  }
+
+  static Future<bool> alternarFavoritoExercicio(String exercicioId) async {
+    final favoritos = await carregarFavoritosExercicios();
+
+    if (favoritos.contains(exercicioId)) {
+      favoritos.remove(exercicioId);
+      await salvarFavoritosExercicios(favoritos);
+      return false;
+    }
+
+    favoritos.add(exercicioId);
+    await salvarFavoritosExercicios(favoritos);
+    return true;
+  }
+
+  static Future<void> salvarProgresso(ProgressoExercicioModel progresso) async {
+    final prefs = await SharedPreferences.getInstance();
+    final lista = prefs.getStringList("progressosExercicios") ?? [];
+
+    lista.add(jsonEncode(progresso.toJson()));
+
+    await prefs.setStringList("progressosExercicios", lista);
+  }
+
+  static Future<List<ProgressoExercicioModel>> carregarProgressos() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lista = prefs.getStringList("progressosExercicios") ?? [];
+    final progressos = <ProgressoExercicioModel>[];
+
+    for (final item in lista) {
+      try {
+        final json = jsonDecode(item);
+
+        if (json is Map<String, dynamic>) {
+          progressos.add(ProgressoExercicioModel.fromJson(json));
+        } else if (json is Map) {
+          progressos.add(
+            ProgressoExercicioModel.fromJson(Map<String, dynamic>.from(json)),
+          );
+        }
+      } catch (erro) {
+        debugPrint("Erro ao carregar progresso de exercicio: $erro");
+      }
+    }
+
+    progressos.sort((a, b) => b.data.compareTo(a.data));
+
+    return progressos;
+  }
+
+  static Future<ProgressoExercicioModel?> carregarUltimoProgresso(
+    String nomeExercicio,
+  ) async {
+    final historico = await carregarHistoricoExercicio(nomeExercicio);
+
+    if (historico.isEmpty) return null;
+
+    return historico.first;
+  }
+
+  static Future<List<ProgressoExercicioModel>> carregarHistoricoExercicio(
+    String nomeExercicio,
+  ) async {
+    final progressos = await carregarProgressos();
+    final nomeNormalizado = _normalizarNomeExercicio(nomeExercicio);
+
+    return progressos.where((progresso) {
+      return _normalizarNomeExercicio(progresso.nomeExercicio) ==
+          nomeNormalizado;
+    }).toList();
+  }
+
+  static Future<void> removerProgresso(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    final progressos = await carregarProgressos();
+    final atualizados = progressos
+        .where((progresso) => progresso.id != id)
+        .map((progresso) => jsonEncode(progresso.toJson()))
+        .toList();
+
+    await prefs.setStringList("progressosExercicios", atualizados);
+  }
+
+  static String _normalizarNomeExercicio(String nome) {
+    var valor = nome.toLowerCase().trim();
+    final substituicoes = {
+      "á": "a",
+      "à": "a",
+      "â": "a",
+      "ã": "a",
+      "ä": "a",
+      "é": "e",
+      "ê": "e",
+      "è": "e",
+      "ë": "e",
+      "í": "i",
+      "ì": "i",
+      "î": "i",
+      "ï": "i",
+      "ó": "o",
+      "ò": "o",
+      "ô": "o",
+      "õ": "o",
+      "ö": "o",
+      "ú": "u",
+      "ù": "u",
+      "û": "u",
+      "ü": "u",
+      "ç": "c",
+      "Ã¡": "a",
+      "Ã ": "a",
+      "Ã¢": "a",
+      "Ã£": "a",
+      "Ã¤": "a",
+      "Ã©": "e",
+      "Ãª": "e",
+      "Ã¨": "e",
+      "Ã«": "e",
+      "Ã­": "i",
+      "Ã¬": "i",
+      "Ã®": "i",
+      "Ã¯": "i",
+      "Ã³": "o",
+      "Ã²": "o",
+      "Ã´": "o",
+      "Ãµ": "o",
+      "Ã¶": "o",
+      "Ãº": "u",
+      "Ã¹": "u",
+      "Ã»": "u",
+      "Ã¼": "u",
+      "Ã§": "c",
+    };
+
+    for (final entrada in substituicoes.entries) {
+      valor = valor.replaceAll(entrada.key, entrada.value);
+    }
+
+    return valor;
+  }
+
+  // ===============================
+  // ESTATÍSTICAS
+  // ===============================
+
+  static Future<void> salvarDistanciaTotal(double valor) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('distanciaTotal', valor);
+  }
+
+  static Future<double> carregarDistanciaTotal() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getDouble('distanciaTotal') ?? 0;
+  }
+
+  static Future<void> salvarTempoTotal(int valor) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('tempoTotal', valor);
+  }
+
+  static Future<int> carregarTempoTotal() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('tempoTotal') ?? 0;
+  }
+
+  static Future<void> salvarTotalCorridas(int valor) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('totalCorridas', valor);
+  }
+
+  static Future<int> carregarTotalCorridas() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('totalCorridas') ?? 0;
+  }
+
+  static Future<void> salvarTreino(TreinoModel treino) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    List<String> lista = prefs.getStringList("treinos") ?? [];
+
+    lista.add(jsonEncode(treino.toJson()));
+
+    await prefs.setStringList("treinos", lista);
+  }
+
+  static Future<List<TreinoModel>> carregarTreinos() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    List<String> lista = prefs.getStringList("treinos") ?? [];
+
+    return lista.map((item) {
+      return TreinoModel.fromJson(jsonDecode(item));
+    }).toList();
+  }
+
+  static Future<void> apagarTreinos() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove("treinos");
+  }
+}

@@ -1,0 +1,706 @@
+import '../../models/exercicio_model.dart';
+
+final List<ExercicioModel> exerciciosGluteos = [
+  ExercicioModel(
+    id: "gluteos_001",
+    nome: "Agachamento Livre",
+    categoria: "Glúteos",
+    descricao:
+        "Exercício composto fundamental para o desenvolvimento dos glúteos, quadríceps e isquiotibiais. Considerado um dos movimentos mais completos do treinamento de força.",
+    comoExecutar:
+        "Posicione os pés na largura dos ombros com as pontas levemente voltadas para fora. Mantenha o peito erguido e o core contraído. Flexione os joelhos e quadris simultaneamente, descendo até que as coxas fiquem paralelas ao chão ou abaixo. Empurre o chão com os pés para retornar à posição inicial.",
+    cuidados:
+        "Evite que os joelhos ultrapassem excessivamente a ponta dos pés. Não deixe os joelhos caírem para dentro. Mantenha a coluna neutra durante todo o movimento. Inicie com cargas leves para dominar a técnica.",
+    musculos: [
+      "Glúteo máximo",
+      "Quadríceps",
+      "Isquiotibiais",
+      "Adutores",
+      "Core",
+    ],
+    equipamentos: ["Barra", "Rack"],
+    locais: ["Academia"],
+    tags: [
+      "agachamento",
+      "glúteos",
+      "pernas",
+      "composto",
+      "força",
+      "massa muscular",
+    ],
+    dificuldade: "Intermediário",
+    objetivo: "Hipertrofia",
+    caloriasHora: 400,
+    imagem: "assets/gifs/gluteos/agachamento_livre.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_002",
+    nome: "Agachamento Sumô",
+    categoria: "Glúteos",
+    descricao:
+        "Variação do agachamento com posição ampla das pernas, recrutando de forma intensa os glúteos e adutores. Excelente para trabalhar a parte interna da coxa e o glúteo médio.",
+    comoExecutar:
+        "Posicione os pés mais afastados que a largura dos ombros, com as pontas voltadas para fora em aproximadamente 45 graus. Mantenha o torso ereto e desça controladamente flexionando joelhos e quadris. Os joelhos devem acompanhar a direção dos pés. Suba contraindo os glúteos.",
+    cuidados:
+        "Certifique-se de que os joelhos não colapsem para dentro. Mantenha os calcanhares firmes no chão. Evite inclinar o tronco excessivamente para a frente. Progrida a carga gradualmente.",
+    musculos: ["Glúteo máximo", "Glúteo médio", "Adutores", "Quadríceps"],
+    equipamentos: ["Barra", "Halter", "Kettlebell"],
+    locais: ["Academia", "Casa"],
+    tags: ["agachamento sumô", "glúteos", "adutores", "pernas", "força"],
+    dificuldade: "Iniciante",
+    objetivo: "Hipertrofia",
+    caloriasHora: 380,
+    imagem: "assets/gifs/gluteos/agachamento_sumo.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_003",
+    nome: "Hip Thrust",
+    categoria: "Glúteos",
+    descricao:
+        "Exercício de isolamento altamente eficaz para os glúteos, realizado com o dorso apoiado em um banco. É considerado o exercício com maior ativação do glúteo máximo.",
+    comoExecutar:
+        "Sente-se no chão com o dorso apoiado em um banco. Posicione uma barra sobre o quadril com um amortecedor. Pés na largura dos ombros e joelhos flexionados. Empurre o quadril para cima, contraindo os glúteos no topo, até que o corpo forme uma linha reta dos joelhos aos ombros. Desça controladamente.",
+    cuidados:
+        "Use um amortecedor na barra para proteger o quadril. Não hiperextenda a lombar no topo do movimento. Mantenha o queixo voltado para o peito. Empurre com os calcanhares, não com a ponta dos pés.",
+    musculos: ["Glúteo máximo", "Isquiotibiais", "Core"],
+    equipamentos: ["Barra", "Banco", "Amortecedor"],
+    locais: ["Academia"],
+    tags: [
+      "hip thrust",
+      "glúteos",
+      "quadril",
+      "isolamento",
+      "hipertrofia glúteo",
+    ],
+    dificuldade: "Intermediário",
+    objetivo: "Hipertrofia",
+    caloriasHora: 320,
+    imagem: "assets/gifs/gluteos/hip_thrust.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_004",
+    nome: "Elevação Pélvica no Solo",
+    categoria: "Glúteos",
+    descricao:
+        "Versão do hip thrust realizada sem banco, excelente para iniciantes ou para treino em casa. Trabalha o glúteo máximo com eficiência mesmo sem equipamentos pesados.",
+    comoExecutar:
+        "Deite-se de costas com os joelhos flexionados e pés apoiados no chão na largura dos quadris. Braços ao longo do corpo. Contraia os glúteos e eleve o quadril até formar uma linha reta dos joelhos aos ombros. Segure 1-2 segundos no topo e desça controladamente.",
+    cuidados:
+        "Não empurre com os braços para ajudar o movimento. Evite hiperextensão lombar. Mantenha os pés inteiros apoiados no chão. Para aumentar a dificuldade, use uma barra ou coloque um halter sobre o quadril.",
+    musculos: ["Glúteo máximo", "Isquiotibiais", "Core"],
+    equipamentos: ["Peso corporal", "Halter"],
+    locais: ["Casa", "Academia"],
+    tags: ["elevação pélvica", "ponte glúteo", "glúteos", "iniciante", "casa"],
+    dificuldade: "Iniciante",
+    objetivo: "Tonificação",
+    caloriasHora: 280,
+    imagem: "assets/gifs/gluteos/elevacao_pelvica_no_solo.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_005",
+    nome: "Avanço (Lunge)",
+    categoria: "Glúteos",
+    descricao:
+        "Exercício unilateral que trabalha glúteos e quadríceps de forma intensa, além de melhorar equilíbrio e estabilidade. Pode ser realizado com ou sem carga adicional.",
+    comoExecutar:
+        "Fique em pé com os pés juntos. Dê um passo largo à frente com uma perna, flexionando ambos os joelhos até o joelho de trás quase tocar o chão. O joelho da frente deve formar 90 graus. Empurre com o calcanhar da frente para retornar à posição inicial. Alterne as pernas.",
+    cuidados:
+        "O joelho da frente não deve ultrapassar a ponta do pé. Mantenha o torso ereto durante todo o movimento. Olhe para a frente, não para baixo. Inicie sem carga para aprender o padrão de movimento.",
+    musculos: ["Glúteo máximo", "Quadríceps", "Isquiotibiais", "Glúteo médio"],
+    equipamentos: ["Peso corporal", "Halteres", "Barra"],
+    locais: ["Academia", "Casa"],
+    tags: ["avanço", "lunge", "glúteos", "unilateral", "equilíbrio", "pernas"],
+    dificuldade: "Iniciante",
+    objetivo: "Hipertrofia",
+    caloriasHora: 360,
+    imagem: "assets/gifs/gluteos/avanco_lunge.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_006",
+    nome: "Avanço Reverso (Reverse Lunge)",
+    categoria: "Glúteos",
+    descricao:
+        "Variação do avanço em que o passo é dado para trás, reduzindo o estresse nos joelhos e aumentando o recrutamento do glúteo. Indicado para quem tem desconforto patelar.",
+    comoExecutar:
+        "Fique em pé com os pés na largura dos quadris. Dê um passo largo para trás com uma perna, flexionando ambos os joelhos. O joelho traseiro deve quase tocar o chão e o joelho da frente manter 90 graus. Empurre com o calcanhar da perna da frente para retornar. Alterne as pernas.",
+    cuidados:
+        "Evite bater o joelho no chão. Mantenha o tronco ereto e o core ativado. Controle o movimento de descida. Não deixe o joelho da frente colapsar para dentro.",
+    musculos: ["Glúteo máximo", "Quadríceps", "Isquiotibiais"],
+    equipamentos: ["Peso corporal", "Halteres"],
+    locais: ["Academia", "Casa"],
+    tags: ["avanço reverso", "reverse lunge", "glúteos", "joelho", "pernas"],
+    dificuldade: "Iniciante",
+    objetivo: "Tonificação",
+    caloriasHora: 340,
+    imagem: "assets/gifs/gluteos/avanco_reverso_reverse_lunge.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_007",
+    nome: "Stiff (Terra com pernas estendidas)",
+    categoria: "Glúteos",
+    descricao:
+        "Exercício que trabalha intensamente os isquiotibiais e glúteos através de uma ampla amplitude de movimento do quadril. Ótimo para ganho de força posterior.",
+    comoExecutar:
+        "Segure a barra ou halteres à frente do corpo com os pés na largura dos quadris. Mantendo as pernas levemente flexionadas, incline o tronco para frente articulando o quadril, deixando a carga descer pela frente das pernas até sentir o alongamento dos isquiotibiais. Contraia os glúteos e retorne à posição inicial.",
+    cuidados:
+        "Nunca realize com a coluna arredondada. Mantenha a barra próxima ao corpo. Não vá além da amplitude que sua flexibilidade permite. Evite trancar os joelhos completamente.",
+    musculos: ["Isquiotibiais", "Glúteo máximo", "Eretores da coluna"],
+    equipamentos: ["Barra", "Halteres"],
+    locais: ["Academia"],
+    tags: ["stiff", "terra", "isquiotibiais", "glúteos", "posterior", "força"],
+    dificuldade: "Intermediário",
+    objetivo: "Hipertrofia",
+    caloriasHora: 350,
+    imagem: "assets/gifs/gluteos/stiff_terra_com_pernas_estendidas.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_008",
+    nome: "Agachamento Búlgaro",
+    categoria: "Glúteos",
+    descricao:
+        "Exercício unilateral avançado com o pé traseiro elevado em um banco. Proporciona grande ativação do glúteo e quadríceps da perna da frente e exige alto nível de equilíbrio.",
+    comoExecutar:
+        "Posicione-se de frente para um banco, dê um passo largo e apoie o peito do pé traseiro no banco. Com o pé da frente firme no chão, desça flexionando o joelho da frente até a coxa ficar paralela ao chão. Empurre com o calcanhar para subir. Complete as repetições e troque a perna.",
+    cuidados:
+        "Garanta que o banco esteja estável. O joelho da frente não deve ultrapassar excessivamente a ponta do pé. Inicie sem carga para aprender o equilíbrio. Mantenha o tronco ereto.",
+    musculos: ["Glúteo máximo", "Quadríceps", "Isquiotibiais", "Glúteo médio"],
+    equipamentos: ["Banco", "Halteres", "Barra"],
+    locais: ["Academia", "Casa"],
+    tags: [
+      "agachamento búlgaro",
+      "unilateral",
+      "glúteos",
+      "avançado",
+      "equilíbrio",
+    ],
+    dificuldade: "Avançado",
+    objetivo: "Hipertrofia",
+    caloriasHora: 420,
+    imagem: "assets/gifs/gluteos/agachamento_bulgaro.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_009",
+    nome: "Abdução de Quadril com Elástico",
+    categoria: "Glúteos",
+    descricao:
+        "Exercício de isolamento para o glúteo médio, essencial para estabilidade do quadril e definição lateral dos glúteos. Muito utilizado em reabilitação e programas funcionais.",
+    comoExecutar:
+        "Coloque um elástico de resistência acima dos joelhos. Fique em pé com os pés paralelos na largura dos quadris. Afaste uma perna lateralmente, mantendo-a estendida e o pé em posição neutra. Contraia o glúteo médio no ponto de maior abdução e retorne controladamente. Repita para o outro lado.",
+    cuidados:
+        "Não incline o tronco para o lado ao levantar a perna. Realize o movimento de forma lenta e controlada. Mantenha o core ativado. Escolha a tensão do elástico adequada ao seu nível.",
+    musculos: ["Glúteo médio", "Glúteo mínimo", "TFL"],
+    equipamentos: ["Elástico de resistência"],
+    locais: ["Academia", "Casa"],
+    tags: ["abdução", "glúteo médio", "elástico", "lateral", "isolamento"],
+    dificuldade: "Iniciante",
+    objetivo: "Tonificação",
+    caloriasHora: 220,
+    imagem: "assets/gifs/gluteos/abducao_de_quadril_com_elastico.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_010",
+    nome: "Extensão de Quadril na Polia",
+    categoria: "Glúteos",
+    descricao:
+        "Exercício de isolamento para o glúteo máximo utilizando a polia baixa com tornozeleira. Permite tensão constante no músculo durante toda a amplitude do movimento.",
+    comoExecutar:
+        "Prenda a tornozeleira no tornozelo e posicione-se de frente para a polia baixa. Segure no suporte para equilíbrio. Mantendo a perna estendida, empurre-a para trás em extensão de quadril, contraindo o glúteo no ponto final. Retorne de forma controlada sem deixar o peso pousar.",
+    cuidados:
+        "Não arqueie excessivamente a lombar para compensar. Mantenha o movimento no quadril, não na coluna. Evite balançar o corpo. Use cargas que permitam controle total do movimento.",
+    musculos: ["Glúteo máximo", "Isquiotibiais"],
+    equipamentos: ["Polia", "Tornozeleira"],
+    locais: ["Academia"],
+    tags: [
+      "extensão quadril",
+      "polia",
+      "glúteos",
+      "isolamento",
+      "tornozeleira",
+    ],
+    dificuldade: "Iniciante",
+    objetivo: "Tonificação",
+    caloriasHora: 260,
+    imagem: "assets/gifs/gluteos/extensao_de_quadril_na_polia.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_011",
+    nome: "Cadeira Abdutora",
+    categoria: "Glúteos",
+    descricao:
+        "Exercício em máquina específica para trabalhar o glúteo médio e os abdutores do quadril. Permite controle preciso da carga e é indicado para todos os níveis.",
+    comoExecutar:
+        "Sente-se na máquina abdutora com as coxas apoiadas nos pads. Ajuste a máquina para que as pernas estejam levemente unidas na posição inicial. Afaste as pernas lateralmente contra a resistência, contraindo os glúteos. Retorne de forma lenta e controlada à posição inicial.",
+    cuidados:
+        "Não bata a carga ao retornar. Mantenha as costas apoiadas no encosto. Realize o movimento completo sem compensações. Não use cargas excessivas que comprometam a postura.",
+    musculos: ["Glúteo médio", "Glúteo mínimo", "Piriforme"],
+    equipamentos: ["Cadeira abdutora"],
+    locais: ["Academia"],
+    tags: ["abdutora", "máquina", "glúteo médio", "lateral", "academia"],
+    dificuldade: "Iniciante",
+    objetivo: "Tonificação",
+    caloriasHora: 240,
+    imagem: "assets/gifs/gluteos/cadeira_abdutora.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_012",
+    nome: "Levantamento Terra (Deadlift)",
+    categoria: "Glúteos",
+    descricao:
+        "Exercício composto fundamental que recruta os glúteos, isquiotibiais e toda a cadeia posterior. Um dos movimentos mais eficientes para ganho de força e massa muscular.",
+    comoExecutar:
+        "Com os pés na largura dos quadris e a barra sobre o meio dos pés, agache para pegar a barra com pegada dupla pronada na largura dos ombros. Mantenha a coluna neutra, peito erguido e core ativado. Empurre o chão com os pés e suba estendendo quadril e joelhos simultaneamente. Desça controladamente.",
+    cuidados:
+        "Nunca realize com a coluna arredondada. Mantenha a barra próxima ao corpo durante todo o movimento. Não trave os joelhos no topo. Realize aquecimento adequado antes de cargas pesadas.",
+    musculos: [
+      "Glúteo máximo",
+      "Isquiotibiais",
+      "Eretores da coluna",
+      "Quadríceps",
+      "Core",
+    ],
+    equipamentos: ["Barra", "Anilhas"],
+    locais: ["Academia"],
+    tags: [
+      "levantamento terra",
+      "deadlift",
+      "glúteos",
+      "posterior",
+      "composto",
+      "força",
+    ],
+    dificuldade: "Avançado",
+    objetivo: "Força",
+    caloriasHora: 450,
+    imagem: "assets/gifs/gluteos/levantamento_terra_deadlift.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_013",
+    nome: "Step Up no Banco",
+    categoria: "Glúteos",
+    descricao:
+        "Exercício funcional unilateral que trabalha glúteos e quadríceps subindo em um banco ou caixote. Melhora força, equilíbrio e coordenação motora.",
+    comoExecutar:
+        "Posicione-se em frente a um banco ou caixote estável. Coloque um pé completamente sobre a superfície. Empurre com o calcanhar e suba, estendendo completamente o joelho e o quadril. Traga a outra perna até o banco e depois desça de forma controlada. Alterne as pernas ou complete o lado antes de trocar.",
+    cuidados:
+        "Use um banco estável e em altura adequada. Não utilize a perna de baixo para impulsionar. Mantenha o tronco ereto. Descça de forma controlada para não sobrecarregar as articulações.",
+    musculos: ["Glúteo máximo", "Quadríceps", "Isquiotibiais", "Glúteo médio"],
+    equipamentos: ["Banco", "Caixote", "Halteres"],
+    locais: ["Academia", "Casa"],
+    tags: ["step up", "banco", "glúteos", "funcional", "unilateral"],
+    dificuldade: "Iniciante",
+    objetivo: "Funcional",
+    caloriasHora: 380,
+    imagem: "assets/gifs/gluteos/step_up_no_banco.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_014",
+    nome: "Ponte Glúteo Unilateral",
+    categoria: "Glúteos",
+    descricao:
+        "Variação avançada da elevação pélvica realizada com apenas uma perna, aumentando significativamente a ativação do glúteo e exigindo maior estabilidade do core.",
+    comoExecutar:
+        "Deite-se de costas com os joelhos flexionados. Estenda uma perna mantendo-a paralela à outra. Contraia o glúteo da perna apoiada e eleve o quadril até formar uma linha reta do joelho ao ombro. Segure 2 segundos no topo e desça controladamente. Complete as repetições e troque a perna.",
+    cuidados:
+        "Mantenha o quadril nivelado durante o movimento. Não deixe o lado sem apoio cair. Contraia o abdômen durante todo o exercício. Progrida apenas quando dominar a versão bilateral.",
+    musculos: ["Glúteo máximo", "Isquiotibiais", "Core"],
+    equipamentos: ["Peso corporal"],
+    locais: ["Casa", "Academia"],
+    tags: [
+      "ponte unilateral",
+      "glúteos",
+      "core",
+      "unilateral",
+      "iniciante",
+      "casa",
+    ],
+    dificuldade: "Intermediário",
+    objetivo: "Tonificação",
+    caloriasHora: 260,
+    imagem: "assets/gifs/gluteos/ponte_gluteo_unilateral.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_015",
+    nome: "Agachamento com Salto",
+    categoria: "Glúteos",
+    descricao:
+        "Variação pliométrica do agachamento que desenvolve potência muscular dos glúteos e quadríceps. Eleva a frequência cardíaca e o gasto calórico de forma significativa.",
+    comoExecutar:
+        "Posicione os pés na largura dos ombros. Desça em agachamento controlado até a coxa ficar paralela ao chão. Ao subir, exploda saltando com os dois pés do chão, estendendo completamente joelhos e quadris. Ao pousar, absorva o impacto flexionando suavemente os joelhos e desça imediatamente para o próximo agachamento.",
+    cuidados:
+        "Pouse suavemente com os calcanhares primeiro. Não realize se tiver lesões nos joelhos ou tornozelos. Foque na qualidade da aterrissagem antes de aumentar a intensidade. Inicie com poucas repetições.",
+    musculos: ["Glúteo máximo", "Quadríceps", "Isquiotibiais", "Panturrilha"],
+    equipamentos: ["Peso corporal"],
+    locais: ["Casa", "Academia"],
+    tags: ["agachamento salto", "pliométrico", "glúteos", "potência", "cardio"],
+    dificuldade: "Intermediário",
+    objetivo: "Emagrecimento",
+    caloriasHora: 600,
+    imagem: "assets/gifs/gluteos/agachamento_com_salto.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_016",
+    nome: "Coice Glúteo na Polia",
+    categoria: "Glúteos",
+    descricao:
+        "Exercício de isolamento para o glúteo máximo com polia baixa, simulando o movimento de coice. Proporciona tensão contínua no músculo durante todo o arco de movimento.",
+    comoExecutar:
+        "Prenda a tornozeleira na polia baixa e coloque-a no tornozelo. Posicione-se de frente para a polia, ligeiramente curvado com as mãos apoiadas. Flexione o joelho a aproximadamente 90 graus e empurre a perna para trás e para cima, contraindo o glúteo. Retorne controladamente.",
+    cuidados:
+        "Não compense com movimentos do tronco. Mantenha o joelho da perna de apoio levemente flexionado. Escolha uma carga que permita amplitude completa. Contraia o glúteo durante todo o movimento.",
+    musculos: ["Glúteo máximo", "Isquiotibiais"],
+    equipamentos: ["Polia", "Tornozeleira"],
+    locais: ["Academia"],
+    tags: ["coice glúteo", "polia", "isolamento", "glúteos", "academia"],
+    dificuldade: "Iniciante",
+    objetivo: "Tonificação",
+    caloriasHora: 240,
+    imagem: "assets/gifs/gluteos/coice_gluteo_na_polia.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_017",
+    nome: "Passada Lateral (Side Lunge)",
+    categoria: "Glúteos",
+    descricao:
+        "Exercício unilateral que trabalha os glúteos e adutores no plano frontal, diferenciando-se dos exercícios tradicionais realizados no plano sagital. Melhora a mobilidade do quadril.",
+    comoExecutar:
+        "Fique em pé com os pés juntos. Dê um passo largo lateralmente com uma perna, empurrando o quadril para trás e flexionando o joelho da perna que avançou. Mantenha a outra perna estendida. O pé deve estar completamente apoiado. Empurre o chão para retornar à posição inicial. Alterne os lados.",
+    cuidados:
+        "Mantenha o joelho alinhado com o pé durante a flexão. Não deixe o tronco colapsar para frente. Mantenha os dois pés voltados para frente. Controle o movimento de descida.",
+    musculos: ["Glúteo máximo", "Glúteo médio", "Adutores", "Quadríceps"],
+    equipamentos: ["Peso corporal", "Halteres"],
+    locais: ["Academia", "Casa"],
+    tags: [
+      "passada lateral",
+      "side lunge",
+      "glúteos",
+      "adutores",
+      "mobilidade",
+    ],
+    dificuldade: "Iniciante",
+    objetivo: "Funcional",
+    caloriasHora: 300,
+    imagem: "assets/gifs/gluteos/passada_lateral_side_lunge.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_018",
+    nome: "Agachamento Goblet",
+    categoria: "Glúteos",
+    descricao:
+        "Variação do agachamento segurando um kettlebell ou halter próximo ao peito. A carga frontal melhora a postura durante o movimento e aumenta o recrutamento dos glúteos.",
+    comoExecutar:
+        "Segure um kettlebell ou halter com as duas mãos próximo ao peito, com os cotovelos apontando para baixo. Posicione os pés na largura dos ombros com as pontas levemente para fora. Agache mantendo o torso ereto, descendo até que as coxas fiquem paralelas ao chão. Suba contraindo os glúteos.",
+    cuidados:
+        "Não deixe os cotovelos caírem para baixo ou para os lados. Mantenha o peito erguido. Os joelhos devem acompanhar a direção dos pés. Inicie com cargas leves para aprender o padrão.",
+    musculos: ["Glúteo máximo", "Quadríceps", "Core", "Adutores"],
+    equipamentos: ["Kettlebell", "Halter"],
+    locais: ["Academia", "Casa"],
+    tags: ["goblet squat", "agachamento", "kettlebell", "glúteos", "postura"],
+    dificuldade: "Iniciante",
+    objetivo: "Hipertrofia",
+    caloriasHora: 360,
+    imagem: "assets/gifs/gluteos/agachamento_goblet.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_019",
+    nome: "Romanian Deadlift (RDL)",
+    categoria: "Glúteos",
+    descricao:
+        "Variação do levantamento terra com ênfase nos isquiotibiais e glúteos através de maior amplitude de quadril. Diferencia-se do stiff pela maior flexão de joelhos e posição da carga.",
+    comoExecutar:
+        "Segure a barra ou halteres na frente das coxas, em pé com os pés na largura dos quadris. Mantendo a coluna neutra e os joelhos levemente flexionados, empurre o quadril para trás enquanto baixa a carga pela frente das pernas. Desça até sentir o alongamento dos isquiotibiais. Contraia os glúteos para subir.",
+    cuidados:
+        "Mantenha a barra próxima ao corpo durante todo o movimento. Não arredonde a lombar. Não desça além da amplitude que sua flexibilidade permite. Controle a descida por 2-3 segundos.",
+    musculos: ["Isquiotibiais", "Glúteo máximo", "Eretores da coluna"],
+    equipamentos: ["Barra", "Halteres"],
+    locais: ["Academia"],
+    tags: ["RDL", "romanian deadlift", "isquiotibiais", "glúteos", "posterior"],
+    dificuldade: "Intermediário",
+    objetivo: "Hipertrofia",
+    caloriasHora: 340,
+    imagem: "assets/gifs/gluteos/romanian_deadlift_rdl.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_020",
+    nome: "Agachamento no Smith",
+    categoria: "Glúteos",
+    descricao:
+        "Agachamento realizado na máquina Smith, que guia o movimento da barra em trilhos fixos. Indicado para iniciantes ou para isolar o trabalho das pernas com segurança.",
+    comoExecutar:
+        "Posicione-se abaixo da barra do Smith com ela apoiada nos trapézios. Pés levemente à frente do corpo na largura dos ombros. Destrave a barra girando os pulsos. Desça em agachamento controlado até a coxa ficar paralela ao chão. Suba contraindo os glúteos e trave a barra ao finalizar.",
+    cuidados:
+        "Ajuste a posição dos pés adequadamente, pois no Smith os pés tendem a ficar mais à frente. Não trave os joelhos no topo. Use sempre a trava de segurança ao finalizar a série.",
+    musculos: ["Glúteo máximo", "Quadríceps", "Isquiotibiais"],
+    equipamentos: ["Smith Machine"],
+    locais: ["Academia"],
+    tags: ["smith", "agachamento", "glúteos", "máquina", "segurança"],
+    dificuldade: "Iniciante",
+    objetivo: "Hipertrofia",
+    caloriasHora: 370,
+    imagem: "assets/gifs/gluteos/agachamento_no_smith.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_021",
+    nome: "Donkey Kicks",
+    categoria: "Glúteos",
+    descricao:
+        "Exercício no solo em quatro apoios que isola o glúteo máximo através da extensão do quadril. Muito popular em treinos funcionais e de glúteos para iniciantes.",
+    comoExecutar:
+        "Apoie-se sobre joelhos e mãos no chão com o corpo em posição de quatro apoios. Mantenha o core contraído e as costas retas. Mantendo o joelho flexionado a 90 graus, empurre uma perna para cima e para trás, contraindo o glúteo no ponto mais alto. Retorne sem tocar o joelho no chão. Complete as repetições e troque a perna.",
+    cuidados:
+        "Não arqueie a lombar para compensar. Mantenha os quadris alinhados durante o movimento. Evite girar o tronco. Para aumentar a intensidade, use tornozeleiras com peso.",
+    musculos: ["Glúteo máximo"],
+    equipamentos: ["Peso corporal", "Tornozeleiras com peso"],
+    locais: ["Casa", "Academia"],
+    tags: [
+      "donkey kicks",
+      "coice",
+      "glúteos",
+      "quatro apoios",
+      "iniciante",
+      "isolamento",
+    ],
+    dificuldade: "Iniciante",
+    objetivo: "Tonificação",
+    caloriasHora: 220,
+    imagem: "assets/gifs/gluteos/donkey_kicks.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_022",
+    nome: "Fire Hydrant",
+    categoria: "Glúteos",
+    descricao:
+        "Exercício em quatro apoios que trabalha o glúteo médio através da abdução lateral do quadril. Excelente para definição lateral e estabilidade pélvica.",
+    comoExecutar:
+        "Apoie-se em quatro pontos com joelhos e mãos no chão. Mantenha o core ativado e as costas retas. Com o joelho flexionado a 90 graus, abra uma perna lateralmente como se fosse um hidrante de rua, até a coxa ficar paralela ao chão. Retorne controladamente. Complete as repetições e troque o lado.",
+    cuidados:
+        "Não incline o tronco para o lado oposto. Mantenha o abdômen contraído. O joelho da perna que trabalha deve manter a flexão de 90 graus. Realize o movimento de forma lenta.",
+    musculos: ["Glúteo médio", "Glúteo mínimo", "TFL"],
+    equipamentos: ["Peso corporal", "Elástico"],
+    locais: ["Casa", "Academia"],
+    tags: [
+      "fire hydrant",
+      "glúteo médio",
+      "abdução",
+      "quatro apoios",
+      "lateral",
+    ],
+    dificuldade: "Iniciante",
+    objetivo: "Tonificação",
+    caloriasHora: 200,
+    imagem: "assets/gifs/gluteos/fire_hydrant.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_023",
+    nome: "Agachamento Hack",
+    categoria: "Glúteos",
+    descricao:
+        "Agachamento realizado na máquina hack squat com o corpo inclinado para trás. Permite grande amplitude de movimento com menor estresse na coluna vertebral.",
+    comoExecutar:
+        "Posicione-se na máquina com as costas apoiadas no encosto inclinado e os ombros sob os pads. Coloque os pés na plataforma na largura dos ombros. Destrave a máquina e desça flexionando os joelhos até a coxa ficar paralela ou abaixo da horizontal. Empurre a plataforma para subir e trave ao finalizar.",
+    cuidados:
+        "Não deixe os calcanhares saírem da plataforma. Não trave os joelhos no topo. Utilize sempre as travas de segurança ao terminar a série. Mantenha as costas encostadas durante todo o movimento.",
+    musculos: ["Quadríceps", "Glúteo máximo", "Isquiotibiais"],
+    equipamentos: ["Máquina Hack Squat"],
+    locais: ["Academia"],
+    tags: ["hack squat", "máquina", "agachamento", "glúteos", "quadríceps"],
+    dificuldade: "Intermediário",
+    objetivo: "Hipertrofia",
+    caloriasHora: 390,
+    imagem: "assets/gifs/gluteos/agachamento_hack.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_024",
+    nome: "Afundo com Passada (Walking Lunge)",
+    categoria: "Glúteos",
+    descricao:
+        "Variação dinâmica do avanço em que o atleta caminha realizando passadas consecutivas. Eleva o gasto calórico e exige maior controle motor e equilíbrio.",
+    comoExecutar:
+        "Comece em pé com os pés juntos. Dê uma passada larga à frente com uma perna e desça em avanço. Sem retornar à posição inicial, traga a perna traseira à frente e execute o próximo avanço com essa perna. Continue caminhando dessa forma pelo espaço disponível ou pelo número de repetições determinado.",
+    cuidados:
+        "Mantenha o torso ereto e o olhar para frente. Os joelhos não devem ultrapassar excessivamente as pontas dos pés. Use um corredor ou área ampla. Inicie sem carga para dominar a coordenação.",
+    musculos: ["Glúteo máximo", "Quadríceps", "Isquiotibiais", "Glúteo médio"],
+    equipamentos: ["Peso corporal", "Halteres"],
+    locais: ["Academia", "Casa"],
+    tags: [
+      "walking lunge",
+      "afundo caminhada",
+      "glúteos",
+      "funcional",
+      "dinâmico",
+    ],
+    dificuldade: "Intermediário",
+    objetivo: "Emagrecimento",
+    caloriasHora: 400,
+    imagem: "assets/gifs/gluteos/afundo_com_passada_walking_lunge.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_025",
+    nome: "Agachamento Pistol",
+    categoria: "Glúteos",
+    descricao:
+        "Agachamento unilateral em que todo o peso corporal é sustentado por uma única perna com a outra estendida à frente. Um dos exercícios mais desafiadores sem equipamento.",
+    comoExecutar:
+        "Fique em pé sobre uma perna com a outra estendida à frente. Estenda os braços à frente para equilíbrio. Desça em agachamento na perna de apoio o mais fundo possível, mantendo a perna estendida à frente elevada. Mantenha o tronco o mais ereto possível e suba utilizando o glúteo e quadríceps.",
+    cuidados:
+        "Desenvolva a mobilidade necessária antes de tentar. Inicie próximo a uma parede ou suporte. Não force além da amplitude segura. Progrida gradualmente começando com agachamento parcial.",
+    musculos: ["Glúteo máximo", "Quadríceps", "Core", "Isquiotibiais"],
+    equipamentos: ["Peso corporal"],
+    locais: ["Casa", "Academia"],
+    tags: [
+      "pistol squat",
+      "agachamento pistola",
+      "unilateral",
+      "avançado",
+      "sem equipamento",
+    ],
+    dificuldade: "Avançado",
+    objetivo: "Funcional",
+    caloriasHora: 420,
+    imagem: "assets/gifs/gluteos/agachamento_pistol.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_026",
+    nome: "Swing com Kettlebell",
+    categoria: "Glúteos",
+    descricao:
+        "Movimento balístico com kettlebell que trabalha a cadeia posterior com foco nos glúteos e isquiotibiais. Combina força e condicionamento cardiovascular.",
+    comoExecutar:
+        "Com os pés um pouco mais afastados que os ombros, segure o kettlebell com as duas mãos. Incline ligeiramente o tronco e balance o kettlebell entre as pernas flexionando os joelhos. Faça uma extensão explosiva do quadril, contraindo os glúteos, para propulsionar o kettlebell até a altura dos ombros. Deixe-o retornar e repita.",
+    cuidados:
+        "O movimento deve vir do quadril, não dos braços. Contraia com força os glúteos no topo. Não arredonde a lombar. Mantenha o core ativado durante todo o movimento.",
+    musculos: ["Glúteo máximo", "Isquiotibiais", "Core", "Eretores da coluna"],
+    equipamentos: ["Kettlebell"],
+    locais: ["Academia", "Casa"],
+    tags: [
+      "swing",
+      "kettlebell",
+      "glúteos",
+      "explosivo",
+      "posterior",
+      "cardio",
+    ],
+    dificuldade: "Intermediário",
+    objetivo: "Emagrecimento",
+    caloriasHora: 550,
+    imagem: "assets/gifs/gluteos/swing_com_kettlebell.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_027",
+    nome: "Glute Drive na Máquina",
+    categoria: "Glúteos",
+    descricao:
+        "Exercício específico em máquina desenvolvida para ativação máxima do glúteo, com biomecânica similar ao hip thrust mas com maior estabilidade e controle da carga.",
+    comoExecutar:
+        "Sente-se na máquina com as costas apoiadas e o pad posicionado sobre o quadril. Ajuste a posição dos pés. Empurre o quadril para cima contra a resistência da máquina, contraindo os glúteos no topo. Mantenha a contração por 1-2 segundos e desça de forma controlada.",
+    cuidados:
+        "Ajuste corretamente o pad para que fique no quadril e não na lombar. Não hiperextenda a lombar no topo. Mantenha os pés completamente apoiados no solo.",
+    musculos: ["Glúteo máximo", "Isquiotibiais"],
+    equipamentos: ["Máquina Glute Drive"],
+    locais: ["Academia"],
+    tags: ["glute drive", "máquina", "glúteos", "hip thrust", "isolamento"],
+    dificuldade: "Iniciante",
+    objetivo: "Hipertrofia",
+    caloriasHora: 280,
+    imagem: "assets/gifs/gluteos/glute_drive_na_maquina.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_028",
+    nome: "Agachamento na Parede (Wall Sit)",
+    categoria: "Glúteos",
+    descricao:
+        "Exercício isométrico em que a posição de agachamento é mantida estática contra a parede. Desenvolve resistência muscular dos glúteos e quadríceps sem impacto articular.",
+    comoExecutar:
+        "Encoste-se à parede e deslize o corpo para baixo até que os joelhos formem um ângulo de 90 graus e as coxas fiquem paralelas ao chão. Mantenha as costas completamente encostadas na parede, os joelhos sobre os calcanhares e os braços ao longo do corpo ou cruzados no peito. Segure a posição pelo tempo determinado.",
+    cuidados:
+        "Não deixe os joelhos ultrapassarem a ponta dos pés. Não bloqueie a respiração. Mantenha o core contraído. Interrompa se sentir dor nos joelhos.",
+    musculos: ["Quadríceps", "Glúteo máximo", "Isquiotibiais"],
+    equipamentos: ["Peso corporal"],
+    locais: ["Casa", "Academia"],
+    tags: [
+      "wall sit",
+      "isométrico",
+      "parede",
+      "glúteos",
+      "resistência",
+      "sem equipamento",
+    ],
+    dificuldade: "Iniciante",
+    objetivo: "Resistência",
+    caloriasHora: 250,
+    imagem: "assets/gifs/gluteos/agachamento_na_parede_wall_sit.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_029",
+    nome: "Extensão de Quadril em Quatro Apoios",
+    categoria: "Glúteos",
+    descricao:
+        "Exercício no solo em quatro apoios com a perna estendida realizando extensão de quadril. Variação do donkey kick com maior amplitude e ênfase no alongamento.",
+    comoExecutar:
+        "Apoie-se sobre joelhos e mãos no chão com o corpo em posição de quatro apoios. Estenda completamente uma perna para trás ao nível do quadril. Eleve a perna estendida para cima contraindo o glúteo no ponto máximo. Retorne ao nível do quadril sem descansar no chão. Complete as repetições e troque a perna.",
+    cuidados:
+        "Mantenha as costas paralelas ao chão sem arquear. Contraia o abdômen. Não deixe o quadril girar ao levantar a perna. Faça o movimento de forma lenta e controlada.",
+    musculos: ["Glúteo máximo", "Isquiotibiais"],
+    equipamentos: ["Peso corporal", "Tornozeleiras com peso"],
+    locais: ["Casa", "Academia"],
+    tags: ["extensão quadril", "quatro apoios", "glúteos", "solo", "iniciante"],
+    dificuldade: "Iniciante",
+    objetivo: "Tonificação",
+    caloriasHora: 210,
+    imagem: "assets/gifs/gluteos/extensao_de_quadril_em_quatro_apoios.gif",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "gluteos_030",
+    nome: "Agachamento com Elástico",
+    categoria: "Glúteos",
+    descricao:
+        "Agachamento realizado com elástico de resistência posicionado acima dos joelhos, aumentando o recrutamento do glúteo médio e prevenindo o colapso dos joelhos.",
+    comoExecutar:
+        "Coloque um elástico de resistência logo acima dos joelhos. Posicione os pés na largura dos ombros. Ao descer no agachamento, empurre os joelhos para fora contra a resistência do elástico, ativando o glúteo médio. Desça até a coxa ficar paralela ao chão. Suba mantendo os joelhos afastados.",
+    cuidados:
+        "Não deixe os joelhos colapsarem para dentro. Escolha um elástico com tensão adequada ao seu nível. Mantenha os calcanhares no chão. O elástico serve para ativar o glúteo médio, não para substituir a técnica correta.",
+    musculos: ["Glúteo máximo", "Glúteo médio", "Quadríceps", "Isquiotibiais"],
+    equipamentos: ["Elástico de resistência"],
+    locais: ["Casa", "Academia"],
+    tags: [
+      "agachamento elástico",
+      "glúteos",
+      "elástico",
+      "ativação",
+      "iniciante",
+    ],
+    dificuldade: "Iniciante",
+    objetivo: "Tonificação",
+    caloriasHora: 340,
+    imagem: "assets/gifs/gluteos/agachamento_com_elastico.gif",
+    video: "",
+  ),
+];
