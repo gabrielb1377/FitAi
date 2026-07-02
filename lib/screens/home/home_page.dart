@@ -180,6 +180,16 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(height: cardGap),
                 AppAnimatedEntrance(
                   index: 1,
+                  child: _HomeQuickActionsPanel(
+                    selecao: selecaoTreino,
+                    onAbrirTreino: _abrirTreino,
+                    onCriarTreino: _abrirCriarTreino,
+                    onGerarIa: _abrirGeradorIa,
+                  ),
+                ),
+                const SizedBox(height: cardGap),
+                AppAnimatedEntrance(
+                  index: 2,
                   child: _HomeEvolutionPanel(
                     xp: widget.xp,
                     nivel: widget.nivel,
@@ -190,7 +200,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const SizedBox(height: cardGap),
                 AppAnimatedEntrance(
-                  index: 2,
+                  index: 3,
                   child: FitiaRecomendacaoCard(
                     selecao: selecaoTreino,
                     recomendacao: recomendacao,
@@ -199,7 +209,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const SizedBox(height: cardGap),
                 AppAnimatedEntrance(
-                  index: 3,
+                  index: 4,
                   child: HomeStatsRow(
                     distancia: widget.distancia,
                     passos: widget.passos,
@@ -207,7 +217,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const SizedBox(height: cardGap),
                 AppAnimatedEntrance(
-                  index: 4,
+                  index: 5,
                   child: MissoesHojeCard(
                     treinoConcluidoHoje: treinoConcluidoHoje,
                     passos: widget.passos,
@@ -286,6 +296,121 @@ class _HomePageState extends State<HomePage> {
       progresso: 1,
       icon: Icons.self_improvement_rounded,
       color: AppColors.accent3,
+    );
+  }
+}
+
+
+class _HomeQuickActionsPanel extends StatelessWidget {
+  final TreinoDoDiaSelecao selecao;
+  final Future<void> Function(TreinoModel treino) onAbrirTreino;
+  final Future<void> Function() onCriarTreino;
+  final Future<void> Function() onGerarIa;
+
+  const _HomeQuickActionsPanel({
+    required this.selecao,
+    required this.onAbrirTreino,
+    required this.onCriarTreino,
+    required this.onGerarIa,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final treino = selecao.treino;
+    final podeIniciar = treino != null && !selecao.diaDeDescanso;
+
+    return AppCard(
+      padding: const EdgeInsets.all(18),
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          AppColors.surfaceVariant,
+          AppColors.surface,
+          AppColors.primary.withAlpha(18),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withAlpha(22),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.primary.withAlpha(34)),
+                ),
+                child: const Icon(
+                  Icons.auto_awesome_rounded,
+                  color: AppColors.primary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Central FITAI',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.2,
+                          ),
+                    ),
+                    const SizedBox(height: 3),
+                    const Text(
+                      'Ações rápidas para continuar sua evolução.',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              if (podeIniciar)
+                AppButton.primary(
+                  label: 'Iniciar agora',
+                  icon: Icons.play_arrow_rounded,
+                  compact: true,
+                  fullWidth: false,
+                  onPressed: () {
+                    onAbrirTreino(treino);
+                  },
+                ),
+              AppButton.secondary(
+                label: 'Gerar IA',
+                icon: Icons.psychology_alt_rounded,
+                compact: true,
+                fullWidth: false,
+                onPressed: () {
+                  onGerarIa();
+                },
+              ),
+              AppButton.ghost(
+                label: 'Novo plano',
+                icon: Icons.add_rounded,
+                compact: true,
+                fullWidth: false,
+                onPressed: () {
+                  onCriarTreino();
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

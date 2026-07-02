@@ -1,11 +1,10 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'dart:async';
 
 import '../services/storage_service.dart';
 import 'home/home_page.dart';
-import 'corridas/corridas_page.dart';
+import 'atividades_page.dart';
 import 'treinos/treinos_page.dart';
-import 'passos_page.dart';
 import 'perfil/perfil_page.dart';
 import '../models/corrida_model.dart';
 import 'estatisticas/stats_page.dart';
@@ -251,7 +250,8 @@ class _DashboardPageState extends State<DashboardPage> {
         onXpAtualizado: carregarDados,
       ),
       TreinosPage(onXpAtualizado: carregarDados),
-      CorridasPage(
+      AtividadesPage(
+        passos: passos,
         distancia: distancia,
         velocidadeMedia: velocidadeMedia,
         segundos: segundos,
@@ -259,7 +259,6 @@ class _DashboardPageState extends State<DashboardPage> {
         iniciarCorrida: iniciarCorrida,
         pararCorrida: pararCorrida,
       ),
-      PassosPage(passos: passos),
       PerfilPage(
         nome: nome,
         peso: peso,
@@ -288,14 +287,9 @@ class _DashboardPageState extends State<DashboardPage> {
           label: 'Planos',
         ),
         AppNavigationDestination(
-          icon: Icons.directions_run_outlined,
-          selectedIcon: Icons.directions_run_rounded,
-          label: 'Corridas',
-        ),
-        AppNavigationDestination(
-          icon: Icons.directions_walk_outlined,
-          selectedIcon: Icons.directions_walk_rounded,
-          label: 'Passos',
+          icon: Icons.monitor_heart_outlined,
+          selectedIcon: Icons.monitor_heart_rounded,
+          label: 'Atividades',
         ),
         AppNavigationDestination(
           icon: Icons.person_outline_rounded,
