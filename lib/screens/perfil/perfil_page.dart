@@ -6,6 +6,8 @@ import 'calendario_treinos_page.dart';
 import 'edit_profile_page.dart';
 import 'conquistas_page.dart';
 import 'evolucao_page.dart';
+import 'perfil_ia_page.dart';
+import '../../services/storage_service.dart';
 
 class PerfilPage extends StatelessWidget {
   final String nome;
@@ -15,6 +17,7 @@ class PerfilPage extends StatelessWidget {
   final int nivel;
   final bool conquistaPrimeiraCorrida;
   final bool conquista10Km;
+  final Future<void> Function()? onPerfilAtualizado;
 
   const PerfilPage({
     super.key,
@@ -25,6 +28,7 @@ class PerfilPage extends StatelessWidget {
     required this.nivel,
     required this.conquistaPrimeiraCorrida,
     required this.conquista10Km,
+    this.onPerfilAtualizado,
   });
 
   String rankAtual() {
@@ -356,11 +360,48 @@ class PerfilPage extends StatelessWidget {
             label: 'Editar Perfil',
             color: AppColors.primary,
             isFirst: true,
+            onTap: () async {
+              final resultado = await Navigator.push<Map<String, String>>(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const EditProfilePage(),
+                ),
+              );
+
+              if (resultado == null) return;
+
+              await StorageService.salvarPerfilUsuario(
+                nome: resultado['nome'] ?? nome,
+                peso: resultado['peso'] ?? peso,
+                altura: resultado['altura'] ?? altura,
+                idade: resultado['idade'] ?? idade,
+              );
+
+              await onPerfilAtualizado?.call();
+
+              if (!context.mounted) return;
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Perfil salvo com sucesso!')),
+              );
+            },
+          ),
+          const Divider(height: 1, indent: 56),
+          _buildAcaoTile(
+            context,
+            icon: Icons.psychology_rounded,
+            label: 'Meu Perfil IA',
+            color: AppColors.accent3,
             onTap: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const EditProfilePage(),
+                  builder: (_) => PerfilIAPage(
+                    nome: nome,
+                    idade: idade,
+                    peso: peso,
+                    altura: altura,
+                  ),
                 ),
               );
             },

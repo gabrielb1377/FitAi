@@ -4,8 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/achievement_model.dart';
 import '../models/corrida_model.dart';
+import '../models/fitai_memory_model.dart';
 import '../models/historico_serie_treino_model.dart';
 import '../models/historico_treino_model.dart';
+import '../models/passos_diarios_model.dart';
 import '../models/progresso_exercicio_model.dart';
 import '../models/treino_model.dart';
 
@@ -27,6 +29,30 @@ class XpNivelResultado {
 
 class StorageService {
   static const int xpPorNivel = 100;
+
+  static Future<void> salvarPerfilUsuario({
+    required String nome,
+    required String peso,
+    required String altura,
+    required String idade,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('perfilNome', nome);
+    await prefs.setString('perfilPeso', peso);
+    await prefs.setString('perfilAltura', altura);
+    await prefs.setString('perfilIdade', idade);
+  }
+
+  static Future<Map<String, String>> carregarPerfilUsuario() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    return {
+      'nome': prefs.getString('perfilNome') ?? 'Gabriel',
+      'peso': prefs.getString('perfilPeso') ?? '70 kg',
+      'altura': prefs.getString('perfilAltura') ?? '175 cm',
+      'idade': prefs.getString('perfilIdade') ?? '18',
+    };
+  }
 
   static Future<void> salvarXp(int xp) async {
     final prefs = await SharedPreferences.getInstance();
@@ -163,6 +189,118 @@ class StorageService {
     return prefs.getInt('passos') ?? 0;
   }
 
+  static Future<void> salvarMetasPassos({
+    required int diaria,
+    required int semanal,
+    required int mensal,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('metaPassosDiaria', diaria);
+    await prefs.setInt('metaPassosSemanal', semanal);
+    await prefs.setInt('metaPassosMensal', mensal);
+  }
+
+  static Future<Map<String, int>> carregarMetasPassos() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    return {
+      'diaria': prefs.getInt('metaPassosDiaria') ?? 10000,
+      'semanal': prefs.getInt('metaPassosSemanal') ?? 70000,
+      'mensal': prefs.getInt('metaPassosMensal') ?? 300000,
+    };
+  }
+
+  static Future<void> salvarHistoricoPassos(PassosDiariosModel registro) async {
+    final prefs = await SharedPreferences.getInstance();
+    final lista = prefs.getStringList('historicoPassosDiarios') ?? [];
+
+    final atualizados = <String>[];
+    var substituiu = false;
+
+    for (final item in lista) {
+      try {
+        final json = jsonDecode(item);
+        final existente = json is Map<String, dynamic>
+            ? PassosDiariosModel.fromJson(json)
+            : PassosDiariosModel.fromJson(Map<String, dynamic>.from(json));
+
+        if (existente.data == registro.data) {
+          atualizados.add(jsonEncode(registro.toJson()));
+          substituiu = true;
+        } else {
+          atualizados.add(item);
+        }
+      } catch (erro) {
+        debugPrint("Erro ao atualizar historico de passos: $erro");
+      }
+    }
+
+    if (!substituiu) {
+      atualizados.add(jsonEncode(registro.toJson()));
+    }
+
+    await prefs.setStringList('historicoPassosDiarios', atualizados);
+  }
+
+  static Future<List<PassosDiariosModel>> carregarHistoricoPassos() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lista = prefs.getStringList('historicoPassosDiarios') ?? [];
+    final historico = <PassosDiariosModel>[];
+
+    for (final item in lista) {
+      try {
+        final json = jsonDecode(item);
+
+        if (json is Map<String, dynamic>) {
+          historico.add(PassosDiariosModel.fromJson(json));
+        } else if (json is Map) {
+          historico.add(
+            PassosDiariosModel.fromJson(Map<String, dynamic>.from(json)),
+          );
+        }
+      } catch (erro) {
+        debugPrint("Erro ao carregar historico de passos: $erro");
+      }
+    }
+
+    historico.sort((a, b) => b.data.compareTo(a.data));
+
+    return historico;
+  }
+
+  static Future<void> salvarFitAIMemory(FitAIMemoryModel memoria) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('fitaiMemory', jsonEncode(memoria.toJson()));
+  }
+
+  static Future<FitAIMemoryModel?> carregarFitAIMemory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final texto = prefs.getString('fitaiMemory');
+
+    if (texto == null || texto.trim().isEmpty) return null;
+
+    try {
+      final json = jsonDecode(texto);
+
+      if (json is Map<String, dynamic>) {
+        return FitAIMemoryModel.fromJson(json);
+      }
+
+      if (json is Map) {
+        return FitAIMemoryModel.fromJson(Map<String, dynamic>.from(json));
+      }
+    } catch (erro) {
+      debugPrint("Erro ao carregar memoria FITAI: $erro");
+    }
+
+    return null;
+  }
+
+  static Future<void> limparFitAIMemory() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('fitaiMemory');
+  }
+
   static Future<void> salvarCorrida(CorridaModel corrida) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -181,6 +319,32 @@ class StorageService {
     return lista.map((item) {
       return CorridaModel.fromJson(jsonDecode(item));
     }).toList();
+  }
+
+  static Future<void> removerCorrida(int index) async {
+    final prefs = await SharedPreferences.getInstance();
+    final lista = prefs.getStringList('historicoCorridas') ?? [];
+
+    if (index < 0 || index >= lista.length) return;
+
+    final removida = CorridaModel.fromJson(jsonDecode(lista[index]));
+    lista.removeAt(index);
+
+    await prefs.setStringList('historicoCorridas', lista);
+
+    final distanciaAtual = prefs.getDouble('distanciaTotal') ?? 0;
+    final tempoAtual = prefs.getInt('tempoTotal') ?? 0;
+    final totalAtual = prefs.getInt('totalCorridas') ?? 0;
+
+    await prefs.setDouble(
+      'distanciaTotal',
+      (distanciaAtual - removida.distancia).clamp(0.0, double.infinity),
+    );
+    await prefs.setInt(
+      'tempoTotal',
+      (tempoAtual - removida.segundos).clamp(0, tempoAtual),
+    );
+    await prefs.setInt('totalCorridas', (totalAtual - 1).clamp(0, totalAtual));
   }
 
   static Future<void> salvarHistoricoTreino(

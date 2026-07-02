@@ -3,12 +3,12 @@ import 'dart:async';
 
 import '../services/storage_service.dart';
 import 'home/home_page.dart';
-import 'atividades_page.dart';
+import 'corridas/corridas_page.dart';
 import 'treinos/treinos_page.dart';
+import 'passos_page.dart';
 import 'perfil/perfil_page.dart';
 import '../models/corrida_model.dart';
 import 'estatisticas/stats_page.dart';
-import '../widgets/app_navigation.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -40,7 +40,7 @@ class _DashboardPageState extends State<DashboardPage> {
   int totalCorridas = 0;
 
   int streak = 1;
-  int melhorStreak = 1;
+  int melhorStreak = 1; 
 
   bool conquistaPrimeiraCorrida = false;
   bool conquista10Km = false;
@@ -58,34 +58,44 @@ class _DashboardPageState extends State<DashboardPage> {
     xp = await StorageService.carregarXp();
     nivel = await StorageService.carregarNivel();
 
-    distanciaTotal = await StorageService.carregarDistanciaTotal();
+    final perfil = await StorageService.carregarPerfilUsuario();
 
-    tempoTotal = await StorageService.carregarTempoTotal();
+    nome = perfil['nome'] ?? nome;
+    peso = perfil['peso'] ?? peso;
+    altura = perfil['altura'] ?? altura;
+    idade = perfil['idade'] ?? idade;
 
-    totalCorridas = await StorageService.carregarTotalCorridas();
+    distanciaTotal =
+    await StorageService.carregarDistanciaTotal();
+
+    tempoTotal =
+        await StorageService.carregarTempoTotal();
+
+    totalCorridas =
+        await StorageService.carregarTotalCorridas();
 
     distancia = await StorageService.carregarDistancia();
     segundos = await StorageService.carregarSegundos();
     passos = await StorageService.carregarPassos();
 
-    debugPrint("Distancia carregada: $distancia");
-    debugPrint("Segundos carregados: $segundos");
-    debugPrint("Passos carregados: $passos");
+    print("Distancia carregada: $distancia");
+    print("Segundos carregados: $segundos");
+    print("Passos carregados: $passos");
 
-    conquistaPrimeiraCorrida = await StorageService.carregarPrimeiraCorrida();
+    conquistaPrimeiraCorrida =
+        await StorageService.carregarPrimeiraCorrida();
 
-    conquista10Km = await StorageService.carregar10Km();
+    conquista10Km =
+        await StorageService.carregar10Km(); 
 
     if (segundos > 0) {
-      velocidadeMedia = distancia / (segundos / 3600);
-    }
+        velocidadeMedia = distancia / (segundos / 3600);
+  }    
 
-    debugPrint("Primeira corrida: $conquistaPrimeiraCorrida");
-    debugPrint("Conquista 10km: $conquista10Km");
-    debugPrint("Dashboard carregou XP: $xp");
-    debugPrint("Dashboard carregou Nivel: $nivel");
-
-    if (!mounted) return;
+    print("Primeira corrida: $conquistaPrimeiraCorrida");
+    print("Conquista 10km: $conquista10Km");
+    print("Dashboard carregou XP: $xp");
+    print("Dashboard carregou Nivel: $nivel");
 
     setState(() {});
   }
@@ -99,11 +109,11 @@ class _DashboardPageState extends State<DashboardPage> {
       conquistaPrimeiraCorrida = true;
       StorageService.salvarPrimeiraCorrida(true);
 
-      debugPrint("SALVOU PRIMEIRA CORRIDA");
+      print("SALVOU PRIMEIRA CORRIDA");
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("ðŸ† Conquista desbloqueada: Primeira Corrida"),
+          content: Text("🏆 Conquista desbloqueada: Primeira Corrida"),
         ),
       );
 
@@ -119,45 +129,48 @@ class _DashboardPageState extends State<DashboardPage> {
 
     verificarNivel();
 
-    timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() {
-        segundos++;
+    timer = Timer.periodic(
+      const Duration(seconds: 1),
+      (timer) {
+        setState(() {
+          segundos++;
 
-        StorageService.salvarSegundos(segundos);
+          StorageService.salvarSegundos(segundos);
 
-        if (segundos % 60 == 0) {
-          xp += 5;
-          StorageService.salvarXp(xp);
-          verificarNivel();
-        }
+          if (segundos % 60 == 0) {
+            xp += 5;
+            StorageService.salvarXp(xp);
+            verificarNivel();
+          }
 
-        distancia += 0.01;
+          distancia += 0.01;
 
-        StorageService.salvarPassos(passos);
+          StorageService.salvarPassos(passos);
 
-        StorageService.salvarDistancia(distancia);
+          StorageService.salvarDistancia(distancia);
 
-        if (distancia >= 10 && !conquista10Km) {
-          conquista10Km = true;
-          StorageService.salvar10Km(true);
+          if (distancia >= 10 && !conquista10Km) {
+            conquista10Km = true;
+            StorageService.salvar10Km(true);
 
-          xp += 100;
-          StorageService.salvarXp(xp);
+            xp += 100;
+            StorageService.salvarXp(xp);
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("ðŸ† Conquista desbloqueada: 10 KM Percorridos"),
-            ),
-          );
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("🏆 Conquista desbloqueada: 10 KM Percorridos"),
+              ),
+            );
 
-          verificarNivel();
-        }
+            verificarNivel();
+          }
 
-        if (segundos > 0) {
-          velocidadeMedia = distancia / (segundos / 3600);
-        }
-      });
-    });
+          if (segundos > 0) {
+            velocidadeMedia = distancia / (segundos / 3600);
+          }
+        });
+      },
+    );
   }
 
   Future<void> pararCorrida() async {
@@ -165,7 +178,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
     corridaIniciada = false;
 
-    // Atualiza estatÃ­sticas gerais
+    // Atualiza estatísticas gerais
     distanciaTotal += distancia;
     tempoTotal += segundos;
     totalCorridas++;
@@ -174,7 +187,7 @@ class _DashboardPageState extends State<DashboardPage> {
     await StorageService.salvarTempoTotal(tempoTotal);
     await StorageService.salvarTotalCorridas(totalCorridas);
 
-    // Salva a corrida no histÃ³rico
+    // Salva a corrida no histórico
     if (distancia > 0) {
       await StorageService.salvarCorrida(
         CorridaModel(
@@ -198,41 +211,39 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> verificarNivel() async {
-    final resultado = await StorageService.salvarXpNivelado(
-      xp: xp,
-      nivel: nivel,
-    );
+    if (xp >= 100) {
+      nivel++;
+      xp -= 100;
 
-    xp = resultado.xp;
-    nivel = resultado.nivel;
+      await StorageService.salvarNivel(nivel);
+      await StorageService.salvarXp(xp);
 
-    if (!mounted) return;
+      setState(() {});
 
-    setState(() {});
-
-    if (resultado.subiuNivel) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("ðŸŽ‰ VocÃª subiu para o nÃ­vel $nivel!")),
+        SnackBar(
+          content: Text("🎉 Você subiu para o nível $nivel!"),
+        ),
       );
     }
   }
 
   String rankAtual() {
-    if (nivel >= 50) return "ðŸ’Ž Diamante";
-    if (nivel >= 30) return "ðŸ† Platina";
-    if (nivel >= 20) return "ðŸ¥‡ Ouro";
-    if (nivel >= 10) return "ðŸ¥ˆ Prata";
+    if (nivel >= 50) return "💎 Diamante";
+    if (nivel >= 30) return "🏆 Platina";
+    if (nivel >= 20) return "🥇 Ouro";
+    if (nivel >= 10) return "🥈 Prata";
 
-    return "ðŸ¥‰ Bronze";
+    return "🥉 Bronze";
   }
 
   String objetivoDoDia() {
     if (distancia >= 5) {
-      return "Excelente! VocÃª jÃ¡ correu mais de 5 km.";
+      return "Excelente! Você já correu mais de 5 km.";
     }
 
     if (segundos > 600) {
-      return "Ã“timo ritmo! Continue assim.";
+      return "Ótimo ritmo! Continue assim.";
     }
 
     return "Que tal iniciar uma corrida hoje?";
@@ -247,17 +258,20 @@ class _DashboardPageState extends State<DashboardPage> {
         passos: passos,
         xp: xp,
         nivel: nivel,
+      ),
+      TreinosPage(
         onXpAtualizado: carregarDados,
       ),
-      TreinosPage(onXpAtualizado: carregarDados),
-      AtividadesPage(
-        passos: passos,
+      CorridasPage(
         distancia: distancia,
         velocidadeMedia: velocidadeMedia,
         segundos: segundos,
         corridaIniciada: corridaIniciada,
         iniciarCorrida: iniciarCorrida,
         pararCorrida: pararCorrida,
+      ),
+      PassosPage(
+        passos: passos,
       ),
       PerfilPage(
         nome: nome,
@@ -267,48 +281,52 @@ class _DashboardPageState extends State<DashboardPage> {
         nivel: nivel,
         conquistaPrimeiraCorrida: conquistaPrimeiraCorrida,
         conquista10Km: conquista10Km,
+        onPerfilAtualizado: carregarDados,
       ),
 
       StatsPage(),
+
     ];
 
-    return AppAdaptiveNavigationScaffold(
-      selectedIndex: currentIndex,
-      pages: pages,
-      destinations: const [
-        AppNavigationDestination(
-          icon: Icons.home_outlined,
-          selectedIcon: Icons.home_rounded,
-          label: 'Home',
-        ),
-        AppNavigationDestination(
-          icon: Icons.fitness_center_outlined,
-          selectedIcon: Icons.fitness_center_rounded,
-          label: 'Planos',
-        ),
-        AppNavigationDestination(
-          icon: Icons.monitor_heart_outlined,
-          selectedIcon: Icons.monitor_heart_rounded,
-          label: 'Atividades',
-        ),
-        AppNavigationDestination(
-          icon: Icons.person_outline_rounded,
-          selectedIcon: Icons.person_rounded,
-          label: 'Perfil',
-        ),
-        AppNavigationDestination(
-          icon: Icons.bar_chart_outlined,
-          selectedIcon: Icons.bar_chart_rounded,
-          label: 'Estatisticas',
-        ),
-      ],
-      onDestinationSelected: (index) {
-        if (index >= pages.length) return;
+    return Scaffold(
+      body: pages[currentIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: currentIndex,
+        type: BottomNavigationBarType.fixed,
+        onTap: (index) {
+          if (index >= pages.length) return;
 
-        setState(() {
-          currentIndex = index;
-        });
-      },
+          setState(() {
+            currentIndex = index;
+          });
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.fitness_center),
+            label: 'Treinos',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.directions_run),
+            label: 'Corridas',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.directions_walk),
+            label: 'Passos',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Perfil',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.bar_chart),
+            label: "Stats",
+          ),
+        ],
+      ),
     );
   }
 }

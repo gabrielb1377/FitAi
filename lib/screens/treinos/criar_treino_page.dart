@@ -23,7 +23,7 @@ class _CriarTreinoPageState extends State<CriarTreinoPage> {
   int tempo = 45;
   bool salvando = false;
 
-  final List<_ExercicioTreinoConfig> exerciciosSelecionados = [];
+  final List<ExercicioModel> exerciciosSelecionados = [];
 
   final objetivos = const [
     "Hipertrofia",
@@ -41,9 +41,6 @@ class _CriarTreinoPageState extends State<CriarTreinoPage> {
   void dispose() {
     nomeController.dispose();
     descricaoController.dispose();
-    for (final config in exerciciosSelecionados) {
-      config.dispose();
-    }
     super.dispose();
   }
 
@@ -59,7 +56,7 @@ class _CriarTreinoPageState extends State<CriarTreinoPage> {
 
   void _adicionarExercicio(ExercicioModel exercicio) {
     final jaSelecionado = exerciciosSelecionados.any(
-      (item) => item.exercicio.id == exercicio.id,
+      (item) => item.id == exercicio.id,
     );
 
     if (jaSelecionado) {
@@ -70,7 +67,7 @@ class _CriarTreinoPageState extends State<CriarTreinoPage> {
     }
 
     setState(() {
-      exerciciosSelecionados.add(_ExercicioTreinoConfig(exercicio));
+      exerciciosSelecionados.add(exercicio);
     });
 
     ScaffoldMessenger.of(
@@ -78,53 +75,10 @@ class _CriarTreinoPageState extends State<CriarTreinoPage> {
     ).showSnackBar(SnackBar(content: Text("${exercicio.nome} adicionado.")));
   }
 
-  void _removerExercicio(_ExercicioTreinoConfig config) {
+  void _removerExercicio(ExercicioModel exercicio) {
     setState(() {
-      exerciciosSelecionados.remove(config);
+      exerciciosSelecionados.removeWhere((item) => item.id == exercicio.id);
     });
-
-    config.dispose();
-  }
-
-  void _moverExercicio(int index, int offset) {
-    final novoIndex = index + offset;
-
-    if (novoIndex < 0 || novoIndex >= exerciciosSelecionados.length) {
-      return;
-    }
-
-    setState(() {
-      final item = exerciciosSelecionados.removeAt(index);
-      exerciciosSelecionados.insert(novoIndex, item);
-    });
-  }
-
-  void _alterarSeries(_ExercicioTreinoConfig config, int delta) {
-    setState(() {
-      config.series = _limitarInteiro(config.series + delta, 1, 12);
-    });
-  }
-
-  void _alterarRepeticoes(_ExercicioTreinoConfig config, int delta) {
-    setState(() {
-      config.repeticoes = _limitarInteiro(config.repeticoes + delta, 1, 100);
-    });
-  }
-
-  void _alterarDescanso(_ExercicioTreinoConfig config, int delta) {
-    setState(() {
-      config.descansoSegundos = _limitarInteiro(
-        config.descansoSegundos + delta,
-        0,
-        600,
-      );
-    });
-  }
-
-  int _limitarInteiro(int valor, int minimo, int maximo) {
-    if (valor < minimo) return minimo;
-    if (valor > maximo) return maximo;
-    return valor;
   }
 
   Future<void> _salvarTreino() async {
@@ -159,11 +113,11 @@ class _CriarTreinoPageState extends State<CriarTreinoPage> {
       nivel: nivel,
       tempoEstimado: tempo,
       criadoPorIA: false,
-      exercicios: exerciciosSelecionados.map((item) => item.exercicio).toList(),
+      exercicios: List<ExercicioModel>.from(exerciciosSelecionados),
       dataCriacao: agora.toIso8601String(),
     );
 
-    await TreinoService.instance.adicionarTreino(treino);
+    TreinoService.instance.adicionarTreino(treino);
 
     if (!mounted) return;
 
@@ -188,7 +142,7 @@ class _CriarTreinoPageState extends State<CriarTreinoPage> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
           children: [
-            _buildHeader(),
+            _buildHeader(context),
             const SizedBox(height: 20),
             _buildFormulario(),
             const SizedBox(height: 20),
@@ -207,7 +161,7 @@ class _CriarTreinoPageState extends State<CriarTreinoPage> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
     return AppGradientCard(
       gradient: AppColors.gradientPrimary,
       child: Row(
@@ -231,7 +185,7 @@ class _CriarTreinoPageState extends State<CriarTreinoPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  "Editor de ficha",
+                  "Monte sua ficha",
                   style: TextStyle(
                     color: Colors.black,
                     fontSize: 24,
@@ -240,7 +194,7 @@ class _CriarTreinoPageState extends State<CriarTreinoPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  "${exerciciosSelecionados.length} exercícios configurados",
+                  "${exerciciosSelecionados.length} exercícios selecionados",
                   style: const TextStyle(
                     color: Colors.black87,
                     fontWeight: FontWeight.w700,
@@ -365,282 +319,68 @@ class _CriarTreinoPageState extends State<CriarTreinoPage> {
               ),
             )
           : Column(
-              children: exerciciosSelecionados.asMap().entries.map((entry) {
-                return _exercicioSelecionadoCard(
-                  config: entry.value,
-                  index: entry.key,
-                );
+              children: exerciciosSelecionados.map((exercicio) {
+                return _exercicioSelecionadoCard(exercicio);
               }).toList(),
             ),
     );
   }
 
-  Widget _exercicioSelecionadoCard({
-    required _ExercicioTreinoConfig config,
-    required int index,
-  }) {
-    final exercicio = config.exercicio;
-    final equipamentoPrincipal = exercicio.equipamentos.isEmpty
-        ? "Sem equipamento"
-        : exercicio.equipamentos.first;
-
+  Widget _exercicioSelecionadoCard(ExercicioModel exercicio) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: AppGradientCard(
         padding: const EdgeInsets.all(16),
-        child: Column(
+        child: Row(
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceVariant,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Icon(
-                    Icons.fitness_center,
-                    color: AppColors.primary,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        exercicio.nome,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "${exercicio.categoria} • ${exercicio.dificuldade}",
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 40,
-                  height: 40,
-                  child: IconButton(
-                    onPressed: () => _removerExercicio(config),
-                    tooltip: "Remover",
-                    icon: const Icon(Icons.delete_outline),
-                    color: Colors.redAccent,
-                  ),
-                ),
-              ],
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceVariant,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(Icons.fitness_center, color: AppColors.primary),
             ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _infoChip(exercicio.objetivo),
-                _infoChip(equipamentoPrincipal),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: _numeroControle(
-                    label: "Séries",
-                    value: "${config.series}",
-                    onMinus: () => _alterarSeries(config, -1),
-                    onPlus: () => _alterarSeries(config, 1),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _numeroControle(
-                    label: "Reps",
-                    value: "${config.repeticoes}",
-                    onMinus: () => _alterarRepeticoes(config, -1),
-                    onPlus: () => _alterarRepeticoes(config, 1),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: _numeroControle(
-                    label: "Descanso",
-                    value: "${config.descansoSegundos}s",
-                    onMinus: () => _alterarDescanso(config, -15),
-                    onPlus: () => _alterarDescanso(config, 15),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: TextFormField(
-                    controller: config.cargaController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: const InputDecoration(
-                      labelText: "Carga inicial",
-                      suffixText: "kg",
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    exercicio.nome,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  Text(
+                    "${exercicio.categoria} • ${exercicio.dificuldade}",
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: index == 0
-                        ? null
-                        : () => _moverExercicio(index, -1),
-                    icon: const Icon(Icons.keyboard_arrow_up),
-                    label: const Text("Subir"),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: index == exerciciosSelecionados.length - 1
-                        ? null
-                        : () => _moverExercicio(index, 1),
-                    icon: const Icon(Icons.keyboard_arrow_down),
-                    label: const Text("Descer"),
-                  ),
-                ),
-              ],
+            const SizedBox(width: 10),
+            SizedBox(
+              width: 42,
+              height: 42,
+              child: IconButton(
+                onPressed: () => _removerExercicio(exercicio),
+                tooltip: "Remover",
+                icon: const Icon(Icons.delete_outline),
+                color: Colors.redAccent,
+              ),
             ),
           ],
         ),
       ),
     );
-  }
-
-  Widget _infoChip(String texto) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceVariant,
-        borderRadius: BorderRadius.circular(100),
-        border: Border.all(color: const Color(0xFF2A2A2A)),
-      ),
-      child: Text(
-        texto,
-        style: const TextStyle(
-          color: Colors.white70,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-
-  Widget _numeroControle({
-    required String label,
-    required String value,
-    required VoidCallback onMinus,
-    required VoidCallback onPlus,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceVariant,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF2A2A2A)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              _miniIconButton(
-                icon: Icons.remove,
-                onPressed: onMinus,
-                tooltip: "Diminuir",
-              ),
-              Expanded(
-                child: Text(
-                  value,
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-              _miniIconButton(
-                icon: Icons.add,
-                onPressed: onPlus,
-                tooltip: "Aumentar",
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _miniIconButton({
-    required IconData icon,
-    required VoidCallback onPressed,
-    required String tooltip,
-  }) {
-    return SizedBox(
-      width: 30,
-      height: 30,
-      child: IconButton(
-        onPressed: onPressed,
-        tooltip: tooltip,
-        padding: EdgeInsets.zero,
-        iconSize: 18,
-        style: IconButton.styleFrom(
-          backgroundColor: AppColors.card,
-          foregroundColor: AppColors.primary,
-        ),
-        icon: Icon(icon),
-      ),
-    );
-  }
-}
-
-class _ExercicioTreinoConfig {
-  final ExercicioModel exercicio;
-  final TextEditingController cargaController = TextEditingController();
-  int series = 3;
-  int repeticoes = 10;
-  int descansoSegundos = 60;
-
-  _ExercicioTreinoConfig(this.exercicio);
-
-  void dispose() {
-    cargaController.dispose();
   }
 }

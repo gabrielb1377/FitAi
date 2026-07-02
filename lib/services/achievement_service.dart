@@ -1,6 +1,8 @@
 import '../models/achievement_model.dart';
+import '../models/corrida_model.dart';
 import '../models/historico_serie_treino_model.dart';
 import '../models/historico_treino_model.dart';
+import '../models/passos_diarios_model.dart';
 import 'storage_service.dart';
 import 'streak_service.dart';
 
@@ -25,6 +27,12 @@ class _AchievementMetrics {
   final int melhorSequencia;
   final int tempoTotalSegundos;
   final int totalRecordes;
+  final int totalCorridas;
+  final double distanciaCorridaTotal;
+  final double maiorDistanciaCorrida;
+  final int totalPassos;
+  final int recordePassosDia;
+  final int melhorSequenciaMetaPassos;
 
   const _AchievementMetrics({
     required this.totalTreinos,
@@ -33,6 +41,12 @@ class _AchievementMetrics {
     required this.melhorSequencia,
     required this.tempoTotalSegundos,
     required this.totalRecordes,
+    required this.totalCorridas,
+    required this.distanciaCorridaTotal,
+    required this.maiorDistanciaCorrida,
+    required this.totalPassos,
+    required this.recordePassosDia,
+    required this.melhorSequenciaMetaPassos,
   });
 }
 
@@ -48,11 +62,26 @@ class AchievementService {
     final historicoTreinos = await StorageService.carregarHistoricoTreinos();
     final historicoSeries =
         await StorageService.carregarHistoricoSeriesTreino();
+    final corridas = await StorageService.carregarCorridas();
+    final distanciaCorridaSalva = await StorageService.carregarDistanciaTotal();
+    final totalCorridasSalvo = await StorageService.carregarTotalCorridas();
+    final historicoPassos = await StorageService.carregarHistoricoPassos();
+    final passosAtuais = await StorageService.carregarPassos();
+    final metasPassos = await StorageService.carregarMetasPassos();
     final salvas = await StorageService.carregarConquistasSalvas();
     final salvasPorId = {
       for (final conquista in salvas) conquista.id: conquista,
     };
-    final metrics = _calcularMetricas(historicoTreinos, historicoSeries);
+    final metrics = _calcularMetricas(
+      historicoTreinos,
+      historicoSeries,
+      corridas,
+      distanciaCorridaSalva,
+      totalCorridasSalvo,
+      historicoPassos,
+      passosAtuais,
+      metasPassos['diaria'] ?? 10000,
+    );
     final agora = DateTime.now();
     final novas = <AchievementModel>[];
     final atualizadas = <AchievementModel>[];
@@ -91,6 +120,12 @@ class AchievementService {
   _AchievementMetrics _calcularMetricas(
     List<HistoricoTreinoModel> treinos,
     List<HistoricoSerieTreinoModel> series,
+    List<CorridaModel> corridas,
+    double distanciaCorridaSalva,
+    int totalCorridasSalvo,
+    List<PassosDiariosModel> historicoPassos,
+    int passosAtuais,
+    int metaPassosDiaria,
   ) {
     final streak = const StreakService().calcularStreak(treinos);
     final seriesResumo = treinos.fold<int>(
@@ -104,6 +139,27 @@ class AchievementService {
     final volumeResumo = treinos.fold<double>(
       0,
       (total, treino) => total + treino.volumeTotal,
+    );
+    final distanciaCorridas = corridas.fold<double>(
+      0,
+      (total, corrida) => total + corrida.distancia,
+    );
+    final maiorDistanciaCorrida = corridas.fold<double>(
+      0,
+      (maior, corrida) => corrida.distancia > maior ? corrida.distancia : maior,
+    );
+    final historicoPassosAtualizado = _historicoPassosComHoje(
+      historicoPassos,
+      passosAtuais,
+      metaPassosDiaria,
+    );
+    final totalPassos = historicoPassosAtualizado.fold<int>(
+      0,
+      (total, registro) => total + registro.passos,
+    );
+    final recordePassosDia = historicoPassosAtualizado.fold<int>(
+      0,
+      (maior, registro) => registro.passos > maior ? registro.passos : maior,
     );
 
     return _AchievementMetrics(
@@ -119,7 +175,82 @@ class AchievementService {
         0,
         (total, treino) => total + treino.recordesBatidos,
       ),
+      totalCorridas: corridas.length > totalCorridasSalvo
+          ? corridas.length
+          : totalCorridasSalvo,
+      distanciaCorridaTotal: distanciaCorridas > distanciaCorridaSalva
+          ? distanciaCorridas
+          : distanciaCorridaSalva,
+      maiorDistanciaCorrida: maiorDistanciaCorrida,
+      totalPassos: totalPassos,
+      recordePassosDia: recordePassosDia,
+      melhorSequenciaMetaPassos: _melhorSequenciaMetas(
+        historicoPassosAtualizado,
+      ),
     );
+  }
+
+  List<PassosDiariosModel> _historicoPassosComHoje(
+    List<PassosDiariosModel> historico,
+    int passosAtuais,
+    int metaPassosDiaria,
+  ) {
+    final porData = {for (final registro in historico) registro.data: registro};
+    final hoje = DateTime.now();
+    final chaveHoje = _formatarDataChave(hoje);
+
+    porData.putIfAbsent(
+      chaveHoje,
+      () => PassosDiariosModel(
+        data: chaveHoje,
+        passos: passosAtuais,
+        metaDiaria: metaPassosDiaria,
+        distanciaKm: passosAtuais * 0.000762,
+        calorias: passosAtuais * 0.04,
+        tempoAtivoMinutos: (passosAtuais / 100).round(),
+      ),
+    );
+
+    return porData.values.toList();
+  }
+
+  int _melhorSequenciaMetas(List<PassosDiariosModel> historico) {
+    final datasAtingidas =
+        historico
+            .where((registro) => registro.metaAtingida)
+            .map((registro) => DateTime.tryParse(registro.data))
+            .whereType<DateTime>()
+            .map((data) => DateTime(data.year, data.month, data.day))
+            .toList()
+          ..sort();
+
+    if (datasAtingidas.isEmpty) return 0;
+
+    var melhor = 1;
+    var atual = 1;
+
+    for (var i = 1; i < datasAtingidas.length; i++) {
+      final diferenca = datasAtingidas[i]
+          .difference(datasAtingidas[i - 1])
+          .inDays;
+
+      if (diferenca == 1) {
+        atual++;
+      } else if (diferenca > 1) {
+        atual = 1;
+      }
+
+      if (atual > melhor) melhor = atual;
+    }
+
+    return melhor;
+  }
+
+  String _formatarDataChave(DateTime data) {
+    final mes = data.month.toString().padLeft(2, '0');
+    final dia = data.day.toString().padLeft(2, '0');
+
+    return '${data.year}-$mes-$dia';
   }
 
   bool _precisaSalvar(
@@ -202,6 +333,78 @@ class AchievementService {
       ),
       _recordes("pr_010", "10 PRs", "Bata 10 recordes pessoais.", 10),
       _recordes("pr_050", "50 PRs", "Bata 50 recordes pessoais.", 50),
+      _corridaQuantidade(
+        "corrida_001",
+        "Primeira corrida",
+        "Finalize sua primeira corrida.",
+        1,
+      ),
+      _corridaUnica(
+        "corrida_5k",
+        "5 km em uma corrida",
+        "Complete pelo menos 5 km em uma unica corrida.",
+        5,
+      ),
+      _corridaUnica(
+        "corrida_10k",
+        "10 km em uma corrida",
+        "Complete pelo menos 10 km em uma unica corrida.",
+        10,
+      ),
+      _corridaAcumulada(
+        "corrida_50k_total",
+        "50 km acumulados",
+        "Acumule 50 km em corridas.",
+        50,
+      ),
+      _corridaAcumulada(
+        "corrida_100k_total",
+        "100 km acumulados",
+        "Acumule 100 km em corridas.",
+        100,
+      ),
+      _corridaQuantidade(
+        "corrida_010",
+        "10 corridas concluidas",
+        "Finalize 10 corridas.",
+        10,
+      ),
+      _passosDia(
+        "passos_10000_dia",
+        "10.000 passos em um dia",
+        "Alcance 10.000 passos em um dia.",
+        10000,
+      ),
+      _passosDia(
+        "passos_20000_dia",
+        "20.000 passos em um dia",
+        "Alcance 20.000 passos em um dia.",
+        20000,
+      ),
+      _passosAcumulados(
+        "passos_100000_total",
+        "100.000 passos acumulados",
+        "Acumule 100.000 passos.",
+        100000,
+      ),
+      _passosAcumulados(
+        "passos_1000000_total",
+        "1 milhao de passos acumulados",
+        "Acumule 1.000.000 de passos.",
+        1000000,
+      ),
+      _passosSequencia(
+        "passos_meta_007",
+        "7 dias batendo a meta",
+        "Bata sua meta diaria de passos por 7 dias.",
+        7,
+      ),
+      _passosSequencia(
+        "passos_meta_030",
+        "30 dias batendo a meta",
+        "Bata sua meta diaria de passos por 30 dias.",
+        30,
+      ),
     ];
   }
 
@@ -310,6 +513,114 @@ class AchievementService {
         categoria: "Recordes",
       ),
       desbloqueia: (metrics) => metrics.totalRecordes >= alvo,
+    );
+  }
+
+  static _AchievementRule _corridaQuantidade(
+    String id,
+    String nome,
+    String descricao,
+    int alvo,
+  ) {
+    return _AchievementRule(
+      conquista: AchievementModel(
+        id: id,
+        nome: nome,
+        descricao: descricao,
+        icone: "directions_run",
+        categoria: "Corrida",
+      ),
+      desbloqueia: (metrics) => metrics.totalCorridas >= alvo,
+    );
+  }
+
+  static _AchievementRule _corridaUnica(
+    String id,
+    String nome,
+    String descricao,
+    double alvoKm,
+  ) {
+    return _AchievementRule(
+      conquista: AchievementModel(
+        id: id,
+        nome: nome,
+        descricao: descricao,
+        icone: "directions_run",
+        categoria: "Corrida",
+      ),
+      desbloqueia: (metrics) => metrics.maiorDistanciaCorrida >= alvoKm,
+    );
+  }
+
+  static _AchievementRule _corridaAcumulada(
+    String id,
+    String nome,
+    String descricao,
+    double alvoKm,
+  ) {
+    return _AchievementRule(
+      conquista: AchievementModel(
+        id: id,
+        nome: nome,
+        descricao: descricao,
+        icone: "route",
+        categoria: "Corrida",
+      ),
+      desbloqueia: (metrics) => metrics.distanciaCorridaTotal >= alvoKm,
+    );
+  }
+
+  static _AchievementRule _passosDia(
+    String id,
+    String nome,
+    String descricao,
+    int alvo,
+  ) {
+    return _AchievementRule(
+      conquista: AchievementModel(
+        id: id,
+        nome: nome,
+        descricao: descricao,
+        icone: "directions_walk",
+        categoria: "Passos",
+      ),
+      desbloqueia: (metrics) => metrics.recordePassosDia >= alvo,
+    );
+  }
+
+  static _AchievementRule _passosAcumulados(
+    String id,
+    String nome,
+    String descricao,
+    int alvo,
+  ) {
+    return _AchievementRule(
+      conquista: AchievementModel(
+        id: id,
+        nome: nome,
+        descricao: descricao,
+        icone: "directions_walk",
+        categoria: "Passos",
+      ),
+      desbloqueia: (metrics) => metrics.totalPassos >= alvo,
+    );
+  }
+
+  static _AchievementRule _passosSequencia(
+    String id,
+    String nome,
+    String descricao,
+    int alvo,
+  ) {
+    return _AchievementRule(
+      conquista: AchievementModel(
+        id: id,
+        nome: nome,
+        descricao: descricao,
+        icone: "local_fire_department",
+        categoria: "Passos",
+      ),
+      desbloqueia: (metrics) => metrics.melhorSequenciaMetaPassos >= alvo,
     );
   }
 }

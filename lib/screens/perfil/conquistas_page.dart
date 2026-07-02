@@ -247,6 +247,9 @@ class ConquistasPage extends StatelessWidget {
       "local_fire_department" => Icons.local_fire_department_rounded,
       "timer" => Icons.timer_rounded,
       "emoji_events" => Icons.emoji_events_rounded,
+      "directions_run" => Icons.directions_run_rounded,
+      "directions_walk" => Icons.directions_walk_rounded,
+      "route" => Icons.route_rounded,
       _ => Icons.workspace_premium_rounded,
     };
   }
