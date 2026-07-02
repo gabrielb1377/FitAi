@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 
+import '../core/app_router.dart';
+import '../core/app_shell.dart';
 import '../services/storage_service.dart';
-import 'home/home_page.dart';
-import 'treinos/treinos_page.dart';
-import 'perfil/perfil_page.dart';
 import '../models/corrida_model.dart';
-import 'estatisticas/stats_page.dart';
-import 'atividades_page.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -39,7 +36,7 @@ class _DashboardPageState extends State<DashboardPage> {
   int totalCorridas = 0;
 
   int streak = 1;
-  int melhorStreak = 1; 
+  int melhorStreak = 1;
 
   bool conquistaPrimeiraCorrida = false;
   bool conquista10Km = false;
@@ -64,37 +61,32 @@ class _DashboardPageState extends State<DashboardPage> {
     altura = perfil['altura'] ?? altura;
     idade = perfil['idade'] ?? idade;
 
-    distanciaTotal =
-    await StorageService.carregarDistanciaTotal();
+    distanciaTotal = await StorageService.carregarDistanciaTotal();
 
-    tempoTotal =
-        await StorageService.carregarTempoTotal();
+    tempoTotal = await StorageService.carregarTempoTotal();
 
-    totalCorridas =
-        await StorageService.carregarTotalCorridas();
+    totalCorridas = await StorageService.carregarTotalCorridas();
 
     distancia = await StorageService.carregarDistancia();
     segundos = await StorageService.carregarSegundos();
     passos = await StorageService.carregarPassos();
 
-    print("Distancia carregada: $distancia");
-    print("Segundos carregados: $segundos");
-    print("Passos carregados: $passos");
+    debugPrint("Distancia carregada: $distancia");
+    debugPrint("Segundos carregados: $segundos");
+    debugPrint("Passos carregados: $passos");
 
-    conquistaPrimeiraCorrida =
-        await StorageService.carregarPrimeiraCorrida();
+    conquistaPrimeiraCorrida = await StorageService.carregarPrimeiraCorrida();
 
-    conquista10Km =
-        await StorageService.carregar10Km(); 
+    conquista10Km = await StorageService.carregar10Km();
 
     if (segundos > 0) {
-        velocidadeMedia = distancia / (segundos / 3600);
-  }    
+      velocidadeMedia = distancia / (segundos / 3600);
+    }
 
-    print("Primeira corrida: $conquistaPrimeiraCorrida");
-    print("Conquista 10km: $conquista10Km");
-    print("Dashboard carregou XP: $xp");
-    print("Dashboard carregou Nivel: $nivel");
+    debugPrint("Primeira corrida: $conquistaPrimeiraCorrida");
+    debugPrint("Conquista 10km: $conquista10Km");
+    debugPrint("Dashboard carregou XP: $xp");
+    debugPrint("Dashboard carregou Nivel: $nivel");
 
     setState(() {});
   }
@@ -108,7 +100,7 @@ class _DashboardPageState extends State<DashboardPage> {
       conquistaPrimeiraCorrida = true;
       StorageService.salvarPrimeiraCorrida(true);
 
-      print("SALVOU PRIMEIRA CORRIDA");
+      debugPrint("SALVOU PRIMEIRA CORRIDA");
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -128,48 +120,45 @@ class _DashboardPageState extends State<DashboardPage> {
 
     verificarNivel();
 
-    timer = Timer.periodic(
-      const Duration(seconds: 1),
-      (timer) {
-        setState(() {
-          segundos++;
+    timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        segundos++;
 
-          StorageService.salvarSegundos(segundos);
+        StorageService.salvarSegundos(segundos);
 
-          if (segundos % 60 == 0) {
-            xp += 5;
-            StorageService.salvarXp(xp);
-            verificarNivel();
-          }
+        if (segundos % 60 == 0) {
+          xp += 5;
+          StorageService.salvarXp(xp);
+          verificarNivel();
+        }
 
-          distancia += 0.01;
+        distancia += 0.01;
 
-          StorageService.salvarPassos(passos);
+        StorageService.salvarPassos(passos);
 
-          StorageService.salvarDistancia(distancia);
+        StorageService.salvarDistancia(distancia);
 
-          if (distancia >= 10 && !conquista10Km) {
-            conquista10Km = true;
-            StorageService.salvar10Km(true);
+        if (distancia >= 10 && !conquista10Km) {
+          conquista10Km = true;
+          StorageService.salvar10Km(true);
 
-            xp += 100;
-            StorageService.salvarXp(xp);
+          xp += 100;
+          StorageService.salvarXp(xp);
 
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text("🏆 Conquista desbloqueada: 10 KM Percorridos"),
-              ),
-            );
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("🏆 Conquista desbloqueada: 10 KM Percorridos"),
+            ),
+          );
 
-            verificarNivel();
-          }
+          verificarNivel();
+        }
 
-          if (segundos > 0) {
-            velocidadeMedia = distancia / (segundos / 3600);
-          }
-        });
-      },
-    );
+        if (segundos > 0) {
+          velocidadeMedia = distancia / (segundos / 3600);
+        }
+      });
+    });
   }
 
   Future<void> pararCorrida() async {
@@ -217,12 +206,12 @@ class _DashboardPageState extends State<DashboardPage> {
       await StorageService.salvarNivel(nivel);
       await StorageService.salvarXp(xp);
 
+      if (!mounted) return;
+
       setState(() {});
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("🎉 Você subiu para o nível $nivel!"),
-        ),
+        SnackBar(content: Text("🎉 Você subiu para o nível $nivel!")),
       );
     }
   }
@@ -250,76 +239,37 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    final pages = [
-      HomePage(
-        nome: nome,
-        distancia: distancia,
-        passos: passos,
-        xp: xp,
-        nivel: nivel,
-      ),
-      TreinosPage(
-        onXpAtualizado: carregarDados,
-      ),
-      AtividadesPage(
-        passos: passos,
-        distancia: distancia,
-        velocidadeMedia: velocidadeMedia,
-        segundos: segundos,
-        corridaIniciada: corridaIniciada,
-        iniciarCorrida: iniciarCorrida,
-        pararCorrida: pararCorrida,
-      ),
-      PerfilPage(
-        nome: nome,
-        peso: peso,
-        altura: altura,
-        idade: idade,
-        nivel: nivel,
-        conquistaPrimeiraCorrida: conquistaPrimeiraCorrida,
-        conquista10Km: conquista10Km,
-        onPerfilAtualizado: carregarDados,
-      ),
+    final routeState = AppRouteState(
+      nome: nome,
+      peso: peso,
+      altura: altura,
+      idade: idade,
+      passos: passos,
+      distancia: distancia,
+      velocidadeMedia: velocidadeMedia,
+      segundos: segundos,
+      xp: xp,
+      nivel: nivel,
+      corridaIniciada: corridaIniciada,
+      conquistaPrimeiraCorrida: conquistaPrimeiraCorrida,
+      conquista10Km: conquista10Km,
+      iniciarCorrida: iniciarCorrida,
+      pararCorrida: pararCorrida,
+      carregarDados: carregarDados,
+    );
+    final pages = AppRouter.buildPages(routeState);
 
-      StatsPage(),
+    return AppShell(
+      selectedIndex: currentIndex,
+      pages: pages,
+      destinations: AppRouter.destinations,
+      onDestinationSelected: (index) {
+        if (index >= pages.length) return;
 
-    ];
-
-    return Scaffold(
-      body: pages[currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: currentIndex,
-        type: BottomNavigationBarType.fixed,
-        onTap: (index) {
-          if (index >= pages.length) return;
-
-          setState(() {
-            currentIndex = index;
-          });
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.fitness_center),
-            label: 'Treinos',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.monitor_heart_rounded),
-            label: 'Atividades',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Perfil',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart),
-            label: "Stats",
-          ),
-        ],
-      ),
+        setState(() {
+          currentIndex = index;
+        });
+      },
     );
   }
 }
