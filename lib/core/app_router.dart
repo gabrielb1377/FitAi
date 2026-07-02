@@ -68,7 +68,7 @@ class AppRouter {
     AppRouteDestination(
       icon: Icons.fitness_center_outlined,
       selectedIcon: Icons.fitness_center_rounded,
-      label: 'Treinos',
+      label: 'Planos',
     ),
     AppRouteDestination(
       icon: Icons.monitor_heart_outlined,

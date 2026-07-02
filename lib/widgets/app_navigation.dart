@@ -4,7 +4,7 @@ import '../core/app_shell.dart';
 typedef AppNavigationDestination = AppRouteDestination;
 
 @Deprecated('Use AppShell from lib/core/app_shell.dart.')
-class AppAdaptiveNavigationScaffold extends AppShell {
+class AppAdaptiveNavigationScaffold extends AppNavigationFrame {
   const AppAdaptiveNavigationScaffold({
     super.key,
     required super.selectedIndex,
