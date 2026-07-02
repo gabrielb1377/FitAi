@@ -3,12 +3,11 @@ import 'dart:async';
 
 import '../services/storage_service.dart';
 import 'home/home_page.dart';
-import 'corridas/corridas_page.dart';
 import 'treinos/treinos_page.dart';
-import 'passos_page.dart';
 import 'perfil/perfil_page.dart';
 import '../models/corrida_model.dart';
 import 'estatisticas/stats_page.dart';
+import 'atividades_page.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -262,16 +261,14 @@ class _DashboardPageState extends State<DashboardPage> {
       TreinosPage(
         onXpAtualizado: carregarDados,
       ),
-      CorridasPage(
+      AtividadesPage(
+        passos: passos,
         distancia: distancia,
         velocidadeMedia: velocidadeMedia,
         segundos: segundos,
         corridaIniciada: corridaIniciada,
         iniciarCorrida: iniciarCorrida,
         pararCorrida: pararCorrida,
-      ),
-      PassosPage(
-        passos: passos,
       ),
       PerfilPage(
         nome: nome,
@@ -310,12 +307,8 @@ class _DashboardPageState extends State<DashboardPage> {
             label: 'Treinos',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.directions_run),
-            label: 'Corridas',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.directions_walk),
-            label: 'Passos',
+            icon: Icon(Icons.monitor_heart_rounded),
+            label: 'Atividades',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
