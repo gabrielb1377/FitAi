@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 
@@ -20,20 +22,25 @@ class AppColors {
   static const primaryLight = Color(0xFF69F0AE);
 
   // Fundo
-  static const background = Color(0xFF0A0A0A);
-  static const surface = Color(0xFF141414);
-  static const surfaceVariant = Color(0xFF1E1E1E);
-  static const card = Color(0xFF1A1A1A);
+  static const background = Color(0xFF070808);
+  static const surface = Color(0xFF101312);
+  static const surfaceVariant = Color(0xFF191D1B);
+  static const surfaceElevated = Color(0xFF202622);
+  static const card = Color(0xFF151917);
+  static const outline = Color(0xFF2A332E);
+  static const outlineSoft = Color(0xFF1F2823);
 
   // Texto
   static const textPrimary = Color(0xFFFFFFFF);
-  static const textSecondary = Color(0xFF9E9E9E);
-  static const textHint = Color(0xFF616161);
+  static const textSecondary = Color(0xFFB1B8B3);
+  static const textHint = Color(0xFF717971);
 
   // Acentos
   static const accent1 = Color(0xFF448AFF); // azul
   static const accent2 = Color(0xFFFF6D00); // laranja
   static const accent3 = Color(0xFFE040FB); // roxo
+  static const danger = Color(0xFFFF5C7A);
+  static const warning = Color(0xFFFFC857);
 
   // Gradientes
   static const gradientPrimary = LinearGradient(
@@ -57,7 +64,13 @@ class AppColors {
   static const gradientCard = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF1E1E1E), Color(0xFF141414)],
+    colors: [Color(0xFF202622), Color(0xFF111512)],
+  );
+
+  static const gradientCardSoft = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF1B211E), Color(0xFF0F1210)],
   );
 
   static const gradientSteps = LinearGradient(
@@ -94,6 +107,7 @@ class AppSpacing {
   static const double md = 14;
   static const double lg = 20;
   static const double xl = 28;
+  static const double xxl = 36;
 }
 
 class AppMotion {
@@ -103,6 +117,27 @@ class AppMotion {
   static const normal = Duration(milliseconds: 240);
   static const slow = Duration(milliseconds: 320);
   static const curve = Curves.easeOutCubic;
+}
+
+class AppScrollBehavior extends MaterialScrollBehavior {
+  const AppScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.trackpad,
+    PointerDeviceKind.stylus,
+  };
+
+  @override
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    return child;
+  }
 }
 
 class AppTheme {
@@ -127,6 +162,10 @@ class AppTheme {
       scaffoldBackgroundColor: AppColors.background,
       visualDensity: VisualDensity.standard,
       splashFactory: InkSparkle.splashFactory,
+      hoverColor: AppColors.primary.withAlpha(16),
+      focusColor: AppColors.primary.withAlpha(28),
+      highlightColor: AppColors.primary.withAlpha(18),
+      splashColor: AppColors.primary.withAlpha(28),
 
       // ── AppBar ──────────────────────────────
       appBarTheme: const AppBarTheme(
@@ -157,7 +196,7 @@ class AppTheme {
       ),
 
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: AppColors.surface,
+        backgroundColor: Colors.transparent,
         selectedItemColor: AppColors.primary,
         unselectedItemColor: AppColors.textHint,
         showSelectedLabels: true,
@@ -165,13 +204,13 @@ class AppTheme {
         type: BottomNavigationBarType.fixed,
         elevation: 0,
         selectedLabelStyle: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
+          fontSize: 12,
+          fontWeight: FontWeight.w900,
           letterSpacing: 0.2,
         ),
         unselectedLabelStyle: TextStyle(
           fontSize: 11,
-          fontWeight: FontWeight.w400,
+          fontWeight: FontWeight.w700,
         ),
       ),
 
@@ -229,8 +268,8 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: Color(0xFF2A2A2A), width: 1),
+          borderRadius: BorderRadius.circular(AppRadii.lg),
+          side: const BorderSide(color: AppColors.outlineSoft, width: 1),
         ),
         margin: const EdgeInsets.symmetric(vertical: 6),
       ),
@@ -240,17 +279,22 @@ class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.black,
-          minimumSize: const Size(double.infinity, 52),
+          disabledBackgroundColor: AppColors.surfaceElevated,
+          disabledForegroundColor: AppColors.textHint,
+          minimumSize: const Size(double.infinity, 50),
           tapTargetSize: MaterialTapTargetSize.padded,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadii.md),
+            borderRadius: BorderRadius.circular(AppRadii.lg),
           ),
           textStyle: const TextStyle(
             fontSize: 15,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.3,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.1,
           ),
           elevation: 0,
+          shadowColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          overlayColor: Colors.black.withAlpha(22),
         ),
       ),
 
@@ -258,13 +302,14 @@ class AppTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.primary,
-          minimumSize: const Size(double.infinity, 52),
+          minimumSize: const Size(double.infinity, 50),
           tapTargetSize: MaterialTapTargetSize.padded,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadii.md),
+            borderRadius: BorderRadius.circular(AppRadii.lg),
           ),
-          side: const BorderSide(color: AppColors.primary, width: 1.5),
-          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          side: BorderSide(color: AppColors.primary.withAlpha(120), width: 1),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+          overlayColor: AppColors.primary.withAlpha(24),
         ),
       ),
 
@@ -274,7 +319,11 @@ class AppTheme {
           foregroundColor: AppColors.primary,
           minimumSize: const Size(48, 44),
           tapTargetSize: MaterialTapTargetSize.padded,
-          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.md),
+          ),
+          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
+          overlayColor: AppColors.primary.withAlpha(22),
         ),
       ),
 
@@ -282,14 +331,21 @@ class AppTheme {
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
           foregroundColor: AppColors.textPrimary,
+          backgroundColor: Colors.transparent,
+          hoverColor: AppColors.primary.withAlpha(18),
+          focusColor: AppColors.primary.withAlpha(22),
+          highlightColor: AppColors.primary.withAlpha(16),
           minimumSize: const Size(44, 44),
           tapTargetSize: MaterialTapTargetSize.padded,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.md),
+          ),
         ),
       ),
 
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.surfaceVariant,
+        fillColor: AppColors.surfaceElevated,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 18,
           vertical: 16,
@@ -300,7 +356,7 @@ class AppTheme {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.md),
-          borderSide: const BorderSide(color: Color(0xFF2A2A2A), width: 1),
+          borderSide: const BorderSide(color: AppColors.outlineSoft, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.md),
@@ -316,16 +372,19 @@ class AppTheme {
         ),
         labelStyle: const TextStyle(color: AppColors.textSecondary),
         hintStyle: const TextStyle(color: AppColors.textHint),
+        prefixIconColor: AppColors.textSecondary,
+        suffixIconColor: AppColors.textSecondary,
       ),
 
       // ── ProgressIndicator ────────────────────
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: AppColors.surfaceVariant,
+        backgroundColor: AppColors.surfaceElevated,
         elevation: 0,
+        insetPadding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadii.md),
-          side: const BorderSide(color: Color(0xFF2A2A2A)),
+          borderRadius: BorderRadius.circular(AppRadii.lg),
+          side: const BorderSide(color: AppColors.outline),
         ),
         contentTextStyle: const TextStyle(
           color: AppColors.textPrimary,
@@ -340,7 +399,7 @@ class AppTheme {
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.xl),
-          side: const BorderSide(color: Color(0xFF2A2A2A)),
+          side: const BorderSide(color: AppColors.outline),
         ),
       ),
 
@@ -350,6 +409,9 @@ class AppTheme {
         modalBackgroundColor: AppColors.surface,
         showDragHandle: true,
         dragHandleColor: AppColors.textHint,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
       ),
 
       listTileTheme: const ListTileThemeData(
@@ -361,8 +423,42 @@ class AppTheme {
 
       progressIndicatorTheme: const ProgressIndicatorThemeData(
         color: AppColors.primary,
-        linearTrackColor: Color(0xFF2A2A2A),
-        linearMinHeight: 8,
+        linearTrackColor: AppColors.outlineSoft,
+        linearMinHeight: 9,
+      ),
+
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.black,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(AppRadii.lg)),
+        ),
+      ),
+
+      checkboxTheme: CheckboxThemeData(
+        fillColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return AppColors.primary;
+          return AppColors.surfaceElevated;
+        }),
+        checkColor: const WidgetStatePropertyAll(Colors.black),
+        side: const BorderSide(color: AppColors.outline, width: 1.4),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.sm),
+        ),
+      ),
+
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return AppColors.primary;
+          return AppColors.textSecondary;
+        }),
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return AppColors.primary.withAlpha(70);
+          }
+          return AppColors.surfaceElevated;
+        }),
       ),
 
       // ── Divider ──────────────────────────────
@@ -460,14 +556,21 @@ class AppGradientCard extends StatelessWidget {
       curve: AppMotion.curve,
       padding: padding ?? const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: gradient ?? AppColors.gradientCard,
+        gradient: gradient ?? AppColors.gradientCardSoft,
         borderRadius: BorderRadius.circular(borderRadius),
-        border: Border.all(color: const Color(0xFF2A2A2A), width: 1),
+        border: Border.all(color: AppColors.outlineSoft, width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(58),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
+            color: Colors.black.withAlpha(72),
+            blurRadius: 24,
+            spreadRadius: -10,
+            offset: const Offset(0, 16),
+          ),
+          BoxShadow(
+            color: AppColors.primary.withAlpha(8),
+            blurRadius: 28,
+            spreadRadius: -18,
+            offset: const Offset(0, -4),
           ),
         ],
       ),
@@ -504,16 +607,25 @@ class AppXpBar extends StatelessWidget {
         const SizedBox(height: 8),
         ClipRRect(
           borderRadius: BorderRadius.circular(100),
-          child: Container(
-            height: 8,
-            decoration: const BoxDecoration(color: Color(0xFF2A2A2A)),
-            child: FractionallySizedBox(
-              widthFactor: progress,
-              alignment: Alignment.centerLeft,
-              child: Container(
-                decoration: const BoxDecoration(gradient: AppColors.gradientXp),
-              ),
-            ),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: progress.toDouble()),
+            duration: AppMotion.slow,
+            curve: AppMotion.curve,
+            builder: (context, value, _) {
+              return Container(
+                height: 10,
+                decoration: const BoxDecoration(color: AppColors.outlineSoft),
+                child: FractionallySizedBox(
+                  widthFactor: value,
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      gradient: AppColors.gradientXp,
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ],
@@ -538,12 +650,22 @@ class AppStatChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AnimatedContainer(
+      duration: AppMotion.normal,
+      curve: AppMotion.curve,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.surfaceVariant,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF2A2A2A)),
+        color: AppColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(AppRadii.lg),
+        border: Border.all(color: AppColors.outlineSoft),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(42),
+            blurRadius: 18,
+            spreadRadius: -12,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -620,13 +742,13 @@ class AppChip extends StatelessWidget {
     return Semantics(
       label: label,
       child: Container(
-        constraints: const BoxConstraints(minHeight: 32),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        constraints: const BoxConstraints(minHeight: 34),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color: dark ? Colors.black.withAlpha(35) : chipColor.withAlpha(28),
+          color: dark ? Colors.black.withAlpha(45) : chipColor.withAlpha(24),
           borderRadius: BorderRadius.circular(AppRadii.pill),
           border: Border.all(
-            color: dark ? Colors.white.withAlpha(35) : chipColor.withAlpha(90),
+            color: dark ? Colors.white.withAlpha(40) : chipColor.withAlpha(76),
           ),
         ),
         child: Row(
@@ -645,7 +767,7 @@ class AppChip extends StatelessWidget {
                 style: TextStyle(
                   color: dark ? Colors.white : chipColor,
                   fontSize: 12,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
             ),
@@ -676,7 +798,8 @@ class AppLoadingCard extends StatelessWidget {
               height: 44,
               decoration: BoxDecoration(
                 color: AppColors.primary.withAlpha(24),
-                borderRadius: BorderRadius.circular(AppRadii.md),
+                borderRadius: BorderRadius.circular(AppRadii.lg),
+                border: Border.all(color: AppColors.primary.withAlpha(44)),
               ),
               child: const Padding(
                 padding: EdgeInsets.all(11),
@@ -742,8 +865,15 @@ class AppEmptyState extends StatelessWidget {
                   height: 64,
                   decoration: BoxDecoration(
                     color: AppColors.primary.withAlpha(24),
-                    borderRadius: BorderRadius.circular(AppRadii.lg),
+                    borderRadius: BorderRadius.circular(AppRadii.xl),
                     border: Border.all(color: AppColors.primary.withAlpha(70)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withAlpha(20),
+                        blurRadius: 28,
+                        spreadRadius: -10,
+                      ),
+                    ],
                   ),
                   child: Icon(icon, color: AppColors.primary, size: 30),
                 ),

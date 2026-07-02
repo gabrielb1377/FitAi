@@ -70,6 +70,7 @@ class AppPremiumButton extends StatefulWidget {
 
 class _AppPremiumButtonState extends State<AppPremiumButton> {
   bool _pressed = false;
+  bool _hovered = false;
 
   bool get _enabled => widget.onPressed != null && !widget.loading;
 
@@ -83,7 +84,7 @@ class _AppPremiumButtonState extends State<AppPremiumButton> {
       enabled: _enabled,
       label: widget.label,
       child: AnimatedScale(
-        scale: _pressed && _enabled ? 0.98 : 1,
+        scale: _pressed && _enabled ? 0.975 : (_hovered && _enabled ? 1.01 : 1),
         duration: AppMotion.fast,
         curve: AppMotion.curve,
         child: SizedBox(
@@ -92,6 +93,13 @@ class _AppPremiumButtonState extends State<AppPremiumButton> {
             color: Colors.transparent,
             child: InkWell(
               onTap: _enabled ? widget.onPressed : null,
+              onHover: _enabled
+                  ? (hovered) {
+                      if (_hovered != hovered) {
+                        setState(() => _hovered = hovered);
+                      }
+                    }
+                  : null,
               onTapDown: _enabled
                   ? (_) {
                       setState(() => _pressed = true);
@@ -119,6 +127,22 @@ class _AppPremiumButtonState extends State<AppPremiumButton> {
                         ? colors.border
                         : Colors.white.withAlpha(18),
                   ),
+                  boxShadow: [
+                    if (_enabled && widget.variant == AppButtonVariant.primary)
+                      BoxShadow(
+                        color: AppColors.primary.withAlpha(_hovered ? 52 : 30),
+                        blurRadius: _hovered ? 24 : 18,
+                        spreadRadius: -10,
+                        offset: const Offset(0, 12),
+                      ),
+                    if (_enabled && widget.variant != AppButtonVariant.ghost)
+                      BoxShadow(
+                        color: Colors.black.withAlpha(50),
+                        blurRadius: 18,
+                        spreadRadius: -12,
+                        offset: const Offset(0, 10),
+                      ),
+                  ],
                 ),
                 child: Row(
                   mainAxisSize: widget.fullWidth
@@ -184,20 +208,80 @@ class AppIconActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Tooltip(
       message: tooltip,
+      child: _AnimatedIconActionButton(
+        icon: icon,
+        onPressed: onPressed,
+        color: color,
+      ),
+    );
+  }
+}
+
+class _AnimatedIconActionButton extends StatefulWidget {
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final Color color;
+
+  const _AnimatedIconActionButton({
+    required this.icon,
+    required this.onPressed,
+    required this.color,
+  });
+
+  @override
+  State<_AnimatedIconActionButton> createState() =>
+      _AnimatedIconActionButtonState();
+}
+
+class _AnimatedIconActionButtonState extends State<_AnimatedIconActionButton> {
+  bool _hovered = false;
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onPressed != null;
+
+    return AnimatedScale(
+      scale: _pressed && enabled ? 0.94 : (_hovered && enabled ? 1.04 : 1),
+      duration: AppMotion.fast,
+      curve: AppMotion.curve,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(AppRadii.md),
-          child: Container(
+          onTap: widget.onPressed,
+          onHover: enabled
+              ? (hovered) {
+                  if (_hovered != hovered) setState(() => _hovered = hovered);
+                }
+              : null,
+          onTapDown: enabled ? (_) => setState(() => _pressed = true) : null,
+          onTapCancel: () {
+            if (_pressed) setState(() => _pressed = false);
+          },
+          onTapUp: (_) {
+            if (_pressed) setState(() => _pressed = false);
+          },
+          borderRadius: BorderRadius.circular(AppRadii.lg),
+          child: AnimatedContainer(
+            duration: AppMotion.fast,
+            curve: AppMotion.curve,
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: color.withAlpha(24),
-              borderRadius: BorderRadius.circular(AppRadii.md),
-              border: Border.all(color: color.withAlpha(70)),
+              color: widget.color.withAlpha(_hovered ? 36 : 24),
+              borderRadius: BorderRadius.circular(AppRadii.lg),
+              border: Border.all(color: widget.color.withAlpha(70)),
+              boxShadow: [
+                if (_hovered)
+                  BoxShadow(
+                    color: widget.color.withAlpha(24),
+                    blurRadius: 20,
+                    spreadRadius: -10,
+                    offset: const Offset(0, 10),
+                  ),
+              ],
             ),
-            child: Icon(icon, color: color, size: 21),
+            child: Icon(widget.icon, color: widget.color, size: 21),
           ),
         ),
       ),
@@ -282,7 +366,8 @@ class AppPremiumHeader extends StatelessWidget {
             height: 56,
             decoration: BoxDecoration(
               color: Colors.black.withAlpha(24),
-              borderRadius: BorderRadius.circular(AppRadii.lg),
+              borderRadius: BorderRadius.circular(AppRadii.xl),
+              border: Border.all(color: Colors.black.withAlpha(22)),
             ),
             child: Icon(icon, color: Colors.black, size: 30),
           ),
@@ -311,7 +396,7 @@ class AppPremiumHeader extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.black,
-                    fontSize: 24,
+                    fontSize: 25,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -410,9 +495,17 @@ class AppMetricTile extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 96),
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.surfaceVariant,
-        borderRadius: BorderRadius.circular(AppRadii.md),
-        border: Border.all(color: const Color(0xFF2A2A2A)),
+        color: AppColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(AppRadii.lg),
+        border: Border.all(color: AppColors.outlineSoft),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(42),
+            blurRadius: 18,
+            spreadRadius: -12,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

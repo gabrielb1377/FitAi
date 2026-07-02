@@ -25,6 +25,7 @@ class FitAI extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'FitIA',
       theme: AppTheme.dark,
+      scrollBehavior: const AppScrollBehavior(),
       home: const DashboardPage(),
     );
   }
