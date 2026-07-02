@@ -433,6 +433,7 @@ class _PulseTile extends StatelessWidget {
         border: Border.all(color: Colors.white.withAlpha(16)),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: color, size: 22),
@@ -456,7 +457,7 @@ class _PulseTile extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          const Spacer(),
+          const SizedBox(height: 12),
           Text(
             detail,
             maxLines: 1,
