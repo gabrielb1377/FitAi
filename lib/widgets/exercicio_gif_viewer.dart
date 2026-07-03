@@ -2,6 +2,124 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
+class ExercicioGifViewer extends StatelessWidget {
+  final String imagem;
+  final String titulo;
+  final String? subtitulo;
+  final double height;
+  final double borderRadius;
+
+  const ExercicioGifViewer({
+    super.key,
+    required this.imagem,
+    required this.titulo,
+    this.subtitulo,
+    this.height = 220,
+    this.borderRadius = 24,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final imagePath = imagem.trim();
+
+    return Semantics(
+      button: imagePath.isNotEmpty,
+      label: imagePath.isEmpty ? 'GIF indisponivel' : 'Abrir GIF do exercicio',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(borderRadius),
+        onTap: imagePath.isEmpty
+            ? null
+            : () => mostrarGifExercicioTelaCheia(
+                context,
+                imagem: imagePath,
+                titulo: titulo,
+                subtitulo: subtitulo,
+              ),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOut,
+          width: double.infinity,
+          height: height.clamp(180, 260).toDouble(),
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(borderRadius),
+            border: Border.all(color: Colors.white.withAlpha(18)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(54),
+                blurRadius: 28,
+                offset: const Offset(0, 18),
+              ),
+            ],
+          ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _imagem(imagePath),
+              Positioned(
+                right: 12,
+                bottom: 12,
+                child: Container(
+                  padding: const EdgeInsets.all(9),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withAlpha(150),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.white.withAlpha(18)),
+                  ),
+                  child: const Icon(
+                    Icons.open_in_full_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _imagem(String imagePath) {
+    if (imagePath.isEmpty) return _placeholder();
+
+    final isNetwork =
+        imagePath.startsWith('http://') || imagePath.startsWith('https://');
+
+    if (isNetwork) {
+      return Image.network(
+        imagePath,
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.low,
+        errorBuilder: (_, _, _) => _placeholder(),
+      );
+    }
+
+    return Image.asset(
+      imagePath,
+      fit: BoxFit.contain,
+      cacheHeight: 520,
+      filterQuality: FilterQuality.low,
+      semanticLabel: titulo,
+      errorBuilder: (_, _, _) => _placeholder(),
+    );
+  }
+
+  Widget _placeholder() {
+    return Container(
+      color: Colors.black.withAlpha(36),
+      child: const Center(
+        child: Icon(
+          Icons.fitness_center_rounded,
+          color: AppColors.primary,
+          size: 52,
+        ),
+      ),
+    );
+  }
+}
+
 void mostrarGifExercicioTelaCheia(
   BuildContext context, {
   required String imagem,
