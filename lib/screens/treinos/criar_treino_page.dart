@@ -17,9 +17,11 @@ class _CriarTreinoPageState extends State<CriarTreinoPage> {
   final formKey = GlobalKey<FormState>();
   final nomeController = TextEditingController();
   final descricaoController = TextEditingController();
+  final divisaoPersonalizadaController = TextEditingController();
 
   String objetivo = "Hipertrofia";
   String nivel = "Iniciante";
+  String divisao = "Full Body";
   int tempo = 45;
   bool salvando = false;
 
@@ -35,13 +37,31 @@ class _CriarTreinoPageState extends State<CriarTreinoPage> {
 
   final niveis = const ["Iniciante", "Intermediário", "Avançado"];
 
+  final divisoes = const [
+    "Full Body",
+    "AB",
+    "ABC",
+    "ABCD",
+    "ABCDE",
+    "Push/Pull/Legs",
+    "Superior/Inferior",
+    "Personalizado",
+  ];
+
   final tempos = const [30, 45, 60, 75, 90];
 
   @override
   void dispose() {
     nomeController.dispose();
     descricaoController.dispose();
+    divisaoPersonalizadaController.dispose();
     super.dispose();
+  }
+
+  String get divisaoSelecionada {
+    if (divisao != "Personalizado") return divisao;
+    final personalizada = divisaoPersonalizadaController.text.trim();
+    return personalizada.isEmpty ? "Personalizado" : personalizada;
   }
 
   Future<void> _abrirBiblioteca() async {
@@ -93,6 +113,14 @@ class _CriarTreinoPageState extends State<CriarTreinoPage> {
       return;
     }
 
+    if (divisao == "Personalizado" &&
+        divisaoPersonalizadaController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Informe a divisao personalizada.")),
+      );
+      return;
+    }
+
     if (salvando) return;
 
     setState(() {
@@ -102,6 +130,7 @@ class _CriarTreinoPageState extends State<CriarTreinoPage> {
     final agora = DateTime.now();
     final nome = nomeController.text.trim();
     final descricao = descricaoController.text.trim();
+    final divisaoTreino = divisaoSelecionada;
 
     final treino = TreinoModel(
       id: "manual_${agora.microsecondsSinceEpoch}",
@@ -111,6 +140,7 @@ class _CriarTreinoPageState extends State<CriarTreinoPage> {
           : descricao,
       objetivo: objetivo,
       nivel: nivel,
+      divisao: divisaoTreino,
       tempoEstimado: tempo,
       criadoPorIA: false,
       exercicios: List<ExercicioModel>.from(exerciciosSelecionados),
@@ -252,6 +282,33 @@ class _CriarTreinoPageState extends State<CriarTreinoPage> {
               });
             },
           ),
+          const SizedBox(height: 14),
+          DropdownButtonFormField<String>(
+            initialValue: divisao,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: "Tipo de treino"),
+            items: divisoes.map((item) {
+              return DropdownMenuItem(value: item, child: Text(item));
+            }).toList(),
+            onChanged: (value) {
+              if (value == null) return;
+
+              setState(() {
+                divisao = value;
+              });
+            },
+          ),
+          if (divisao == "Personalizado") ...[
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: divisaoPersonalizadaController,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                labelText: "Divisao personalizada",
+                hintText: "Ex: A Peito, B Costas, C Pernas",
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           DropdownButtonFormField<String>(
             initialValue: nivel,

@@ -16,33 +16,64 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
   final pesoController = TextEditingController();
   final alturaController = TextEditingController();
   final idadeController = TextEditingController();
+  final divisaoPersonalizadaController = TextEditingController();
   final treinoService = TreinoService.instance;
 
   String experiencia = 'Iniciante';
   String objetivo = 'Hipertrofia';
+  String divisao = 'Full Body';
   bool carregando = false;
+
+  final divisoes = const [
+    'Full Body',
+    'AB',
+    'ABC',
+    'ABCD',
+    'ABCDE',
+    'Push/Pull/Legs',
+    'Superior/Inferior',
+    'Personalizado',
+  ];
 
   @override
   void dispose() {
     pesoController.dispose();
     alturaController.dispose();
     idadeController.dispose();
+    divisaoPersonalizadaController.dispose();
     super.dispose();
   }
 
+  String get divisaoSelecionada {
+    if (divisao != 'Personalizado') return divisao;
+    final personalizada = divisaoPersonalizadaController.text.trim();
+    return personalizada.isEmpty ? 'Personalizado' : personalizada;
+  }
+
   Future<void> _gerarTreino() async {
+    if (divisao == 'Personalizado' &&
+        divisaoPersonalizadaController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Informe a divisao personalizada.')),
+      );
+      return;
+    }
+
     setState(() {
       carregando = true;
     });
 
-    final exercicios = _exerciciosPorObjetivo(objetivo);
+    final divisaoTreino = divisaoSelecionada;
+    final exercicios = _exerciciosPorObjetivo(objetivo, divisaoTreino);
 
     final treino = TreinoModel(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
-      nome: 'Treino $objetivo',
-      descricao: 'Treino gerado pela IA com base no objetivo $objetivo e nível $experiencia.',
+      nome: '$divisaoTreino - $objetivo',
+      descricao:
+          'Treino $divisaoTreino gerado pela IA com base no objetivo $objetivo e nível $experiencia.',
       objetivo: objetivo,
       nivel: experiencia,
+      divisao: divisaoTreino,
       tempoEstimado: exercicios.length * 8,
       criadoPorIA: true,
       exercicios: exercicios,
@@ -60,7 +91,76 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
     Navigator.pop(context, true);
   }
 
-  List<ExercicioModel> _exerciciosPorObjetivo(String objetivo) {
+  List<ExercicioModel> _exerciciosPorObjetivo(
+    String objetivo,
+    String divisaoTreino,
+  ) {
+    final divisaoNormalizada = divisaoTreino.toLowerCase();
+
+    if (divisaoNormalizada.contains('push')) {
+      return [
+        _exercicio(
+          id: 'ia_push_001',
+          nome: 'Supino Reto',
+          categoria: 'Peito',
+          musculos: ['Peitoral', 'Tríceps'],
+          equipamentos: ['Barra', 'Banco'],
+          locais: ['Academia'],
+          caloriasHora: 400,
+        ),
+        _exercicio(
+          id: 'ia_pull_001',
+          nome: 'Puxada Frontal',
+          categoria: 'Costas',
+          musculos: ['Costas', 'Bíceps'],
+          equipamentos: ['Polia'],
+          locais: ['Academia'],
+          caloriasHora: 350,
+        ),
+        _exercicio(
+          id: 'ia_legs_001',
+          nome: 'Agachamento Livre',
+          categoria: 'Perna',
+          musculos: ['Quadríceps', 'Glúteos'],
+          equipamentos: ['Barra'],
+          locais: ['Academia'],
+          caloriasHora: 500,
+        ),
+      ];
+    }
+
+    if (divisaoNormalizada == 'ab' || divisaoNormalizada.contains('superior')) {
+      return [
+        _exercicio(
+          id: 'ia_sup_001',
+          nome: 'Supino Reto',
+          categoria: 'Peito',
+          musculos: ['Peitoral', 'Tríceps'],
+          equipamentos: ['Barra', 'Banco'],
+          locais: ['Academia'],
+          caloriasHora: 400,
+        ),
+        _exercicio(
+          id: 'ia_sup_002',
+          nome: 'Remada Curvada',
+          categoria: 'Costas',
+          musculos: ['Costas', 'Bíceps'],
+          equipamentos: ['Barra'],
+          locais: ['Academia'],
+          caloriasHora: 420,
+        ),
+        _exercicio(
+          id: 'ia_inf_001',
+          nome: 'Agachamento Livre',
+          categoria: 'Perna',
+          musculos: ['Quadríceps', 'Glúteos'],
+          equipamentos: ['Barra'],
+          locais: ['Academia'],
+          caloriasHora: 500,
+        ),
+      ];
+    }
+
     if (objetivo == 'Emagrecimento') {
       return [
         _exercicio(
@@ -234,7 +334,8 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
       nome: nome,
       categoria: categoria,
       descricao: 'Exercício recomendado para o objetivo $objetivo.',
-      comoExecutar: 'Execute com controle, mantendo boa postura e amplitude segura.',
+      comoExecutar:
+          'Execute com controle, mantendo boa postura e amplitude segura.',
       cuidados: 'Evite cargas excessivas e interrompa em caso de dor.',
       musculos: musculos,
       equipamentos: equipamentos,
@@ -243,7 +344,11 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
       objetivo: objetivo,
       imagem: '',
       video: '',
-      tags: [objetivo.toLowerCase(), categoria.toLowerCase(), ...musculos.map((e) => e.toLowerCase())],
+      tags: [
+        objetivo.toLowerCase(),
+        categoria.toLowerCase(),
+        ...musculos.map((e) => e.toLowerCase()),
+      ],
       caloriasHora: caloriasHora,
     );
   }
@@ -252,9 +357,7 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Gerador de Treino IA'),
-      ),
+      appBar: AppBar(title: const Text('Gerador de Treino IA')),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
@@ -291,7 +394,10 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
             decoration: const InputDecoration(labelText: 'Experiência'),
             items: const [
               DropdownMenuItem(value: 'Iniciante', child: Text('Iniciante')),
-              DropdownMenuItem(value: 'Intermediário', child: Text('Intermediário')),
+              DropdownMenuItem(
+                value: 'Intermediário',
+                child: Text('Intermediário'),
+              ),
               DropdownMenuItem(value: 'Avançado', child: Text('Avançado')),
             ],
             onChanged: (value) {
@@ -305,9 +411,18 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
             initialValue: objetivo,
             decoration: const InputDecoration(labelText: 'Objetivo'),
             items: const [
-              DropdownMenuItem(value: 'Hipertrofia', child: Text('Hipertrofia')),
-              DropdownMenuItem(value: 'Emagrecimento', child: Text('Emagrecimento')),
-              DropdownMenuItem(value: 'Resistência', child: Text('Resistência')),
+              DropdownMenuItem(
+                value: 'Hipertrofia',
+                child: Text('Hipertrofia'),
+              ),
+              DropdownMenuItem(
+                value: 'Emagrecimento',
+                child: Text('Emagrecimento'),
+              ),
+              DropdownMenuItem(
+                value: 'Resistência',
+                child: Text('Resistência'),
+              ),
               DropdownMenuItem(value: 'Calistenia', child: Text('Calistenia')),
               DropdownMenuItem(value: 'Força', child: Text('Força')),
             ],
@@ -317,6 +432,31 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
               });
             },
           ),
+          const SizedBox(height: 15),
+          DropdownButtonFormField<String>(
+            initialValue: divisao,
+            decoration: const InputDecoration(labelText: 'Tipo de treino'),
+            isExpanded: true,
+            items: divisoes.map((item) {
+              return DropdownMenuItem(value: item, child: Text(item));
+            }).toList(),
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() {
+                divisao = value;
+              });
+            },
+          ),
+          if (divisao == 'Personalizado') ...[
+            const SizedBox(height: 15),
+            TextField(
+              controller: divisaoPersonalizadaController,
+              decoration: const InputDecoration(
+                labelText: 'Divisao personalizada',
+                hintText: 'Ex: A Peito, B Costas, C Pernas',
+              ),
+            ),
+          ],
           const SizedBox(height: 30),
           ElevatedButton.icon(
             onPressed: carregando ? null : _gerarTreino,

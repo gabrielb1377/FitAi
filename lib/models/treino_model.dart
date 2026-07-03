@@ -11,6 +11,8 @@ class TreinoModel {
 
   final String nivel;
 
+  final String divisao;
+
   final int tempoEstimado;
 
   final bool criadoPorIA;
@@ -25,6 +27,7 @@ class TreinoModel {
     required this.descricao,
     required this.objetivo,
     required this.nivel,
+    this.divisao = "Full Body",
     required this.tempoEstimado,
     required this.criadoPorIA,
     required this.exercicios,
@@ -38,6 +41,7 @@ class TreinoModel {
       "descricao": descricao,
       "objetivo": objetivo,
       "nivel": nivel,
+      "divisao": divisao,
       "tempoEstimado": tempoEstimado,
       "criadoPorIA": criadoPorIA,
       "dataCriacao": dataCriacao,
@@ -52,6 +56,7 @@ class TreinoModel {
       descricao: json["descricao"],
       objetivo: json["objetivo"],
       nivel: json["nivel"],
+      divisao: json["divisao"] ?? "Full Body",
       tempoEstimado: json["tempoEstimado"],
       criadoPorIA: json["criadoPorIA"],
       dataCriacao: json["dataCriacao"],
