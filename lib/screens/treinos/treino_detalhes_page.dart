@@ -227,7 +227,7 @@ class TreinoDetalhesPage extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(22),
-        onTap: () => _abrirTreino(context),
+        onTap: () => _abrirTreino(context, dia: dia),
         child: AppGradientCard(
           padding: const EdgeInsets.all(18),
           child: Column(
@@ -335,10 +335,16 @@ class TreinoDetalhesPage extends StatelessWidget {
     );
   }
 
-  void _abrirTreino(BuildContext context) {
+  void _abrirTreino(BuildContext context, {_DiaTreino? dia}) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => TreinoEmAndamentoPage(treino: treino)),
+      MaterialPageRoute(
+        builder: (_) => TreinoEmAndamentoPage(
+          treino: treino,
+          nomeDia: dia?.dia,
+          grupoDia: dia?.grupo,
+        ),
+      ),
     );
   }
 
