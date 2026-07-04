@@ -10,7 +10,7 @@ import '../../services/storage_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_components.dart';
 import '../../widgets/exercicio_gif_viewer.dart';
-import '../treinos/treinos_page.dart';
+import '../treinos/treino_em_andamento_page.dart';
 
 class _ExercicioBuscaIndex {
   final ExercicioModel exercicio;

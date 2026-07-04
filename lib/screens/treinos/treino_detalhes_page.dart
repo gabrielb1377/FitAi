@@ -876,10 +876,10 @@ class _TreinoDiaPage extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      height: 1,
-                    ),
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          height: 1,
+                        ),
                   ),
                   const SizedBox(height: 18),
                   Row(
