@@ -1,5 +1,6 @@
 import '../models/exercicio_model.dart';
 import '../models/historico_serie_treino_model.dart';
+import '../models/progresso_exercicio_model.dart';
 import 'storage_service.dart';
 
 enum TipoProgressao { inicial, progressao, manutencao, deload }
@@ -42,8 +43,166 @@ class ProgressaoSugestao {
   bool get temHistorico => ultimaExecucao != null;
 }
 
+class SerieCargaExercicio {
+  final String id;
+  final String nomeExercicio;
+  final double peso;
+  final int series;
+  final int repeticoes;
+  final DateTime data;
+
+  const SerieCargaExercicio({
+    required this.id,
+    required this.nomeExercicio,
+    required this.peso,
+    required this.series,
+    required this.repeticoes,
+    required this.data,
+  });
+
+  double get volume => peso * repeticoes * series;
+
+  String get cargaFormatada {
+    if (peso <= 0) return "Peso livre";
+    return "${_formatarNumero(peso)} kg";
+  }
+
+  String get resumoSeries {
+    final serieTexto = series <= 1 ? "1 serie" : "$series series";
+    return "$serieTexto x $repeticoes reps";
+  }
+
+  static String _formatarNumero(double valor) {
+    if (valor == valor.roundToDouble()) return valor.round().toString();
+    return valor.toStringAsFixed(1).replaceAll(".", ",");
+  }
+}
+
+class ResumoCargaExercicio {
+  final String nomeExercicio;
+  final List<SerieCargaExercicio> execucoes;
+
+  const ResumoCargaExercicio({
+    required this.nomeExercicio,
+    required this.execucoes,
+  });
+
+  bool get temHistorico => execucoes.isNotEmpty;
+
+  SerieCargaExercicio? get ultimaExecucao {
+    if (execucoes.isEmpty) return null;
+    return execucoes.first;
+  }
+
+  SerieCargaExercicio? get melhorCarga {
+    if (execucoes.isEmpty) return null;
+
+    final ordenadas = [...execucoes]
+      ..sort((a, b) {
+        final pesoCompare = b.peso.compareTo(a.peso);
+        if (pesoCompare != 0) return pesoCompare;
+        final repsCompare = b.repeticoes.compareTo(a.repeticoes);
+        if (repsCompare != 0) return repsCompare;
+        return b.volume.compareTo(a.volume);
+      });
+
+    return ordenadas.first;
+  }
+
+  SerieCargaExercicio? get melhorVolume {
+    if (execucoes.isEmpty) return null;
+
+    final ordenadas = [...execucoes]
+      ..sort((a, b) {
+        final volumeCompare = b.volume.compareTo(a.volume);
+        if (volumeCompare != 0) return volumeCompare;
+        return b.peso.compareTo(a.peso);
+      });
+
+    return ordenadas.first;
+  }
+
+  List<SerieCargaExercicio> get recentes {
+    return execucoes.take(6).toList();
+  }
+
+  double get evolucaoCargaPercentual {
+    return _evolucaoPercentual((item) => item.peso);
+  }
+
+  double get evolucaoVolumePercentual {
+    return _evolucaoPercentual((item) => item.volume);
+  }
+
+  double get melhorCargaPercentual {
+    final melhor = melhorCarga?.peso ?? 0;
+    if (melhor <= 0) return 0;
+    final ultima = ultimaExecucao?.peso ?? 0;
+    return (ultima / melhor).clamp(0.0, 1.0).toDouble();
+  }
+
+  double get melhorVolumePercentual {
+    final melhor = melhorVolume?.volume ?? 0;
+    if (melhor <= 0) return 0;
+    final ultima = ultimaExecucao?.volume ?? 0;
+    return (ultima / melhor).clamp(0.0, 1.0).toDouble();
+  }
+
+  double _evolucaoPercentual(double Function(SerieCargaExercicio item) valor) {
+    if (execucoes.length < 2) return 0;
+
+    final ordenadas = [...execucoes]..sort((a, b) => a.data.compareTo(b.data));
+    final primeiro = valor(ordenadas.first);
+    final ultimo = valor(ordenadas.last);
+
+    if (primeiro <= 0 && ultimo <= 0) return 0;
+    if (primeiro <= 0) return 100;
+
+    return ((ultimo - primeiro) / primeiro) * 100;
+  }
+}
+
 class ProgressaoService {
   const ProgressaoService();
+
+  Future<ResumoCargaExercicio> carregarResumoCarga({
+    required ExercicioModel exercicio,
+    int limite = 30,
+  }) async {
+    final historicoSeries =
+        await StorageService.carregarHistoricoSeriesTreino();
+    final progressos = await StorageService.carregarHistoricoExercicio(
+      exercicio.nome,
+    );
+    final registros = <SerieCargaExercicio>[];
+
+    for (final serie in historicoSeries) {
+      if (!_seriePertenceAoExercicio(serie, exercicio)) continue;
+
+      registros.add(
+        SerieCargaExercicio(
+          id: serie.id,
+          nomeExercicio: serie.nomeExercicio,
+          peso: serie.peso,
+          series: 1,
+          repeticoes: serie.repeticoes,
+          data: serie.dataHora,
+        ),
+      );
+    }
+
+    for (final progresso in progressos) {
+      registros.add(_registroDeProgresso(progresso));
+    }
+
+    final unicos = _removerDuplicados(registros)
+      ..sort((a, b) => b.data.compareTo(a.data));
+
+    return ResumoCargaExercicio(
+      nomeExercicio: exercicio.nome,
+      execucoes: unicos.take(limite).toList(),
+    );
+  }
 
   Future<ProgressaoSugestao> calcularSugestao({
     required ExercicioModel exercicio,
@@ -178,6 +337,52 @@ class ProgressaoService {
   double _arredondarCarga(double valor) {
     if (valor <= 0) return 0;
     return (valor * 2).round() / 2;
+  }
+
+  bool _seriePertenceAoExercicio(
+    HistoricoSerieTreinoModel serie,
+    ExercicioModel exercicio,
+  ) {
+    if (exercicio.id.trim().isNotEmpty &&
+        serie.exercicioId.trim() == exercicio.id.trim()) {
+      return true;
+    }
+
+    return _normalizar(serie.nomeExercicio) == _normalizar(exercicio.nome);
+  }
+
+  SerieCargaExercicio _registroDeProgresso(ProgressoExercicioModel progresso) {
+    return SerieCargaExercicio(
+      id: progresso.id,
+      nomeExercicio: progresso.nomeExercicio,
+      peso: progresso.peso,
+      series: progresso.series <= 0 ? 1 : progresso.series,
+      repeticoes: progresso.repeticoes,
+      data: progresso.data,
+    );
+  }
+
+  List<SerieCargaExercicio> _removerDuplicados(
+    List<SerieCargaExercicio> registros,
+  ) {
+    final chaves = <String>{};
+    final unicos = <SerieCargaExercicio>[];
+
+    for (final registro in registros) {
+      final chave = [
+        _normalizar(registro.nomeExercicio),
+        registro.data.toIso8601String(),
+        registro.peso.toStringAsFixed(2),
+        registro.series,
+        registro.repeticoes,
+      ].join("|");
+
+      if (chaves.add(chave)) {
+        unicos.add(registro);
+      }
+    }
+
+    return unicos;
   }
 
   String _normalizar(String texto) {

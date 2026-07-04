@@ -50,7 +50,7 @@ class _PlanCardState extends State<PlanCard> {
               onTap: widget.onTap,
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 220),
-                height: 260,
+                height: 306,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(22),
                   boxShadow: [
@@ -98,6 +98,18 @@ class _PlanCardState extends State<PlanCard> {
                             ),
                             const Spacer(),
                             Text(
+                              treino.objetivo,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppColors.primary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: .4,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
                               treino.nome,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -115,15 +127,12 @@ class _PlanCardState extends State<PlanCard> {
                               children: [
                                 _MetricPill(
                                   icon: Icons.check_circle_rounded,
-                                  label: widget.ultimaExecucao,
+                                  label:
+                                      "Treinos realizados: ${widget.ultimaExecucao}",
                                 ),
                                 _MetricPill(
                                   icon: Icons.calendar_month_rounded,
                                   label: _diasPorSemana(treino),
-                                ),
-                                _MetricPill(
-                                  icon: Icons.timer_rounded,
-                                  label: "${treino.tempoEstimado} min",
                                 ),
                                 _MetricPill(
                                   icon: Icons.trending_up_rounded,
@@ -131,12 +140,12 @@ class _PlanCardState extends State<PlanCard> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 14),
                             Row(
                               children: [
                                 Expanded(
                                   child: Text(
-                                    treino.objetivo,
+                                    "${treino.exercicios.length} exercicios - ${treino.tempoEstimado} min",
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
@@ -163,6 +172,45 @@ class _PlanCardState extends State<PlanCard> {
                                 minHeight: 7,
                                 color: AppColors.primary,
                                 backgroundColor: Colors.white.withAlpha(36),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  gradient: AppColors.gradientPrimary,
+                                  borderRadius: BorderRadius.circular(999),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppColors.primary.withAlpha(54),
+                                      blurRadius: 18,
+                                      offset: const Offset(0, 8),
+                                    ),
+                                  ],
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      "Abrir",
+                                      style: TextStyle(
+                                        color: Colors.black,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                    SizedBox(width: 6),
+                                    Icon(
+                                      Icons.arrow_forward_rounded,
+                                      color: Colors.black,
+                                      size: 18,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ],

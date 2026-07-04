@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../models/exercicio_model.dart';
+import '../../services/progressao_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/exercicio_gif_viewer.dart';
 
-class ExercicioDetalhePage extends StatelessWidget {
+class ExercicioDetalhePage extends StatefulWidget {
   final ExercicioModel exercicio;
   final VoidCallback? onConcluir;
 
@@ -13,6 +14,35 @@ class ExercicioDetalhePage extends StatelessWidget {
     required this.exercicio,
     this.onConcluir,
   });
+
+  @override
+  State<ExercicioDetalhePage> createState() => _ExercicioDetalhePageState();
+}
+
+class _ExercicioDetalhePageState extends State<ExercicioDetalhePage> {
+  late Future<ResumoCargaExercicio> _resumoCargaFuture;
+
+  ExercicioModel get exercicio => widget.exercicio;
+
+  @override
+  void initState() {
+    super.initState();
+    _resumoCargaFuture = _carregarResumoCarga();
+  }
+
+  @override
+  void didUpdateWidget(covariant ExercicioDetalhePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.exercicio.id != widget.exercicio.id ||
+        oldWidget.exercicio.nome != widget.exercicio.nome) {
+      _resumoCargaFuture = _carregarResumoCarga();
+    }
+  }
+
+  Future<ResumoCargaExercicio> _carregarResumoCarga() {
+    return const ProgressaoService().carregarResumoCarga(exercicio: exercicio);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,25 +92,7 @@ class ExercicioDetalhePage extends StatelessWidget {
                           child: _muscleBlock(),
                         ),
                         const SizedBox(height: 14),
-                        _section(
-                          title: 'Historico recente',
-                          icon: Icons.history_rounded,
-                          child: const _EmptyMetric(
-                            title: 'Sem historico recente',
-                            subtitle:
-                                'Ao registrar series neste exercicio, os dados aparecem aqui.',
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        _section(
-                          title: 'Recorde pessoal',
-                          icon: Icons.emoji_events_rounded,
-                          child: const _EmptyMetric(
-                            title: 'Nenhum PR registrado',
-                            subtitle:
-                                'Complete uma serie com carga para criar sua primeira referencia.',
-                          ),
-                        ),
+                        _historicoCargas(),
                         const SizedBox(height: 18),
                         _actions(context),
                       ],
@@ -298,6 +310,157 @@ class ExercicioDetalhePage extends StatelessWidget {
     );
   }
 
+  Widget _historicoCargas() {
+    return FutureBuilder<ResumoCargaExercicio>(
+      future: _resumoCargaFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return _section(
+            title: 'Historico de cargas',
+            icon: Icons.history_rounded,
+            child: const _LoadingHistory(),
+          );
+        }
+
+        final resumo = snapshot.data;
+        if (resumo == null || !resumo.temHistorico) {
+          return Column(
+            children: [
+              _section(
+                title: 'Ultima execucao',
+                icon: Icons.history_rounded,
+                child: const _EmptyMetric(
+                  title: 'Sem historico recente',
+                  subtitle:
+                      'Ao registrar series neste exercicio, suas cargas aparecem aqui.',
+                ),
+              ),
+              const SizedBox(height: 14),
+              _section(
+                title: 'Recorde pessoal',
+                icon: Icons.emoji_events_rounded,
+                child: const _EmptyMetric(
+                  title: 'Nenhum PR registrado',
+                  subtitle:
+                      'Complete uma serie com carga para criar sua primeira referencia.',
+                ),
+              ),
+            ],
+          );
+        }
+
+        return Column(
+          children: [
+            _section(
+              title: 'Ultima execucao',
+              icon: Icons.history_rounded,
+              child: _ultimaExecucao(resumo),
+            ),
+            const SizedBox(height: 14),
+            _section(
+              title: 'Melhor marca',
+              icon: Icons.emoji_events_rounded,
+              child: _melhoresMarcas(resumo),
+            ),
+            const SizedBox(height: 14),
+            _section(
+              title: 'Historico recente',
+              icon: Icons.timeline_rounded,
+              child: _historicoRecente(resumo),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _ultimaExecucao(ResumoCargaExercicio resumo) {
+    final ultima = resumo.ultimaExecucao;
+    if (ultima == null) {
+      return const _EmptyMetric(
+        title: 'Sem ultima execucao',
+        subtitle: 'Registre uma serie para acompanhar sua evolucao.',
+      );
+    }
+
+    return Column(
+      children: [
+        _CargaMetricTile(
+          icon: Icons.fitness_center_rounded,
+          title: ultima.cargaFormatada,
+          subtitle:
+              '${ultima.resumoSeries} - ${_formatarData(ultima.data)} - volume ${_formatarPeso(ultima.volume)}',
+          color: AppColors.primary,
+        ),
+        const SizedBox(height: 12),
+        _ProgressLine(
+          label: 'Carga atual vs PR',
+          value: resumo.melhorCargaPercentual,
+          trailing: _formatarPercentual(resumo.evolucaoCargaPercentual),
+          color: AppColors.primary,
+        ),
+        const SizedBox(height: 10),
+        _ProgressLine(
+          label: 'Volume atual vs melhor',
+          value: resumo.melhorVolumePercentual,
+          trailing: _formatarPercentual(resumo.evolucaoVolumePercentual),
+          color: AppColors.accent1,
+        ),
+      ],
+    );
+  }
+
+  Widget _melhoresMarcas(ResumoCargaExercicio resumo) {
+    final melhorCarga = resumo.melhorCarga;
+    final melhorVolume = resumo.melhorVolume;
+
+    return Column(
+      children: [
+        _CargaMetricTile(
+          icon: Icons.monitor_weight_rounded,
+          title: melhorCarga == null ? 'Sem carga' : melhorCarga.cargaFormatada,
+          subtitle: melhorCarga == null
+              ? 'Ainda sem registro de peso.'
+              : '${melhorCarga.repeticoes} reps - ${_formatarData(melhorCarga.data)}',
+          color: AppColors.rankOuro,
+        ),
+        const SizedBox(height: 10),
+        _CargaMetricTile(
+          icon: Icons.bolt_rounded,
+          title: melhorVolume == null
+              ? 'Sem volume'
+              : _formatarPeso(melhorVolume.volume),
+          subtitle: melhorVolume == null
+              ? 'Registre peso e repeticoes para calcular volume.'
+              : '${melhorVolume.resumoSeries} - ${_formatarData(melhorVolume.data)}',
+          color: AppColors.accent2,
+        ),
+      ],
+    );
+  }
+
+  Widget _historicoRecente(ResumoCargaExercicio resumo) {
+    final recentes = resumo.recentes;
+    if (recentes.isEmpty) {
+      return const _EmptyMetric(
+        title: 'Sem registros',
+        subtitle: 'As ultimas execucoes vao aparecer aqui.',
+      );
+    }
+
+    return Column(
+      children: [
+        for (var index = 0; index < recentes.length; index++)
+          _HistoryCargaRow(
+            registro: recentes[index],
+            data: _formatarData(recentes[index].data),
+            volume: _formatarPeso(recentes[index].volume),
+            isLast: index == recentes.length - 1,
+          ),
+      ],
+    );
+  }
+
   Widget _chipsGroup({required String title, required List<String> values}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -334,11 +497,11 @@ class ExercicioDetalhePage extends StatelessWidget {
             label: const Text('Voltar'),
           ),
         ),
-        if (onConcluir != null) ...[
+        if (widget.onConcluir != null) ...[
           const SizedBox(width: 10),
           Expanded(
             child: ElevatedButton.icon(
-              onPressed: onConcluir,
+              onPressed: widget.onConcluir,
               icon: const Icon(Icons.check_rounded),
               label: const Text('Concluir'),
             ),
@@ -453,6 +616,32 @@ class ExercicioDetalhePage extends StatelessWidget {
     }
 
     return fallback.trim().isEmpty ? 'Geral' : fallback.trim();
+  }
+
+  String _formatarData(DateTime data) {
+    final dia = data.day.toString().padLeft(2, '0');
+    final mes = data.month.toString().padLeft(2, '0');
+    return '$dia/$mes/${data.year}';
+  }
+
+  String _formatarPeso(double peso) {
+    if (peso <= 0) return '0 kg';
+    if (peso >= 1000) return '${_formatarNumero(peso / 1000)} t';
+    return '${_formatarNumero(peso)} kg';
+  }
+
+  String _formatarNumero(double valor) {
+    if (valor == valor.roundToDouble()) return valor.round().toString();
+    return valor.toStringAsFixed(1).replaceAll('.', ',');
+  }
+
+  String _formatarPercentual(double valor) {
+    final indicador = valor > 2
+        ? '+'
+        : valor < -2
+        ? ''
+        : '';
+    return '$indicador${valor.toStringAsFixed(0)}%';
   }
 }
 
@@ -620,6 +809,246 @@ class _EmptyMetric extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _LoadingHistory extends StatelessWidget {
+  const _LoadingHistory();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: const LinearProgressIndicator(
+            minHeight: 8,
+            color: AppColors.primary,
+            backgroundColor: AppColors.surfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'Carregando historico do exercicio...',
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CargaMetricTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+
+  const _CargaMetricTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceVariant,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withAlpha(58)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: color.withAlpha(28),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Icon(icon, color: color, size: 21),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    height: 1.25,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProgressLine extends StatelessWidget {
+  final String label;
+  final double value;
+  final String trailing;
+  final Color color;
+
+  const _ProgressLine({
+    required this.label,
+    required this.value,
+    required this.trailing,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final safeValue = value.clamp(0.0, 1.0).toDouble();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            Text(
+              trailing,
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+            value: safeValue,
+            minHeight: 8,
+            color: color,
+            backgroundColor: AppColors.surfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HistoryCargaRow extends StatelessWidget {
+  final SerieCargaExercicio registro;
+  final String data;
+  final String volume;
+  final bool isLast;
+
+  const _HistoryCargaRow({
+    required this.registro,
+    required this.data,
+    required this.volume,
+    required this.isLast,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 10),
+      child: Container(
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceVariant,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withAlpha(14)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withAlpha(24),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(
+                Icons.calendar_month_rounded,
+                color: AppColors.primary,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    data,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '${registro.cargaFormatada} - ${registro.resumoSeries}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              volume,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.primary,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

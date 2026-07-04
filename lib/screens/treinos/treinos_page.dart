@@ -25,20 +25,11 @@ class TreinosPage extends StatefulWidget {
 
 class _TreinosPageState extends State<TreinosPage> {
   final treinoService = TreinoService.instance;
-  final TextEditingController _searchController = TextEditingController();
-  bool _searchVisible = false;
-  String _searchQuery = "";
 
   @override
   void initState() {
     super.initState();
     _carregarTreinos();
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
   }
 
   Future<void> _carregarTreinos() async {
@@ -61,19 +52,7 @@ class _TreinosPageState extends State<TreinosPage> {
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 220),
-                    child: _searchVisible
-                        ? Padding(
-                            key: const ValueKey("search"),
-                            padding: const EdgeInsets.only(bottom: 14),
-                            child: _buildSearchField(context),
-                          )
-                        : const SizedBox.shrink(key: ValueKey("empty-search")),
-                  ),
-                  _buildCriarPlanoCard(context),
-                  const SizedBox(height: 12),
-                  _buildHistoricoTreinosCard(context),
+                  _buildActionButtons(context),
                   const SizedBox(height: 24),
                   _buildTreinos(),
                 ]),
@@ -96,45 +75,19 @@ class _TreinosPageState extends State<TreinosPage> {
       child: Row(
         children: [
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Planos FITAI",
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  "Meus Planos",
-                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
+            child: Text(
+              "Meus Planos",
+              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w900,
+                height: 1,
+              ),
             ),
           ),
           _headerAction(
-            icon: Icons.search_rounded,
-            tooltip: "Pesquisar",
-            onTap: () {
-              setState(() {
-                _searchVisible = !_searchVisible;
-                if (!_searchVisible) {
-                  _searchController.clear();
-                  _searchQuery = "";
-                }
-              });
-            },
-          ),
-          const SizedBox(width: 10),
-          _headerAction(
-            icon: Icons.add_rounded,
-            tooltip: "Criar plano",
-            onTap: _abrirCriacaoPlano,
-            primary: true,
+            icon: Icons.notifications_none_rounded,
+            tooltip: "Historico de treinos",
+            onTap: _abrirHistoricoTreinos,
           ),
         ],
       ),
@@ -178,94 +131,60 @@ class _TreinosPageState extends State<TreinosPage> {
     );
   }
 
-  Widget _buildSearchField(BuildContext context) {
-    return AppGradientCard(
-      padding: const EdgeInsets.all(12),
-      child: TextField(
-        controller: _searchController,
-        onChanged: (value) {
-          setState(() {
-            _searchQuery = value;
-          });
-        },
-        style: const TextStyle(
-          color: AppColors.textPrimary,
-          fontWeight: FontWeight.w800,
-        ),
-        decoration: InputDecoration(
-          prefixIcon: const Icon(Icons.search_rounded),
-          suffixIcon: _searchQuery.isEmpty
-              ? null
-              : IconButton(
-                  onPressed: () {
-                    _searchController.clear();
-                    setState(() {
-                      _searchQuery = "";
-                    });
-                  },
-                  icon: const Icon(Icons.close_rounded),
-                ),
-          labelText: "Pesquisar plano",
-          hintText: "Nome, objetivo ou nivel",
-        ),
-      ),
+  Widget _buildActionButtons(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 560;
+
+        final prontoButton = _PlanActionButton(
+          label: "Adicionar treino pronto",
+          icon: Icons.add_circle_outline_rounded,
+          onTap: _abrirTreinoPronto,
+        );
+        final criarButton = _PlanActionButton(
+          label: "Criar plano",
+          icon: Icons.add_rounded,
+          primary: true,
+          onTap: _abrirCriacaoPlano,
+        );
+
+        if (compact) {
+          return Column(
+            children: [prontoButton, const SizedBox(height: 12), criarButton],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: prontoButton),
+            const SizedBox(width: 12),
+            Expanded(child: criarButton),
+          ],
+        );
+      },
     );
   }
 
-  Widget _buildCriarPlanoCard(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(22),
-        onTap: _abrirCriacaoPlano,
-        child: AppGradientCard(
-          gradient: AppColors.gradientPrimary,
-          padding: const EdgeInsets.all(22),
-          child: Row(
-            children: [
-              Container(
-                width: 58,
-                height: 58,
-                decoration: BoxDecoration(
-                  color: Colors.black.withAlpha(24),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Icon(
-                  Icons.add_rounded,
-                  color: Colors.black,
-                  size: 34,
-                ),
-              ),
-              const SizedBox(width: 16),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Criar Plano",
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      "Monte uma ficha com IA ou manualmente.",
-                      style: TextStyle(
-                        color: Colors.black87,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right_rounded, color: Colors.black54),
-            ],
-          ),
-        ),
-      ),
+  Future<void> _abrirTreinoPronto() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AIWorkoutPage()),
     );
+
+    if (!mounted) return;
+
+    await _carregarTreinos();
+  }
+
+  Future<void> _abrirHistoricoTreinos() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const HistoricoTreinosPage()),
+    );
+
+    if (!mounted) return;
+
+    setState(() {});
   }
 
   Future<void> _abrirCriacaoPlano() async {
@@ -387,6 +306,7 @@ class _TreinosPageState extends State<TreinosPage> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildHistoricoTreinosCard(BuildContext context) {
     return GestureDetector(
       onTap: () async {
@@ -496,14 +416,7 @@ class _TreinosPageState extends State<TreinosPage> {
   }
 
   Widget _buildTreinos() {
-    final query = _searchQuery.toLowerCase().trim();
-    final treinos = treinoService.treinos.where((treino) {
-      if (query.isEmpty) return true;
-      final text = "${treino.nome} ${treino.objetivo} ${treino.nivel}"
-          .toLowerCase()
-          .trim();
-      return text.contains(query);
-    }).toList();
+    final treinos = treinoService.treinos;
 
     if (treinos.isEmpty) {
       return AppGradientCard(
@@ -525,9 +438,7 @@ class _TreinosPageState extends State<TreinosPage> {
             ),
             const SizedBox(height: 16),
             Text(
-              _searchQuery.isEmpty
-                  ? "Nenhum plano criado ainda."
-                  : "Nenhum plano encontrado.",
+              "Nenhum plano criado ainda.",
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: AppColors.textPrimary,
@@ -536,12 +447,10 @@ class _TreinosPageState extends State<TreinosPage> {
               ),
             ),
             const SizedBox(height: 6),
-            Text(
-              _searchQuery.isEmpty
-                  ? "Crie seu primeiro plano para comecar."
-                  : "Tente outro nome, objetivo ou nivel.",
+            const Text(
+              "Crie seu primeiro plano para comecar.",
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(color: AppColors.textSecondary),
             ),
           ],
         ),
@@ -551,16 +460,6 @@ class _TreinosPageState extends State<TreinosPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 14),
-          child: Text(
-            "Lista de planos",
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ),
         LayoutBuilder(
           builder: (context, constraints) {
             final twoColumns = constraints.maxWidth >= 760;
@@ -596,6 +495,100 @@ class _TreinosPageState extends State<TreinosPage> {
           },
         ),
       ],
+    );
+  }
+}
+
+class _PlanActionButton extends StatefulWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool primary;
+
+  const _PlanActionButton({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    this.primary = false,
+  });
+
+  @override
+  State<_PlanActionButton> createState() => _PlanActionButtonState();
+}
+
+class _PlanActionButtonState extends State<_PlanActionButton> {
+  bool _hovered = false;
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = widget.primary ? Colors.black : AppColors.textPrimary;
+    final background = widget.primary ? null : AppColors.surfaceVariant;
+    final borderColor = widget.primary
+        ? Colors.transparent
+        : AppColors.primary.withAlpha(_hovered ? 90 : 42);
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() {
+        _hovered = false;
+        _pressed = false;
+      }),
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapCancel: () => setState(() => _pressed = false),
+        onTapUp: (_) => setState(() => _pressed = false),
+        child: AnimatedScale(
+          scale: _pressed ? .985 : (_hovered ? 1.01 : 1),
+          duration: const Duration(milliseconds: 160),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(22),
+              onTap: widget.onTap,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 18,
+                ),
+                decoration: BoxDecoration(
+                  gradient: widget.primary ? AppColors.gradientPrimary : null,
+                  color: background,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: borderColor),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(_hovered ? 72 : 38),
+                      blurRadius: _hovered ? 24 : 16,
+                      offset: Offset(0, _hovered ? 14 : 10),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(widget.icon, color: foreground),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        widget.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: foreground,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
