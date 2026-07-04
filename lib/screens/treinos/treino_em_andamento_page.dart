@@ -66,6 +66,11 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   @override
   void initState() {
     super.initState();
+
+    debugPrint('Treino: ${widget.treino.nome}');
+    debugPrint('Qtd exercícios: ${widget.treino.exercicios.length}');
+    debugPrint(widget.treino.exercicios.map((e) => e.nome).toList().toString());
+
     _iniciarCronometro();
   }
 
@@ -197,115 +202,120 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     final progresso = _totalExercicios == 0
         ? 0.0
         : ((_exercicioAtual + (concluidas / _seriesPorExercicio)) /
-                _totalExercicios)
-            .clamp(0.0, 1.0);
+                  _totalExercicios)
+              .clamp(0.0, 1.0);
 
     return Scaffold(
       backgroundColor: const Color(0xFF05070A),
       body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 430),
-            child: Column(
-              children: [
-                _WorkoutHeader(
-                  title: _headerTitle,
-                  time: _tempoFormatado,
-                  progress: progresso,
-                  onBack: () => Navigator.pop(context),
-                ),
-                Expanded(
-                  child: exercicio == null
-                      ? const _EmptyWorkoutState()
-                      : ListView(
-                          physics: const BouncingScrollPhysics(),
-                          padding: const EdgeInsets.fromLTRB(18, 14, 18, 110),
-                          children: [
-                            _ExerciseHeroCard(exercicio: exercicio),
-                            const SizedBox(height: 18),
-                            _ExerciseTitleBlock(
-                              nome: exercicio.nome,
-                              categoria: exercicio.categoria,
-                            ),
-                            const SizedBox(height: 18),
-                            _StatsCircles(
-                              reps: _texto(_repeticoesController),
-                              rest: _emDescanso
-                                  ? '${_descansoRestante}s'
-                                  : '${_descansoPadrao}s',
-                              series: '$concluidas/$_seriesPorExercicio',
-                            ),
-                            if (_emDescanso) ...[
-                              const SizedBox(height: 18),
-                              _RestCard(
-                                seconds: _descansoRestante,
-                                totalSeconds: _descansoPadrao,
-                                onSkip: () {
-                                  _descansoTimer?.cancel();
-                                  setState(() => _descansoRestante = 0);
-                                },
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth > 430
+                ? 430.0
+                : constraints.maxWidth;
+
+            return Center(
+              child: SizedBox(
+                width: width,
+                height: constraints.maxHeight,
+                child: Column(
+                  children: [
+                    _WorkoutHeader(
+                      title: _headerTitle,
+                      time: _tempoFormatado,
+                      progress: progresso,
+                      onBack: () => Navigator.pop(context),
+                    ),
+                    Expanded(
+                      child: exercicio == null
+                          ? const _EmptyWorkoutState()
+                          : ListView(
+                              physics: const BouncingScrollPhysics(),
+                              padding: const EdgeInsets.fromLTRB(
+                                18,
+                                14,
+                                18,
+                                110,
                               ),
-                            ],
-                            const SizedBox(height: 18),
-                            _InputsRow(
-                              pesoController: _pesoController,
-                              repeticoesController: _repeticoesController,
-                              onAddReps: _incrementarRepeticoes,
-                              onChanged: (_) => setState(() {}),
-                            ),
-                            const SizedBox(height: 12),
-                            _CommentBox(
-                              controller: _comentarioController,
-                              isOpen: _comentarioAberto,
-                              onToggle: () => setState(
-                                () => _comentarioAberto = !_comentarioAberto,
-                              ),
-                              onChanged: (value) {
-                                _comentarios[_exercicioAtual] = value.trim();
-                              },
-                            ),
-                            const SizedBox(height: 18),
-                            _HistoryCard(
-                              entries:
-                                  _historico[_exercicioAtual] ?? const [],
-                            ),
-                            const SizedBox(height: 18),
-                            Row(
                               children: [
-                                Expanded(
-                                  child: _SecondaryActionButton(
-                                    label: 'Anterior',
-                                    icon: Icons.chevron_left_rounded,
-                                    onTap: _exercicioAnterior,
-                                  ),
+                                _ExerciseHeroCard(exercicio: exercicio),
+                                const SizedBox(height: 18),
+                                _ExerciseTitleBlock(
+                                  nome: exercicio.nome,
+                                  categoria: exercicio.categoria,
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: _SecondaryActionButton(
-                                    label: 'Próximo',
-                                    icon: Icons.chevron_right_rounded,
-                                    onTap: _proximoExercicioManual,
+                                const SizedBox(height: 18),
+                                _StatsCircles(
+                                  reps: _texto(_repeticoesController),
+                                  rest: _emDescanso
+                                      ? '${_descansoRestante}s'
+                                      : '${_descansoPadrao}s',
+                                  series: '$concluidas/$_seriesPorExercicio',
+                                ),
+                                if (_emDescanso) ...[
+                                  const SizedBox(height: 18),
+                                  _RestCard(
+                                    seconds: _descansoRestante,
+                                    totalSeconds: _descansoPadrao,
+                                    onSkip: () {
+                                      _descansoTimer?.cancel();
+                                      setState(() => _descansoRestante = 0);
+                                    },
                                   ),
+                                ],
+                                const SizedBox(height: 18),
+                                _InputsRow(
+                                  pesoController: _pesoController,
+                                  repeticoesController: _repeticoesController,
+                                  onAddReps: _incrementarRepeticoes,
+                                  onChanged: (_) => setState(() {}),
+                                ),
+                                const SizedBox(height: 12),
+                                _CommentBox(
+                                  controller: _comentarioController,
+                                  isOpen: _comentarioAberto,
+                                  onToggle: () => setState(
+                                    () =>
+                                        _comentarioAberto = !_comentarioAberto,
+                                  ),
+                                  onChanged: (value) {
+                                    _comentarios[_exercicioAtual] = value
+                                        .trim();
+                                  },
+                                ),
+                                const SizedBox(height: 18),
+                                _HistoryCard(
+                                  entries:
+                                      _historico[_exercicioAtual] ?? const [],
+                                ),
+                                const SizedBox(height: 18),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _SecondaryActionButton(
+                                        label: 'Anterior',
+                                        icon: Icons.chevron_left_rounded,
+                                        onTap: _exercicioAnterior,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: _SecondaryActionButton(
+                                        label: 'Próximo',
+                                        icon: Icons.chevron_right_rounded,
+                                        onTap: _proximoExercicioManual,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
-                          ],
-                        ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 430),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
-              child: _PrimaryRegisterButton(onTap: _registrarSerie),
-            ),
-          ),
+              ),
+            );
+          },
         ),
       ),
     );
@@ -313,10 +323,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
 
   void _mostrarMensagem(String texto) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(texto),
-        behavior: SnackBarBehavior.floating,
-      ),
+      SnackBar(content: Text(texto), behavior: SnackBarBehavior.floating),
     );
   }
 
@@ -432,11 +439,7 @@ class _ExerciseHeroCard extends StatelessWidget {
               color: Colors.black.withAlpha(80),
             ),
           ),
-          Positioned(
-            left: 18,
-            top: 18,
-            child: _MiniBadge(label: 'GIF'),
-          ),
+          Positioned(left: 18, top: 18, child: _MiniBadge(label: 'GIF')),
           Positioned(
             right: 18,
             top: 18,
@@ -452,10 +455,7 @@ class _ExerciseTitleBlock extends StatelessWidget {
   final String nome;
   final String categoria;
 
-  const _ExerciseTitleBlock({
-    required this.nome,
-    required this.categoria,
-  });
+  const _ExerciseTitleBlock({required this.nome, required this.categoria});
 
   @override
   Widget build(BuildContext context) {
@@ -503,11 +503,17 @@ class _StatsCircles extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: _CircleStat(value: reps, label: 'Repetições')),
+        Expanded(
+          child: _CircleStat(value: reps, label: 'Repetições'),
+        ),
         const SizedBox(width: 12),
-        Expanded(child: _CircleStat(value: rest, label: 'Repouso')),
+        Expanded(
+          child: _CircleStat(value: rest, label: 'Repouso'),
+        ),
         const SizedBox(width: 12),
-        Expanded(child: _CircleStat(value: series, label: 'Séries')),
+        Expanded(
+          child: _CircleStat(value: series, label: 'Séries'),
+        ),
       ],
     );
   }
@@ -517,10 +523,7 @@ class _CircleStat extends StatelessWidget {
   final String value;
   final String label;
 
-  const _CircleStat({
-    required this.value,
-    required this.label,
-  });
+  const _CircleStat({required this.value, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -625,11 +628,7 @@ class _InputsRow extends StatelessWidget {
                 ),
               ],
             ),
-            child: const Icon(
-              Icons.add_rounded,
-              color: Colors.black,
-              size: 32,
-            ),
+            child: const Icon(Icons.add_rounded, color: Colors.black, size: 32),
           ),
         ),
       ],
@@ -716,8 +715,9 @@ class _CommentBox extends StatelessWidget {
         ),
         AnimatedCrossFade(
           duration: const Duration(milliseconds: 180),
-          crossFadeState:
-              isOpen ? CrossFadeState.showFirst : CrossFadeState.showSecond,
+          crossFadeState: isOpen
+              ? CrossFadeState.showFirst
+              : CrossFadeState.showSecond,
           firstChild: Padding(
             padding: const EdgeInsets.only(top: 8),
             child: TextField(
@@ -790,7 +790,9 @@ class _HistoryCard extends StatelessWidget {
               ),
             )
           else
-            ...entries.take(5).map(
+            ...entries
+                .take(5)
+                .map(
                   (entry) => Padding(
                     padding: const EdgeInsets.symmetric(vertical: 7),
                     child: Row(
@@ -859,8 +861,9 @@ class _RestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progress =
-        totalSeconds <= 0 ? 0.0 : (seconds / totalSeconds).clamp(0.0, 1.0);
+    final progress = totalSeconds <= 0
+        ? 0.0
+        : (seconds / totalSeconds).clamp(0.0, 1.0);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -907,10 +910,7 @@ class _RestCard extends StatelessWidget {
               ],
             ),
           ),
-          TextButton(
-            onPressed: onSkip,
-            child: const Text('Pular'),
-          ),
+          TextButton(onPressed: onSkip, child: const Text('Pular')),
         ],
       ),
     );
