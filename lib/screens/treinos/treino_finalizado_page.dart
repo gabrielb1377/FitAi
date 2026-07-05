@@ -3,25 +3,33 @@ import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 
 class TreinoFinalizadoPage extends StatelessWidget {
+  final String nomeTreino;
   final String tempo;
   final String volume;
   final int xp;
+  final int exerciciosConcluidos;
+  final int seriesConcluidas;
   final int recordes;
   final int conquistas;
   final String resumoIa;
   final VoidCallback? onVoltar;
+  final VoidCallback? onVerHistorico;
   final VoidCallback? onCompartilhar;
 
   const TreinoFinalizadoPage({
     super.key,
+    this.nomeTreino = 'Treino',
     required this.tempo,
     required this.volume,
     required this.xp,
+    this.exerciciosConcluidos = 0,
+    this.seriesConcluidas = 0,
     this.recordes = 0,
     this.conquistas = 0,
     this.resumoIa =
         'Treino concluido com sucesso. Mantenha a consistencia para evoluir nas proximas sessoes.',
     this.onVoltar,
+    this.onVerHistorico,
     this.onCompartilhar,
   });
 
@@ -66,18 +74,20 @@ class TreinoFinalizadoPage extends StatelessWidget {
           children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: onVoltar ?? () => Navigator.of(context).maybePop(),
-                icon: const Icon(Icons.arrow_back_rounded),
-                label: const Text('Voltar'),
+                onPressed: onVoltar ?? () => _voltarParaPlanos(context),
+                icon: const Icon(Icons.dashboard_customize_rounded),
+                label: const Text('Planos'),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: ElevatedButton.icon(
                 onPressed:
-                    onCompartilhar ?? () => _mostrarCompartilhar(context),
-                icon: const Icon(Icons.ios_share_rounded),
-                label: const Text('Compartilhar'),
+                    onVerHistorico ??
+                    onCompartilhar ??
+                    () => _mostrarHistorico(context),
+                icon: const Icon(Icons.history_rounded),
+                label: const Text('Ver histórico'),
               ),
             ),
           ],
@@ -144,8 +154,7 @@ class TreinoFinalizadoPage extends StatelessWidget {
                   Align(
                     alignment: Alignment.centerLeft,
                     child: IconButton.filledTonal(
-                      onPressed:
-                          onVoltar ?? () => Navigator.of(context).maybePop(),
+                      onPressed: onVoltar ?? () => _voltarParaPlanos(context),
                       icon: const Icon(Icons.close_rounded),
                       color: Colors.black,
                     ),
@@ -172,7 +181,9 @@ class TreinoFinalizadoPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    'Excelente trabalho',
+                    nomeTreino,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                       color: Colors.black,
                       fontWeight: FontWeight.w900,
@@ -181,7 +192,7 @@ class TreinoFinalizadoPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Seu treino foi salvo e sua evolucao acabou de ganhar mais um ponto.',
+                    'Seu treino foi salvo no historico e sua evolucao acabou de ganhar mais um ponto.',
                     style: TextStyle(
                       color: Colors.black87,
                       height: 1.35,
@@ -216,6 +227,24 @@ class TreinoFinalizadoPage extends StatelessWidget {
                 label: 'Tempo',
                 value: tempo,
                 color: AppColors.primary,
+              ),
+            ),
+            SizedBox(
+              width: width,
+              child: _MetricCard(
+                icon: Icons.fitness_center_rounded,
+                label: 'Exercícios',
+                value: '$exerciciosConcluidos',
+                color: AppColors.accent1,
+              ),
+            ),
+            SizedBox(
+              width: width,
+              child: _MetricCard(
+                icon: Icons.check_circle_rounded,
+                label: 'Séries',
+                value: '$seriesConcluidas',
+                color: AppColors.accent3,
               ),
             ),
             SizedBox(
@@ -320,10 +349,14 @@ class TreinoFinalizadoPage extends StatelessWidget {
     );
   }
 
-  void _mostrarCompartilhar(BuildContext context) {
+  void _voltarParaPlanos(BuildContext context) {
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
+  void _mostrarHistorico(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Resumo pronto para compartilhar.'),
+        content: Text('Treino salvo. Abra o histórico em Planos.'),
         behavior: SnackBarBehavior.floating,
       ),
     );

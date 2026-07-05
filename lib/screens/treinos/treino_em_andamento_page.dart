@@ -3,7 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../models/exercicio_model.dart';
+import '../../models/historico_treino_model.dart';
 import '../../models/treino_model.dart';
+import '../../services/storage_service.dart';
+import 'treino_finalizado_page.dart';
 
 class TreinoEmAndamentoPage extends StatefulWidget {
   final TreinoModel treino;
@@ -42,8 +45,14 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   int _segundosTreino = 0;
   int _descansoRestante = 0;
   int _descansoTotal = _descansoPadrao;
+  int _xpVisualSessao = 0;
+  int _xpVisualEvento = 0;
+  int _xpVisualKey = 0;
   bool _comentarioAberto = false;
   bool _descansoFinalizado = false;
+  bool _treinoFinalizadoVisual = false;
+  bool _finalizacaoEmAndamento = false;
+  String _xpVisualTitulo = '';
 
   int get _totalExercicios => widget.treino.exercicios.length;
 
@@ -122,6 +131,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
         ),
       );
     });
+    _adicionarXpVisual(20, 'Série registrada');
 
     final totalConcluido =
         _seriesConcluidas[_exercicioAtual]?.length ?? serieIndex + 1;
@@ -129,6 +139,19 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     if (totalConcluido < _seriesPorExercicio) {
       _iniciarDescanso();
       _mostrarMensagem('Série registrada.');
+      return;
+    }
+
+    final ultimoExercicio = _exercicioAtual >= _totalExercicios - 1;
+
+    Future.delayed(const Duration(milliseconds: 260), () {
+      if (mounted) _adicionarXpVisual(80, '🏅 Exercício concluído');
+    });
+
+    if (ultimoExercicio) {
+      Future.delayed(const Duration(milliseconds: 650), () {
+        if (mounted) _finalizarTreino();
+      });
       return;
     }
 
@@ -195,7 +218,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     if (_exercicioAtual < _totalExercicios - 1) {
       _mudarExercicio(_exercicioAtual + 1);
     } else {
-      _mostrarMensagem('Treino concluído.');
+      _finalizarTreino();
     }
   }
 
@@ -228,11 +251,153 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     _comentarioAberto = comentario.isNotEmpty;
   }
 
+  void _adicionarXpVisual(int xp, String titulo) {
+    setState(() {
+      _xpVisualSessao += xp;
+      _xpVisualEvento = xp;
+      _xpVisualTitulo = titulo;
+      _xpVisualKey++;
+    });
+  }
+
+  double _volumeSerie(_HistoricoSerieLocal entry) {
+    final peso = double.tryParse(entry.peso.replaceAll(',', '.')) ?? 0;
+    return peso * entry.repeticoes;
+  }
+
+  String _formatarVolume(double value) {
+    final text = value.round().toString();
+    final buffer = StringBuffer();
+
+    for (var i = 0; i < text.length; i++) {
+      if (i > 0 && (text.length - i) % 3 == 0) buffer.write('.');
+      buffer.write(text[i]);
+    }
+
+    return buffer.toString();
+  }
+
+  int _seriesConcluidasTotal() {
+    return _seriesConcluidas.values.fold<int>(
+      0,
+      (total, series) => total + series.length,
+    );
+  }
+
+  int _exerciciosConcluidosTotal() {
+    return _seriesConcluidas.values
+        .where((series) => series.length >= _seriesPorExercicio)
+        .length;
+  }
+
+  double _volumeSessaoTotal() {
+    return _historico.values
+        .expand<_HistoricoSerieLocal>((entries) => entries)
+        .fold<double>(0, (total, entry) => total + _volumeSerie(entry));
+  }
+
+  int _calcularXpGanho({
+    required int seriesConcluidas,
+    required int exerciciosConcluidos,
+  }) {
+    return (seriesConcluidas * 20) + (exerciciosConcluidos * 80) + 350;
+  }
+
+  int _caloriasEstimadas({
+    required int seriesConcluidas,
+    required double volumeTotal,
+  }) {
+    final porTempo = (_segundosTreino / 60) * 4;
+    final porSeries = seriesConcluidas * 6;
+    final porVolume = volumeTotal / 120;
+
+    return (porTempo + porSeries + porVolume).round().clamp(0, 9999);
+  }
+
+  Future<void> _finalizarTreino() async {
+    if (_finalizacaoEmAndamento) return;
+
+    _finalizacaoEmAndamento = true;
+    _treinoTimer?.cancel();
+    _descansoTimer?.cancel();
+
+    if (!_treinoFinalizadoVisual && mounted) {
+      setState(() => _treinoFinalizadoVisual = true);
+      _adicionarXpVisual(350, 'Treino finalizado');
+    }
+
+    final seriesConcluidas = _seriesConcluidasTotal();
+    final exerciciosConcluidos = _exerciciosConcluidosTotal();
+    final volumeTotal = _volumeSessaoTotal();
+    final xpGanho = _calcularXpGanho(
+      seriesConcluidas: seriesConcluidas,
+      exerciciosConcluidos: exerciciosConcluidos,
+    );
+    final calorias = _caloriasEstimadas(
+      seriesConcluidas: seriesConcluidas,
+      volumeTotal: volumeTotal,
+    );
+    final agora = DateTime.now();
+    final historico = HistoricoTreinoModel(
+      id: '${agora.microsecondsSinceEpoch}_${widget.treino.nome.hashCode}',
+      nomeTreino: widget.treino.nome,
+      dataHora: agora,
+      tempoSegundos: _segundosTreino,
+      tempoFormatado: _tempoFormatado,
+      exerciciosTotais: _totalExercicios,
+      exerciciosConcluidos: exerciciosConcluidos,
+      xpGanho: xpGanho,
+      caloriasEstimadas: calorias,
+      objetivo: _grupoDia,
+      nivel: 'FITAI',
+      seriesConcluidas: seriesConcluidas,
+      volumeTotal: volumeTotal,
+      recordesBatidos: 0,
+    );
+
+    try {
+      await StorageService.salvarHistoricoTreino(historico);
+      await StorageService.adicionarXp(xpGanho);
+      await widget.onXpAtualizado?.call();
+    } catch (erro) {
+      _finalizacaoEmAndamento = false;
+      if (!mounted) return;
+
+      _mostrarMensagem('Não foi possível salvar o treino. Tente novamente.');
+      return;
+    }
+
+    if (!mounted) return;
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => TreinoFinalizadoPage(
+          nomeTreino: widget.treino.nome,
+          tempo: _tempoFormatado,
+          exerciciosConcluidos: exerciciosConcluidos,
+          seriesConcluidas: seriesConcluidas,
+          volume: '${_formatarVolume(volumeTotal)} kg',
+          xp: xpGanho,
+          recordes: historico.recordesBatidos,
+          resumoIa:
+              'Treino salvo no histórico. Você concluiu $exerciciosConcluidos exercícios e movimentou ${_formatarVolume(volumeTotal)} kg.',
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final exercicio = _exercicio;
     final concluidas = _seriesConcluidas[_exercicioAtual]?.length ?? 0;
     final historicoAtual = _historico[_exercicioAtual] ?? const [];
+    final historicoSessao = _historico.values
+        .expand<_HistoricoSerieLocal>((entries) => entries)
+        .toList();
+    final exerciciosConcluidos = _exerciciosConcluidosTotal();
+    final seriesConcluidasTotal = _seriesConcluidasTotal();
+    final totalSeries = _totalExercicios * _seriesPorExercicio;
+    final volumeSessao = _volumeSessaoTotal();
     final progresso = _totalExercicios == 0
         ? 0.0
         : ((_exercicioAtual + (concluidas / _seriesPorExercicio)) /
@@ -258,6 +423,12 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
                       title: _headerTitle,
                       time: _tempoFormatado,
                       progress: progresso,
+                      exerciciosConcluidos: exerciciosConcluidos,
+                      totalExercicios: _totalExercicios,
+                      seriesConcluidas: seriesConcluidasTotal,
+                      totalSeries: totalSeries,
+                      tempoMinutos: '${_segundosTreino ~/ 60} min',
+                      volume: '${_formatarVolume(volumeSessao)} kg',
                       onBack: () => Navigator.pop(context),
                     ),
                     Expanded(
@@ -285,6 +456,13 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
                                       ? '${_descansoRestante}s'
                                       : '${_descansoPadrao}s',
                                   series: '$concluidas/$_seriesPorExercicio',
+                                ),
+                                const SizedBox(height: 18),
+                                _XpSessionCard(
+                                  totalXp: _xpVisualSessao,
+                                  eventXp: _xpVisualEvento,
+                                  eventTitle: _xpVisualTitulo,
+                                  eventKey: _xpVisualKey,
                                 ),
                                 if (_emDescanso) ...[
                                   const SizedBox(height: 18),
@@ -331,6 +509,12 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
                                         0,
                                   ),
                                 ],
+                                const SizedBox(height: 18),
+                                _PerformanceCard(
+                                  entries: historicoAtual,
+                                  sessionEntries: historicoSessao,
+                                  exerciciosConcluidos: exerciciosConcluidos,
+                                ),
                                 const SizedBox(height: 18),
                                 Row(
                                   children: [
@@ -399,17 +583,31 @@ class _WorkoutHeader extends StatelessWidget {
   final String title;
   final String time;
   final double progress;
+  final int exerciciosConcluidos;
+  final int totalExercicios;
+  final int seriesConcluidas;
+  final int totalSeries;
+  final String tempoMinutos;
+  final String volume;
   final VoidCallback onBack;
 
   const _WorkoutHeader({
     required this.title,
     required this.time,
     required this.progress,
+    required this.exerciciosConcluidos,
+    required this.totalExercicios,
+    required this.seriesConcluidas,
+    required this.totalSeries,
+    required this.tempoMinutos,
+    required this.volume,
     required this.onBack,
   });
 
   @override
   Widget build(BuildContext context) {
+    final percent = (progress * 100).clamp(0, 100).round();
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
       child: Column(
@@ -455,15 +653,150 @@ class _WorkoutHeader extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              minHeight: 7,
-              value: progress,
-              backgroundColor: const Color(0xFF111820),
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                Color(0xFF00E5C3),
-              ),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0D1218),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: const Color(0xFF1D2A35)),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF00E5C3).withAlpha(18),
+                  blurRadius: 24,
+                  offset: const Offset(0, 12),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(999),
+                        child: LinearProgressIndicator(
+                          minHeight: 10,
+                          value: progress,
+                          backgroundColor: const Color(0xFF16212B),
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            Color(0xFF00E5C3),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      child: Text(
+                        '$percent%',
+                        key: ValueKey<int>(percent),
+                        style: const TextStyle(
+                          color: Color(0xFF00E5C3),
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _HeaderMetric(
+                        label: 'Exercícios',
+                        value: '$exerciciosConcluidos/$totalExercicios',
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _HeaderMetric(
+                        label: 'Séries',
+                        value: '$seriesConcluidas/$totalSeries',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _HeaderMetric(
+                        label: 'Tempo',
+                        value: tempoMinutos,
+                        icon: Icons.timer_outlined,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _HeaderMetric(
+                        label: 'Volume',
+                        value: volume,
+                        icon: Icons.monitor_weight_outlined,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeaderMetric extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData? icon;
+
+  const _HeaderMetric({required this.label, required this.value, this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withAlpha(7),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withAlpha(16)),
+      ),
+      child: Row(
+        children: [
+          if (icon != null) ...[
+            Icon(icon, color: const Color(0xFF00E5C3), size: 16),
+            const SizedBox(width: 7),
+          ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withAlpha(130),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -687,6 +1020,165 @@ class _CircleStat extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _XpSessionCard extends StatelessWidget {
+  final int totalXp;
+  final int eventXp;
+  final int eventKey;
+  final String eventTitle;
+
+  const _XpSessionCard({
+    required this.totalXp,
+    required this.eventXp,
+    required this.eventKey,
+    required this.eventTitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasEvent = eventXp > 0;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1218),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFF00E5C3).withAlpha(72)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF00E5C3).withAlpha(hasEvent ? 30 : 14),
+            blurRadius: hasEvent ? 28 : 18,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00E5C3).withAlpha(22),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0xFF00E5C3).withAlpha(80),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.bolt_rounded,
+                  color: Color(0xFF00E5C3),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'XP da sessão',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      hasEvent
+                          ? 'Ganho visual deste treino'
+                          : 'Registre uma série para ganhar XP visual',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withAlpha(145),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                '+$totalXp',
+                style: const TextStyle(
+                  color: Color(0xFF00E5C3),
+                  fontSize: 30,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.8,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 260),
+            switchInCurve: Curves.easeOutBack,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) {
+              return ScaleTransition(
+                scale: animation,
+                child: FadeTransition(opacity: animation, child: child),
+              );
+            },
+            child: Container(
+              key: ValueKey<int>(eventKey),
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: hasEvent
+                    ? const Color(0xFF00E5C3).withAlpha(18)
+                    : Colors.white.withAlpha(7),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: hasEvent
+                      ? const Color(0xFF00E5C3).withAlpha(70)
+                      : Colors.white.withAlpha(18),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      hasEvent ? eventTitle : 'Pronto para começar',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: hasEvent
+                            ? Colors.white
+                            : Colors.white.withAlpha(150),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    hasEvent ? '+$eventXp XP' : '+0 XP',
+                    style: TextStyle(
+                      color: hasEvent
+                          ? const Color(0xFF00E5C3)
+                          : Colors.white.withAlpha(120),
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1333,6 +1825,362 @@ class _CoachMetric extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PerformanceCard extends StatelessWidget {
+  final List<_HistoricoSerieLocal> entries;
+  final List<_HistoricoSerieLocal> sessionEntries;
+  final int exerciciosConcluidos;
+
+  const _PerformanceCard({
+    required this.entries,
+    required this.sessionEntries,
+    required this.exerciciosConcluidos,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (entries.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: _decoration(),
+        child: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _PerformanceTitle(),
+            SizedBox(height: 12),
+            _PerformanceEmptyState(),
+          ],
+        ),
+      );
+    }
+
+    final maiorCarga = _maiorCarga(entries);
+    final maiorVolume = _maiorVolume(entries);
+    final maiorReps = _maiorReps(entries);
+    final volumeSessao = sessionEntries.fold<double>(
+      0,
+      (total, entry) => total + _volume(entry),
+    );
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: _decoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _PerformanceTitle(),
+          const SizedBox(height: 14),
+          const _PerformanceSectionTitle('🏆 Recorde pessoal'),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _PerformanceMetric(
+                  label: 'Maior carga',
+                  value: '${_formatarNumero(maiorCarga)} kg',
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _PerformanceMetric(
+                  label: 'Maior volume',
+                  value: '${_formatarNumero(maiorVolume)} kg',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _PerformanceMetric(
+            label: 'Maior número de repetições',
+            value: '$maiorReps reps',
+          ),
+          const SizedBox(height: 14),
+          const _PerformanceSectionTitle('📈 Sessão atual'),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _PerformanceMetric(
+                  label: 'Volume total',
+                  value: '${_formatarNumero(volumeSessao)} kg',
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _PerformanceMetric(
+                  label: 'Séries concluídas',
+                  value: '${sessionEntries.length}',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _PerformanceMetric(
+            label: 'Exercícios concluídos',
+            value: '$exerciciosConcluidos',
+          ),
+          const SizedBox(height: 14),
+          const _PerformanceSectionTitle('💪 Evolução'),
+          const SizedBox(height: 10),
+          _EvolutionComparison(entries: entries),
+        ],
+      ),
+    );
+  }
+
+  BoxDecoration _decoration() {
+    return BoxDecoration(
+      color: const Color(0xFF0D1218),
+      borderRadius: BorderRadius.circular(24),
+      border: Border.all(color: const Color(0xFF1D2A35)),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withAlpha(45),
+          blurRadius: 24,
+          offset: const Offset(0, 14),
+        ),
+      ],
+    );
+  }
+
+  static double _maiorCarga(List<_HistoricoSerieLocal> entries) {
+    return entries.fold<double>(0, (best, entry) {
+      final peso = _peso(entry);
+      return peso > best ? peso : best;
+    });
+  }
+
+  static double _maiorVolume(List<_HistoricoSerieLocal> entries) {
+    return entries.fold<double>(0, (best, entry) {
+      final volume = _volume(entry);
+      return volume > best ? volume : best;
+    });
+  }
+
+  static int _maiorReps(List<_HistoricoSerieLocal> entries) {
+    return entries.fold<int>(0, (best, entry) {
+      return entry.repeticoes > best ? entry.repeticoes : best;
+    });
+  }
+
+  static double _peso(_HistoricoSerieLocal entry) {
+    return double.tryParse(entry.peso.replaceAll(',', '.')) ?? 0;
+  }
+
+  static double _volume(_HistoricoSerieLocal entry) {
+    return _peso(entry) * entry.repeticoes;
+  }
+
+  static String _formatarNumero(double value) {
+    if (value == value.roundToDouble()) return value.toStringAsFixed(0);
+    return value.toStringAsFixed(1);
+  }
+}
+
+class _PerformanceTitle extends StatelessWidget {
+  const _PerformanceTitle();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      children: [
+        Icon(Icons.query_stats_rounded, color: Color(0xFF00E5C3)),
+        SizedBox(width: 8),
+        Text(
+          'Performance',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 17,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PerformanceEmptyState extends StatelessWidget {
+  const _PerformanceEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111820),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFF233241)),
+      ),
+      child: Text(
+        'Primeira execução deste exercício.',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: Colors.white.withAlpha(150),
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _PerformanceSectionTitle extends StatelessWidget {
+  final String text;
+
+  const _PerformanceSectionTitle(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+    );
+  }
+}
+
+class _PerformanceMetric extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _PerformanceMetric({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111820),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF233241)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withAlpha(130),
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Color(0xFF00E5C3),
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EvolutionComparison extends StatelessWidget {
+  final List<_HistoricoSerieLocal> entries;
+
+  const _EvolutionComparison({required this.entries});
+
+  @override
+  Widget build(BuildContext context) {
+    if (entries.length < 2) {
+      return const _PerformanceEmptyState();
+    }
+
+    final atual = entries.first;
+    final anterior = entries[1];
+    final cargaDelta = _peso(atual) - _peso(anterior);
+    final repsDelta = atual.repeticoes - anterior.repeticoes;
+    final volumeAnterior = _volume(anterior);
+    final volumeDelta = _volume(atual) - volumeAnterior;
+    final volumePercent = volumeAnterior == 0
+        ? 0.0
+        : (volumeDelta / volumeAnterior) * 100;
+
+    return Row(
+      children: [
+        Expanded(
+          child: _EvolutionPill(
+            value: '${_signal(cargaDelta)}${_formatarNumero(cargaDelta)} kg',
+            color: _color(cargaDelta),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _EvolutionPill(
+            value: '${_signalInt(repsDelta)}$repsDelta repetições',
+            color: _color(repsDelta.toDouble()),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _EvolutionPill(
+            value:
+                '${_signal(volumePercent)}${_formatarNumero(volumePercent)}%',
+            color: _color(volumePercent),
+          ),
+        ),
+      ],
+    );
+  }
+
+  static double _peso(_HistoricoSerieLocal entry) {
+    return double.tryParse(entry.peso.replaceAll(',', '.')) ?? 0;
+  }
+
+  static double _volume(_HistoricoSerieLocal entry) {
+    return _peso(entry) * entry.repeticoes;
+  }
+
+  static Color _color(double value) {
+    if (value > 0) return const Color(0xFF39E58C);
+    if (value < 0) return const Color(0xFFFF5C5C);
+    return const Color(0xFFFFC857);
+  }
+
+  static String _signal(double value) => value > 0 ? '+' : '';
+  static String _signalInt(int value) => value > 0 ? '+' : '';
+
+  static String _formatarNumero(double value) {
+    if (value == value.roundToDouble()) return value.toStringAsFixed(0);
+    return value.toStringAsFixed(1);
+  }
+}
+
+class _EvolutionPill extends StatelessWidget {
+  final String value;
+  final Color color;
+
+  const _EvolutionPill({required this.value, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withAlpha(22),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withAlpha(100)),
+      ),
+      child: Text(
+        value,
+        textAlign: TextAlign.center,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w900,
+        ),
       ),
     );
   }
