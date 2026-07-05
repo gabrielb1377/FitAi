@@ -100,6 +100,12 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
 
   static const categoriasPrincipais = [
     _BibliotecaCategoria(
+      nome: "Todos",
+      aliases: [],
+      icon: Icons.apps_rounded,
+      color: AppColors.primary,
+    ),
+    _BibliotecaCategoria(
       nome: "Peito",
       aliases: ["Peito"],
       icon: Icons.fitness_center_rounded,
@@ -112,26 +118,38 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
       color: AppColors.accent1,
     ),
     _BibliotecaCategoria(
-      nome: "Pernas",
-      aliases: ["Pernas"],
-      icon: Icons.directions_walk_rounded,
-      color: AppColors.accent2,
-    ),
-    _BibliotecaCategoria(
       nome: "Ombros",
       aliases: ["Ombros"],
       icon: Icons.expand_less_rounded,
       color: AppColors.accent3,
     ),
     _BibliotecaCategoria(
-      nome: "Bracos",
-      aliases: ["Biceps", "Triceps", "Antebraco"],
+      nome: "Bíceps",
+      aliases: ["Biceps", "Bíceps"],
       icon: Icons.sports_martial_arts_rounded,
       color: Color(0xFF00BCD4),
     ),
     _BibliotecaCategoria(
-      nome: "Abdomen",
-      aliases: ["Abdomen"],
+      nome: "Tríceps",
+      aliases: ["Triceps", "Tríceps"],
+      icon: Icons.sports_gymnastics_rounded,
+      color: Color(0xFF4DD0E1),
+    ),
+    _BibliotecaCategoria(
+      nome: "Pernas",
+      aliases: ["Pernas"],
+      icon: Icons.directions_walk_rounded,
+      color: AppColors.accent2,
+    ),
+    _BibliotecaCategoria(
+      nome: "Glúteos",
+      aliases: ["Gluteos", "Glúteos"],
+      icon: Icons.local_fire_department_rounded,
+      color: Color(0xFFEC407A),
+    ),
+    _BibliotecaCategoria(
+      nome: "Abdômen",
+      aliases: ["Abdomen", "Abdômen"],
       icon: Icons.self_improvement_rounded,
       color: Color(0xFFFFD54F),
     ),
@@ -140,12 +158,6 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
       aliases: ["Cardio"],
       icon: Icons.directions_run_rounded,
       color: Color(0xFFFF6D00),
-    ),
-    _BibliotecaCategoria(
-      nome: "Gluteos",
-      aliases: ["Gluteos"],
-      icon: Icons.local_fire_department_rounded,
-      color: Color(0xFFEC407A),
     ),
   ];
 
@@ -162,6 +174,7 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
   String? tipoEquipamentoSelecionado;
   String? dificuldadeSelecionada;
   bool apenasFavoritos = false;
+  bool filtrosVisiveis = false;
   bool carregandoFavoritos = true;
 
   @override
@@ -304,9 +317,11 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
     final totais = <String, int>{};
 
     for (final categoria in categoriasPrincipais) {
-      totais[categoria.nome] = indiceBusca
-          .where((item) => _pertenceCategoria(item, categoria.nome))
-          .length;
+      totais[categoria.nome] = categoria.nome == "Todos"
+          ? indiceBusca.length
+          : indiceBusca
+                .where((item) => _pertenceCategoria(item, categoria.nome))
+                .length;
     }
 
     return totais;
@@ -351,6 +366,7 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
       tipoEquipamentoSelecionado = null;
       dificuldadeSelecionada = null;
       apenasFavoritos = false;
+      filtrosVisiveis = false;
     });
   }
 
@@ -368,7 +384,7 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
 
   void _abrirCategoria(String categoria) {
     _atualizarFiltros(() {
-      categoriaSelecionada = categoria;
+      categoriaSelecionada = categoria == "Todos" ? null : categoria;
     });
   }
 
@@ -390,6 +406,7 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
         dificuldadeSelecionada != null;
   }
 
+  // ignore: unused_element
   bool get _mostrandoResultados {
     return categoriaSelecionada != null || _temFiltroAtivo;
   }
@@ -424,15 +441,12 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _buildHero(),
-                    const SizedBox(height: 18),
                     _buildBusca(),
-                    if (!_mostrandoResultados) ...[
-                      const SizedBox(height: 18),
-                      _buildCategorias(),
-                    ] else ...[
-                      const SizedBox(height: 16),
-                      _buildResumoCategoria(),
+                    const SizedBox(height: 16),
+                    _buildCategorias(),
+                    const SizedBox(height: 14),
+                    _buildResumoCategoria(),
+                    if (filtrosVisiveis) ...[
                       const SizedBox(height: 14),
                       _buildFiltros(),
                     ],
@@ -445,8 +459,6 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
                 padding: EdgeInsets.fromLTRB(horizontal, 0, horizontal, 32),
                 sliver: SliverToBoxAdapter(child: _loadingCard()),
               )
-            else if (!_mostrandoResultados)
-              const SliverToBoxAdapter(child: SizedBox(height: 32))
             else if (exerciciosFiltrados.isEmpty)
               SliverPadding(
                 padding: EdgeInsets.fromLTRB(horizontal, 0, horizontal, 32),
@@ -463,6 +475,7 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildHero() {
     final totalTexto = _mostrandoResultados
         ? "${exerciciosFiltrados.length} encontrados"
@@ -548,76 +561,172 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
   }
 
   Widget _buildBusca() {
-    return AnimatedContainer(
-      duration: AppMotion.normal,
-      curve: AppMotion.curve,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(45),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: TextField(
-        controller: pesquisaController,
-        textInputAction: TextInputAction.search,
-        decoration: InputDecoration(
-          hintText: "Buscar exercício, músculo ou equipamento",
-          prefixIcon: const Icon(Icons.search_rounded),
-          suffixIcon: termoBusca.isEmpty
-              ? null
-              : IconButton(
-                  onPressed: _limparBusca,
-                  icon: const Icon(Icons.close_rounded),
-                  tooltip: "Limpar busca",
+    return Row(
+      children: [
+        Expanded(
+          child: AnimatedContainer(
+            duration: AppMotion.normal,
+            curve: AppMotion.curve,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(45),
+                  blurRadius: 18,
+                  offset: const Offset(0, 10),
                 ),
+              ],
+            ),
+            child: TextField(
+              controller: pesquisaController,
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(
+                hintText: "Buscar exercício",
+                prefixIcon: const Icon(Icons.search_rounded),
+                suffixIcon: termoBusca.isEmpty
+                    ? null
+                    : IconButton(
+                        onPressed: _limparBusca,
+                        icon: const Icon(Icons.close_rounded),
+                        tooltip: "Limpar busca",
+                      ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        _topActionButton(
+          icon: Icons.tune_rounded,
+          tooltip: "Filtros",
+          selected: filtrosVisiveis || _temFiltroAtivo,
+          onTap: () => setState(() => filtrosVisiveis = !filtrosVisiveis),
+        ),
+        const SizedBox(width: 10),
+        _topActionButton(
+          icon: apenasFavoritos
+              ? Icons.star_rounded
+              : Icons.star_border_rounded,
+          tooltip: "Favoritos",
+          selected: apenasFavoritos,
+          onTap: () {
+            _atualizarFiltros(() {
+              apenasFavoritos = !apenasFavoritos;
+            });
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _topActionButton({
+    required IconData icon,
+    required String tooltip,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            width: 52,
+            height: 56,
+            decoration: BoxDecoration(
+              color: selected ? AppColors.primary : AppColors.surfaceVariant,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: selected
+                    ? AppColors.primary
+                    : AppColors.primary.withAlpha(42),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(34),
+                  blurRadius: 14,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Icon(
+              icon,
+              color: selected ? Colors.black : AppColors.textPrimary,
+            ),
+          ),
         ),
       ),
     );
   }
 
   Widget _buildCategorias() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              "Descobrir por categoria",
-              style: Theme.of(
-                context,
-              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
-            ),
-            const Spacer(),
-            Text(
-              "${categoriasPrincipais.length} grupos",
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 168,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            itemCount: categoriasPrincipais.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 12),
-            itemBuilder: (context, index) {
-              final categoria = categoriasPrincipais[index];
-              return SizedBox(width: 156, child: _categoriaCard(categoria));
-            },
-          ),
-        ),
-        const SizedBox(height: 16),
-        _buildAcessoRapido(),
-      ],
+    return SizedBox(
+      height: 46,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: categoriasPrincipais.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final categoria = categoriasPrincipais[index];
+          final selected =
+              (categoria.nome == "Todos" && categoriaSelecionada == null) ||
+              categoriaSelecionada == categoria.nome;
+
+          return _categoriaPill(categoria, selected: selected);
+        },
+      ),
     );
   }
 
+  Widget _categoriaPill(
+    _BibliotecaCategoria categoria, {
+    required bool selected,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: () => _abrirCategoria(categoria.nome),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.primary : AppColors.surfaceVariant,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected
+                  ? AppColors.primary
+                  : AppColors.primary.withAlpha(35),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                categoria.icon,
+                size: 16,
+                color: selected ? Colors.black : categoria.color,
+              ),
+              const SizedBox(width: 7),
+              Text(
+                categoria.nome,
+                style: TextStyle(
+                  color: selected ? Colors.black : AppColors.textPrimary,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ignore: unused_element
   Widget _categoriaCard(_BibliotecaCategoria categoria) {
     final total = totaisPorCategoria[categoria.nome] ?? 0;
 
@@ -673,6 +782,7 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildAcessoRapido() {
     return AppGradientCard(
       padding: const EdgeInsets.all(16),
