@@ -458,6 +458,25 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
     });
   }
 
+  void _limparFiltrosFavoritos() {
+    buscaDebounce?.cancel();
+    pesquisaController.removeListener(_onBuscaAlterada);
+    pesquisaController.clear();
+    pesquisaController.addListener(_onBuscaAlterada);
+
+    _atualizarFiltros(() {
+      termoBusca = "";
+      termoBuscaNormalizado = "";
+      categoriaSelecionada = null;
+      localSelecionado = null;
+      tipoEquipamentoSelecionado = null;
+      equipamentoSelecionado = null;
+      objetivoSelecionado = null;
+      dificuldadeSelecionada = null;
+      apenasFavoritos = true;
+    });
+  }
+
   void _limparBusca() {
     buscaDebounce?.cancel();
     pesquisaController.removeListener(_onBuscaAlterada);
@@ -473,6 +492,13 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
   void _abrirCategoria(String categoria) {
     _atualizarFiltros(() {
       categoriaSelecionada = categoria == "Todos" ? null : categoria;
+    });
+  }
+
+  void _selecionarAbaBiblioteca(bool favoritos) {
+    _atualizarFiltros(() {
+      apenasFavoritos = favoritos;
+      if (favoritos) categoriaSelecionada = null;
     });
   }
 
@@ -506,7 +532,9 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
   @override
   Widget build(BuildContext context) {
     final horizontal = _horizontalPadding(context);
-    final titulo = categoriaSelecionada ?? "Biblioteca";
+    final titulo = apenasFavoritos
+        ? "Favoritos"
+        : categoriaSelecionada ?? "Biblioteca";
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -534,6 +562,8 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _buildBusca(),
+                    const SizedBox(height: 16),
+                    _buildAbasBiblioteca(),
                     const SizedBox(height: 16),
                     _buildCategorias(),
                     const SizedBox(height: 14),
@@ -696,13 +726,91 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
               : Icons.star_border_rounded,
           tooltip: "Favoritos",
           selected: apenasFavoritos,
-          onTap: () {
-            _atualizarFiltros(() {
-              apenasFavoritos = !apenasFavoritos;
-            });
-          },
+          onTap: () => _selecionarAbaBiblioteca(!apenasFavoritos),
         ),
       ],
+    );
+  }
+
+  Widget _buildAbasBiblioteca() {
+    return Container(
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceVariant,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.white.withAlpha(16)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _abaBiblioteca(
+              label: "Todos",
+              count: bancoExercicios.length,
+              icon: Icons.grid_view_rounded,
+              selected: !apenasFavoritos,
+              onTap: () => _selecionarAbaBiblioteca(false),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: _abaBiblioteca(
+              label: "Favoritos",
+              count: favoritosIds.length,
+              icon: Icons.star_rounded,
+              selected: apenasFavoritos,
+              onTap: () => _selecionarAbaBiblioteca(true),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _abaBiblioteca({
+    required String label,
+    required int count,
+    required IconData icon,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: selected ? Colors.black : AppColors.textSecondary,
+              ),
+              const SizedBox(width: 7),
+              Flexible(
+                child: Text(
+                  "$label ($count)",
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: selected ? Colors.black : AppColors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -1213,12 +1321,25 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
 
   Widget _buildResumoCategoria() {
     final categoria = categoriaSelecionada;
-    final texto = categoria == null
+    final texto = apenasFavoritos
+        ? categoria == null
+              ? "Favoritos"
+              : "Favoritos em $categoria"
+        : categoria == null
         ? "Resultados da busca"
         : "Explorando $categoria";
     final categoriaConfig = categoria == null
         ? null
         : _categoriaPorNome(categoria);
+    final resumo = apenasFavoritos
+        ? "${exerciciosFiltrados.length} favoritos salvos"
+        : "${exerciciosFiltrados.length} exercícios disponíveis";
+    final icon = apenasFavoritos
+        ? Icons.star_rounded
+        : categoriaConfig?.icon ?? Icons.inventory_2_rounded;
+    final color = apenasFavoritos
+        ? AppColors.accent2
+        : categoriaConfig?.color ?? AppColors.primary;
 
     return AppGradientCard(
       padding: const EdgeInsets.all(16),
@@ -1228,15 +1349,10 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: (categoriaConfig?.color ?? AppColors.primary).withAlpha(
-                28,
-              ),
+              color: color.withAlpha(28),
               borderRadius: BorderRadius.circular(15),
             ),
-            child: Icon(
-              categoriaConfig?.icon ?? Icons.inventory_2_rounded,
-              color: categoriaConfig?.color ?? AppColors.primary,
-            ),
+            child: Icon(icon, color: color),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1255,7 +1371,7 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  "${exerciciosFiltrados.length} exercícios disponíveis",
+                  resumo,
                   style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ],
@@ -1740,6 +1856,34 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
   }
 
   Widget _estadoVazio() {
+    if (apenasFavoritos && favoritosIds.isEmpty) {
+      return AppEmptyState(
+        icon: Icons.star_border_rounded,
+        title: "Nenhum favorito ainda",
+        message:
+            "Toque na estrela de um exercício para guardar seus movimentos preferidos aqui.",
+        action: AppButton.secondary(
+          onPressed: () => _selecionarAbaBiblioteca(false),
+          icon: Icons.explore_rounded,
+          label: "Explorar exercícios",
+        ),
+      );
+    }
+
+    if (apenasFavoritos) {
+      return AppEmptyState(
+        icon: Icons.star_half_rounded,
+        title: "Nenhum favorito encontrado",
+        message:
+            "Seus favoritos existem, mas os filtros atuais esconderam os resultados.",
+        action: AppButton.secondary(
+          onPressed: _limparFiltrosFavoritos,
+          icon: Icons.refresh_rounded,
+          label: "Limpar filtros",
+        ),
+      );
+    }
+
     return AppEmptyState(
       icon: Icons.search_off_rounded,
       title: "Nada encontrado",

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/exercicio_model.dart';
+import '../../services/storage_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/exercicio_gif_viewer.dart';
 
@@ -82,9 +83,15 @@ class ExercicioDetalhePage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  IconButton.filledTonal(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back_rounded),
+                  Row(
+                    children: [
+                      IconButton.filledTonal(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.arrow_back_rounded),
+                      ),
+                      const Spacer(),
+                      _FavoriteExerciseButton(exercicio: exercicio),
+                    ],
                   ),
                   const SizedBox(height: 10),
                   _heroBadge(),
@@ -625,4 +632,76 @@ class _SimilarItem {
   final String value;
 
   const _SimilarItem(this.icon, this.label, this.value);
+}
+
+class _FavoriteExerciseButton extends StatefulWidget {
+  final ExercicioModel exercicio;
+
+  const _FavoriteExerciseButton({required this.exercicio});
+
+  @override
+  State<_FavoriteExerciseButton> createState() =>
+      _FavoriteExerciseButtonState();
+}
+
+class _FavoriteExerciseButtonState extends State<_FavoriteExerciseButton> {
+  bool favorito = false;
+  bool carregando = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarFavorito();
+  }
+
+  Future<void> _carregarFavorito() async {
+    final favoritos = await StorageService.carregarFavoritosExercicios();
+
+    if (!mounted) return;
+
+    setState(() {
+      favorito = favoritos.contains(widget.exercicio.id);
+      widget.exercicio.favorito = favorito;
+      carregando = false;
+    });
+  }
+
+  Future<void> _alternarFavorito() async {
+    setState(() => carregando = true);
+
+    final novoEstado = await StorageService.alternarFavoritoExercicio(
+      widget.exercicio.id,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      favorito = novoEstado;
+      widget.exercicio.favorito = novoEstado;
+      carregando = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton.filledTonal(
+      onPressed: carregando ? null : _alternarFavorito,
+      tooltip: favorito ? 'Remover favorito' : 'Favoritar',
+      icon: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 180),
+        child: carregando
+            ? const SizedBox(
+                key: ValueKey('loading'),
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Icon(
+                favorito ? Icons.star_rounded : Icons.star_border_rounded,
+                key: ValueKey(favorito),
+                color: favorito ? AppColors.accent2 : AppColors.textPrimary,
+              ),
+      ),
+    );
+  }
 }
