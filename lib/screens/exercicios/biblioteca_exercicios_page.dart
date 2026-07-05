@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/exercicios/exercicios.dart';
 import '../../models/exercicio_model.dart';
@@ -121,6 +122,36 @@ String _heroTagExercicio(ExercicioModel exercicio) {
   return "exercicio-gif-$id";
 }
 
+String _chaveExercicio(ExercicioModel exercicio) {
+  return exercicio.id.trim().isEmpty ? exercicio.nome : exercicio.id;
+}
+
+const _recentesExerciciosKey = "fitai_exercicios_recentemente_visualizados";
+
+extension _RecentesExerciciosStorage on StorageService {
+  Future<List<String>> carregarRecentesExercicios() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (prefs.getStringList(_recentesExerciciosKey) ?? const <String>[])
+        .take(20)
+        .toList(growable: false);
+  }
+
+  Future<List<String>> registrarExercicioVisualizado(String exercicioId) async {
+    final id = exercicioId.trim();
+    if (id.isEmpty) return carregarRecentesExercicios();
+
+    final prefs = await SharedPreferences.getInstance();
+    final atuais = prefs.getStringList(_recentesExerciciosKey) ?? <String>[];
+    final atualizados = <String>[
+      id,
+      ...atuais.where((item) => item != id),
+    ].take(20).toList(growable: false);
+
+    await prefs.setStringList(_recentesExerciciosKey, atualizados);
+    return atualizados;
+  }
+}
+
 class BibliotecaExerciciosPage extends StatefulWidget {
   final void Function(ExercicioModel)? onSelecionar;
   final String? categoriaInicial;
@@ -138,6 +169,7 @@ class BibliotecaExerciciosPage extends StatefulWidget {
 
 class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
   final pesquisaController = TextEditingController();
+  final storageService = StorageService();
 
   static const categoriasPrincipais = [
     _BibliotecaCategoria(
@@ -207,6 +239,7 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
   late final Map<String, int> totaisPorCategoria;
 
   Set<String> favoritosIds = {};
+  List<String> recentesIds = [];
   List<ExercicioModel> exerciciosFiltrados = [];
   String termoBusca = "";
   String termoBuscaNormalizado = "";
@@ -218,6 +251,7 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
   String? dificuldadeSelecionada;
   bool apenasFavoritos = false;
   bool carregandoFavoritos = true;
+  bool carregandoRecentes = true;
 
   @override
   void initState() {
@@ -228,6 +262,7 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
     exerciciosFiltrados = _filtrarExercicios();
     pesquisaController.addListener(_onBuscaAlterada);
     _carregarFavoritos();
+    _carregarRecentes();
   }
 
   @override
@@ -261,6 +296,30 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
       favoritosIds = favoritos;
       carregandoFavoritos = false;
       exerciciosFiltrados = _filtrarExercicios();
+    });
+  }
+
+  Future<void> _carregarRecentes() async {
+    final recentes = await storageService.carregarRecentesExercicios();
+
+    if (!mounted) return;
+
+    setState(() {
+      recentesIds = recentes;
+      carregandoRecentes = false;
+    });
+  }
+
+  Future<void> _registrarVisualizacao(ExercicioModel exercicio) async {
+    final recentes = await storageService.registrarExercicioVisualizado(
+      _chaveExercicio(exercicio),
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      recentesIds = recentes;
+      carregandoRecentes = false;
     });
   }
 
@@ -415,6 +474,10 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
   }
 
   Future<void> _abrirDetalhe(ExercicioModel exercicio) async {
+    await _registrarVisualizacao(exercicio);
+
+    if (!mounted) return;
+
     final selecionado = await Navigator.push<ExercicioModel>(
       context,
       MaterialPageRoute(
@@ -564,6 +627,8 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
                     _buildBusca(),
                     const SizedBox(height: 16),
                     _buildAbasBiblioteca(),
+                    const SizedBox(height: 16),
+                    _buildRecentementeVisualizados(),
                     const SizedBox(height: 16),
                     _buildCategorias(),
                     const SizedBox(height: 14),
@@ -812,6 +877,199 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
         ),
       ),
     );
+  }
+
+  Widget _buildRecentementeVisualizados() {
+    final recentes = _exerciciosRecentes();
+
+    return AppGradientCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withAlpha(24),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: const Icon(
+                  Icons.history_rounded,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Recentemente visualizados",
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      "Os últimos 20 exercícios que você abriu.",
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (recentes.isNotEmpty) _miniChip("${recentes.length}/20"),
+            ],
+          ),
+          const SizedBox(height: 14),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            child: carregandoRecentes
+                ? _recentesLoading()
+                : recentes.isEmpty
+                ? _recentesVazio()
+                : SizedBox(
+                    key: const ValueKey("recentes-lista"),
+                    height: 156,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: recentes.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 10),
+                      itemBuilder: (context, index) {
+                        return _recenteCard(recentes[index]);
+                      },
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _recentesLoading() {
+    return Container(
+      key: const ValueKey("recentes-loading"),
+      height: 92,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceVariant,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withAlpha(16)),
+      ),
+      child: const Center(child: CircularProgressIndicator(strokeWidth: 2.4)),
+    );
+  }
+
+  Widget _recentesVazio() {
+    return Container(
+      key: const ValueKey("recentes-vazio"),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceVariant,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withAlpha(16)),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.visibility_outlined, color: AppColors.textSecondary),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              "Abra um exercício para montar seu histórico de visualização.",
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                height: 1.35,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _recenteCard(ExercicioModel exercicio) {
+    final equipamento = exercicio.equipamentos.isEmpty
+        ? "Peso corporal"
+        : exercicio.equipamentos.first;
+
+    return SizedBox(
+      width: 190,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () => _abrirDetalhe(exercicio),
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceVariant,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.white.withAlpha(16)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: SizedBox(
+                    height: 72,
+                    width: double.infinity,
+                    child: _imagemExercicio(exercicio),
+                  ),
+                ),
+                const SizedBox(height: 9),
+                Text(
+                  exercicio.nome,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    height: 1.1,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  "${exercicio.categoria} • $equipamento",
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<ExercicioModel> _exerciciosRecentes() {
+    final porChave = {
+      for (final exercicio in bancoExercicios)
+        _chaveExercicio(exercicio): exercicio,
+    };
+
+    return recentesIds
+        .map((id) => porChave[id])
+        .whereType<ExercicioModel>()
+        .take(20)
+        .toList(growable: false);
   }
 
   Widget _topActionButton({
