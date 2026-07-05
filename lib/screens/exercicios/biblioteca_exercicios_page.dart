@@ -75,6 +75,47 @@ class _ImageHint extends StatelessWidget {
   }
 }
 
+class _FilterCountCard extends StatelessWidget {
+  final int quantidade;
+
+  const _FilterCountCard({required this.quantidade});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: AppColors.gradientPrimary,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withAlpha(45),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.search_rounded, color: Colors.black),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              "$quantidade exercícios encontrados",
+              style: const TextStyle(
+                color: Colors.black,
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 String _heroTagExercicio(ExercicioModel exercicio) {
   final id = exercicio.id.trim().isEmpty ? exercicio.nome : exercicio.id;
   return "exercicio-gif-$id";
@@ -172,9 +213,10 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
   String? categoriaSelecionada;
   String? localSelecionado;
   String? tipoEquipamentoSelecionado;
+  String? equipamentoSelecionado;
+  String? objetivoSelecionado;
   String? dificuldadeSelecionada;
   bool apenasFavoritos = false;
-  bool filtrosVisiveis = false;
   bool carregandoFavoritos = true;
 
   @override
@@ -270,16 +312,50 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
     );
   }
 
-  List<ExercicioModel> _filtrarExercicios() {
+  List<ExercicioModel> _filtrarExercicios({
+    String? categoriaFiltro,
+    String? localFiltro,
+    String? tipoEquipamentoFiltro,
+    String? equipamentoFiltro,
+    String? objetivoFiltro,
+    String? dificuldadeFiltro,
+    bool? apenasFavoritosFiltro,
+    bool usarEstadoAtual = true,
+  }) {
     final busca = termoBuscaNormalizado;
-    final categoria = categoriaSelecionada;
-    final local = localSelecionado == null
+    final categoria = usarEstadoAtual
+        ? categoriaFiltro ?? categoriaSelecionada
+        : categoriaFiltro;
+    final localSelecionadoAtual = usarEstadoAtual
+        ? localFiltro ?? localSelecionado
+        : localFiltro;
+    final tipoEquipamento = usarEstadoAtual
+        ? tipoEquipamentoFiltro ?? tipoEquipamentoSelecionado
+        : tipoEquipamentoFiltro;
+    final equipamentoSelecionadoAtual = usarEstadoAtual
+        ? equipamentoFiltro ?? equipamentoSelecionado
+        : equipamentoFiltro;
+    final objetivoSelecionadoAtual = usarEstadoAtual
+        ? objetivoFiltro ?? objetivoSelecionado
+        : objetivoFiltro;
+    final dificuldadeSelecionadaAtual = usarEstadoAtual
+        ? dificuldadeFiltro ?? dificuldadeSelecionada
+        : dificuldadeFiltro;
+    final favoritos = usarEstadoAtual
+        ? apenasFavoritosFiltro ?? apenasFavoritos
+        : apenasFavoritosFiltro ?? false;
+    final local = localSelecionadoAtual == null
         ? null
-        : _normalizar(localSelecionado!);
-    final tipoEquipamento = tipoEquipamentoSelecionado;
-    final dificuldade = dificuldadeSelecionada == null
+        : _normalizar(localSelecionadoAtual);
+    final equipamento = equipamentoSelecionadoAtual == null
         ? null
-        : _normalizar(dificuldadeSelecionada!);
+        : _normalizar(equipamentoSelecionadoAtual);
+    final objetivo = objetivoSelecionadoAtual == null
+        ? null
+        : _normalizar(objetivoSelecionadoAtual);
+    final dificuldade = dificuldadeSelecionadaAtual == null
+        ? null
+        : _normalizar(dificuldadeSelecionadaAtual);
 
     return indiceBusca
         .where((item) {
@@ -287,7 +363,7 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
             return false;
           }
 
-          if (apenasFavoritos && !favoritosIds.contains(item.exercicio.id)) {
+          if (favoritos && !favoritosIds.contains(item.exercicio.id)) {
             return false;
           }
 
@@ -297,6 +373,17 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
 
           if (tipoEquipamento != null &&
               !_combinaTipoEquipamento(item, tipoEquipamento)) {
+            return false;
+          }
+
+          if (equipamento != null &&
+              !item.equipamentos.any((valor) => valor.contains(equipamento))) {
+            return false;
+          }
+
+          if (objetivo != null &&
+              _normalizar(item.exercicio.objetivo) != objetivo &&
+              !item.exercicio.tags.map(_normalizar).contains(objetivo)) {
             return false;
           }
 
@@ -364,9 +451,10 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
       termoBuscaNormalizado = "";
       localSelecionado = null;
       tipoEquipamentoSelecionado = null;
+      equipamentoSelecionado = null;
+      objetivoSelecionado = null;
       dificuldadeSelecionada = null;
       apenasFavoritos = false;
-      filtrosVisiveis = false;
     });
   }
 
@@ -393,6 +481,8 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
       categoriaSelecionada = null;
       localSelecionado = null;
       tipoEquipamentoSelecionado = null;
+      equipamentoSelecionado = null;
+      objetivoSelecionado = null;
       dificuldadeSelecionada = null;
       apenasFavoritos = false;
     });
@@ -403,6 +493,8 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
         apenasFavoritos ||
         localSelecionado != null ||
         tipoEquipamentoSelecionado != null ||
+        equipamentoSelecionado != null ||
+        objetivoSelecionado != null ||
         dificuldadeSelecionada != null;
   }
 
@@ -446,10 +538,6 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
                     _buildCategorias(),
                     const SizedBox(height: 14),
                     _buildResumoCategoria(),
-                    if (filtrosVisiveis) ...[
-                      const SizedBox(height: 14),
-                      _buildFiltros(),
-                    ],
                   ],
                 ),
               ),
@@ -598,8 +686,8 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
         _topActionButton(
           icon: Icons.tune_rounded,
           tooltip: "Filtros",
-          selected: filtrosVisiveis || _temFiltroAtivo,
-          onTap: () => setState(() => filtrosVisiveis = !filtrosVisiveis),
+          selected: _temFiltroAtivo,
+          onTap: _abrirFiltrosPremium,
         ),
         const SizedBox(width: 10),
         _topActionButton(
@@ -657,6 +745,294 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Future<void> _abrirFiltrosPremium() async {
+    var grupoTemp = categoriaSelecionada;
+    var equipamentoTemp = equipamentoSelecionado;
+    var tipoEquipamentoTemp = tipoEquipamentoSelecionado;
+    var objetivoTemp = objetivoSelecionado;
+    var dificuldadeTemp = dificuldadeSelecionada;
+    var localTemp = localSelecionado;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, modalSetState) {
+            final quantidade = _filtrarExercicios(
+              categoriaFiltro: grupoTemp,
+              localFiltro: localTemp,
+              tipoEquipamentoFiltro: tipoEquipamentoTemp,
+              equipamentoFiltro: equipamentoTemp,
+              objetivoFiltro: objetivoTemp,
+              dificuldadeFiltro: dificuldadeTemp,
+              apenasFavoritosFiltro: apenasFavoritos,
+              usarEstadoAtual: false,
+            ).length;
+
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 20,
+                  right: 20,
+                  top: 12,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 42,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withAlpha(45),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Row(
+                        children: [
+                          Container(
+                            width: 46,
+                            height: 46,
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withAlpha(26),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Icon(
+                              Icons.tune_rounded,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "Filtros premium",
+                                  style: TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                SizedBox(height: 3),
+                                Text(
+                                  "Refine a biblioteca por treino, local e nível.",
+                                  style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      _FilterCountCard(quantidade: quantidade),
+                      const SizedBox(height: 18),
+                      _filterSection(
+                        title: "Grupo muscular",
+                        options: categoriasPrincipais
+                            .map((categoria) => categoria.nome)
+                            .toList(),
+                        selected: grupoTemp ?? "Todos",
+                        onSelected: (value) {
+                          modalSetState(() {
+                            grupoTemp = value == "Todos" ? null : value;
+                          });
+                        },
+                      ),
+                      _filterSection(
+                        title: "Equipamento",
+                        options: const [
+                          "Todos",
+                          "Peso corporal",
+                          "Halteres",
+                          "Barra",
+                          "Polia",
+                          "Máquina",
+                          "Peso livre",
+                          "Banco",
+                          "Elástico",
+                        ],
+                        selected:
+                            tipoEquipamentoTemp ?? equipamentoTemp ?? "Todos",
+                        onSelected: (value) {
+                          modalSetState(() {
+                            if (value == "Todos") {
+                              equipamentoTemp = null;
+                              tipoEquipamentoTemp = null;
+                            } else if (value == "Máquina") {
+                              equipamentoTemp = null;
+                              tipoEquipamentoTemp = "Maquina";
+                            } else if (value == "Peso livre") {
+                              equipamentoTemp = null;
+                              tipoEquipamentoTemp = "Peso Livre";
+                            } else {
+                              equipamentoTemp = value;
+                              tipoEquipamentoTemp = null;
+                            }
+                          });
+                        },
+                      ),
+                      _filterSection(
+                        title: "Objetivo",
+                        options: const [
+                          "Todos",
+                          "Hipertrofia",
+                          "Força",
+                          "Emagrecimento",
+                          "Resistência",
+                          "Mobilidade",
+                        ],
+                        selected: objetivoTemp ?? "Todos",
+                        onSelected: (value) {
+                          modalSetState(() {
+                            objetivoTemp = value == "Todos" ? null : value;
+                          });
+                        },
+                      ),
+                      _filterSection(
+                        title: "Dificuldade",
+                        options: const [
+                          "Todos",
+                          "Iniciante",
+                          "Intermediário",
+                          "Avançado",
+                        ],
+                        selected: dificuldadeTemp ?? "Todos",
+                        onSelected: (value) {
+                          modalSetState(() {
+                            dificuldadeTemp = value == "Todos" ? null : value;
+                          });
+                        },
+                      ),
+                      _filterSection(
+                        title: "Local",
+                        options: const [
+                          "Todos",
+                          "Casa",
+                          "Academia",
+                          "Ar livre",
+                        ],
+                        selected: localTemp ?? "Todos",
+                        onSelected: (value) {
+                          modalSetState(() {
+                            localTemp = value == "Todos" ? null : value;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                modalSetState(() {
+                                  grupoTemp = null;
+                                  equipamentoTemp = null;
+                                  tipoEquipamentoTemp = null;
+                                  objetivoTemp = null;
+                                  dificuldadeTemp = null;
+                                  localTemp = null;
+                                });
+                              },
+                              icon: const Icon(Icons.refresh_rounded),
+                              label: const Text("Limpar"),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                _atualizarFiltros(() {
+                                  categoriaSelecionada = grupoTemp;
+                                  equipamentoSelecionado = equipamentoTemp;
+                                  tipoEquipamentoSelecionado =
+                                      tipoEquipamentoTemp;
+                                  objetivoSelecionado = objetivoTemp;
+                                  dificuldadeSelecionada = dificuldadeTemp;
+                                  localSelecionado = localTemp;
+                                });
+                                Navigator.pop(context);
+                              },
+                              icon: const Icon(Icons.check_rounded),
+                              label: Text("Ver $quantidade"),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _filterSection({
+    required String title,
+    required List<String> options,
+    required String selected,
+    required ValueChanged<String> onSelected,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: options.map((option) {
+              final isSelected = _normalizar(option) == _normalizar(selected);
+
+              return ChoiceChip(
+                selected: isSelected,
+                label: Text(option),
+                onSelected: (_) => onSelected(option),
+                selectedColor: AppColors.primary,
+                backgroundColor: AppColors.surfaceVariant,
+                labelStyle: TextStyle(
+                  color: isSelected ? Colors.black : AppColors.textSecondary,
+                  fontWeight: FontWeight.w800,
+                ),
+                side: BorderSide(
+                  color: isSelected
+                      ? AppColors.primary
+                      : Colors.white.withAlpha(18),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }
@@ -900,6 +1276,7 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildFiltros() {
     final filtrosAtivos = _temFiltroAtivo;
 
