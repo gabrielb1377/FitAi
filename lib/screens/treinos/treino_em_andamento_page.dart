@@ -90,6 +90,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     });
   }
 
+  // ignore: unused_element
   void _registrarSerie() {
     final exercicio = _exercicio;
     if (exercicio == null) return;
@@ -425,20 +426,15 @@ class _ExerciseHeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 280,
+      height: 250,
       decoration: BoxDecoration(
         color: const Color(0xFFEEF4F6),
         borderRadius: BorderRadius.circular(28),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          Center(
-            child: Icon(
-              Icons.fitness_center_rounded,
-              size: 76,
-              color: Colors.black.withAlpha(80),
-            ),
-          ),
+          Positioned.fill(child: _ExerciseGif(exercicio: exercicio)),
           Positioned(left: 18, top: 18, child: _MiniBadge(label: 'GIF')),
           Positioned(
             right: 18,
@@ -448,6 +444,71 @@ class _ExerciseHeroCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _ExerciseGif extends StatelessWidget {
+  final ExercicioModel exercicio;
+
+  const _ExerciseGif({required this.exercicio});
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.asset(
+      _gifPath(exercicio.nome),
+      width: double.infinity,
+      height: double.infinity,
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) {
+        return Center(
+          child: Icon(
+            Icons.fitness_center_rounded,
+            size: 76,
+            color: Colors.black.withAlpha(80),
+          ),
+        );
+      },
+    );
+  }
+
+  static const Map<String, String> _gifMap = {
+    'Supino Reto': 'assets/gifs/peito/supino_reto.gif',
+    'Puxada Frontal': 'assets/gifs/costas/puxada_frontal.gif',
+    'Agachamento Livre': 'assets/gifs/pernas/agachamento_livre.gif',
+  };
+
+  static String _gifPath(String nome) {
+    return _gifMap[nome] ?? 'assets/gifs/${_slug(nome)}.gif';
+  }
+
+  static String _slug(String value) {
+    var text = value.toLowerCase();
+    const replacements = {
+      '\u00e1': 'a',
+      '\u00e0': 'a',
+      '\u00e3': 'a',
+      '\u00e2': 'a',
+      '\u00e4': 'a',
+      '\u00e9': 'e',
+      '\u00ea': 'e',
+      '\u00eb': 'e',
+      '\u00ed': 'i',
+      '\u00ee': 'i',
+      '\u00ef': 'i',
+      '\u00f3': 'o',
+      '\u00f5': 'o',
+      '\u00f4': 'o',
+      '\u00f6': 'o',
+      '\u00fa': 'u',
+      '\u00fc': 'u',
+      '\u00e7': 'c',
+    };
+    for (final entry in replacements.entries) {
+      text = text.replaceAll(entry.key, entry.value);
+    }
+    text = text.replaceAll(RegExp(r'[^a-z0-9]+'), '_');
+    text = text.replaceAll(RegExp(r'_+'), '_');
+    return text.replaceAll(RegExp(r'^_|_$'), '');
   }
 }
 
@@ -755,6 +816,12 @@ class _HistoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final melhorSerie = _melhorSerieDoDia();
+    final volumeTotal = entries.fold<double>(
+      0,
+      (total, entry) => total + _volume(entry),
+    );
+
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF0D1218),
@@ -770,7 +837,7 @@ class _HistoryCard extends StatelessWidget {
               Icon(Icons.history_rounded, color: Color(0xFF00E5C3)),
               SizedBox(width: 8),
               Text(
-                'Histórico',
+                'Histórico do exercício',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 17,
@@ -781,70 +848,249 @@ class _HistoryCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           if (entries.isEmpty)
-            Text(
-              'Registre a primeira série para criar histórico deste exercício.',
-              style: TextStyle(
-                color: Colors.white.withAlpha(135),
-                height: 1.35,
-                fontWeight: FontWeight.w600,
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF111820),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFF233241)),
               ),
-            )
-          else
-            ...entries
-                .take(5)
-                .map(
-                  (entry) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 7),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 34,
-                          height: 34,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF111820),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Center(
-                            child: Text(
-                              '${entry.numero}',
-                              style: const TextStyle(
-                                color: Color(0xFF00E5C3),
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            '${entry.peso} kg × ${entry.repeticoes} reps',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          _hora(entry.data),
-                          style: TextStyle(
-                            color: Colors.white.withAlpha(120),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.add_chart_rounded,
+                    color: const Color(0xFF00E5C3).withAlpha(190),
+                    size: 34,
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Nenhuma série registrada ainda',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Registre sua primeira série para acompanhar carga, repetições e volume.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white.withAlpha(135),
+                      height: 1.35,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else ...[
+            Row(
+              children: [
+                Expanded(
+                  child: _MetricPill(
+                    label: 'Volume total',
+                    value: '${_formatarNumero(volumeTotal)} kg',
+                  ),
                 ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _MetricPill(
+                    label: 'Séries',
+                    value: '${entries.length}',
+                  ),
+                ),
+              ],
+            ),
+            if (melhorSerie != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00E5C3).withAlpha(20),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: const Color(0xFF00E5C3).withAlpha(90),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.workspace_premium_rounded,
+                      color: Color(0xFF00E5C3),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Melhor série de hoje',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Série ${melhorSerie.numero} • ${melhorSerie.peso} kg × ${melhorSerie.repeticoes} reps',
+                            style: TextStyle(
+                              color: Colors.white.withAlpha(150),
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            ...entries.take(5).map(_HistorySeriesTile.new),
+          ],
         ],
       ),
     );
+  }
+
+  _HistoricoSerieLocal? _melhorSerieDoDia() {
+    _HistoricoSerieLocal? melhor;
+    for (final entry in entries) {
+      if (melhor == null || _volume(entry) > _volume(melhor)) {
+        melhor = entry;
+      }
+    }
+    return melhor;
+  }
+
+  static double _volume(_HistoricoSerieLocal entry) {
+    final peso = double.tryParse(entry.peso.replaceAll(',', '.')) ?? 0;
+    return peso * entry.repeticoes;
+  }
+
+  static String _formatarNumero(double value) {
+    if (value == value.roundToDouble()) return value.toStringAsFixed(0);
+    return value.toStringAsFixed(1);
   }
 
   static String _hora(DateTime data) {
     final h = data.hour.toString().padLeft(2, '0');
     final m = data.minute.toString().padLeft(2, '0');
     return '$h:$m';
+  }
+}
+
+class _MetricPill extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _MetricPill({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111820),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF233241)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withAlpha(130),
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Color(0xFF00E5C3),
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HistorySeriesTile extends StatelessWidget {
+  final _HistoricoSerieLocal entry;
+
+  const _HistorySeriesTile(this.entry);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111820),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF233241)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: const Color(0xFF0D1218),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Center(
+              child: Text(
+                '${entry.numero}',
+                style: const TextStyle(
+                  color: Color(0xFF00E5C3),
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Série ${entry.numero}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${entry.peso} kg × ${entry.repeticoes} reps',
+                  style: TextStyle(
+                    color: Colors.white.withAlpha(150),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            _HistoryCard._hora(entry.data),
+            style: TextStyle(
+              color: Colors.white.withAlpha(120),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -917,6 +1163,7 @@ class _RestCard extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _PrimaryRegisterButton extends StatelessWidget {
   final VoidCallback onTap;
 
