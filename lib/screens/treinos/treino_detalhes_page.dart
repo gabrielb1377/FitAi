@@ -557,7 +557,7 @@ class TreinoDetalhesPage extends StatelessWidget {
       context,
       MaterialPageRoute(
         builder: (_) => TreinoEmAndamentoPage(
-          treino: treino,
+          treino: dia?.treinoDoDia ?? treino,
           nomeDia: dia?.dia,
           grupoDia: dia?.grupo,
         ),
@@ -586,6 +586,24 @@ class TreinoDetalhesPage extends StatelessWidget {
   }
 
   List<_DiaTreino> _montarDivisaoSemanal() {
+    if (treino.planoDias.isNotEmpty) {
+      return treino.planoDias.map((dia) {
+        final treinoDoDia = treino.somenteDia(dia);
+        final codigo = dia.codigo.trim();
+
+        return _DiaTreino(
+          dia: codigo.isEmpty
+              ? 'Dia ${dia.ordem}'
+              : 'Dia ${dia.ordem} / $codigo',
+          grupo: dia.nome,
+          quantidadeExercicios: treinoDoDia.exercicios.length,
+          tempoEstimado: _tempoSeguro(),
+          progresso: 0,
+          treinoDoDia: treinoDoDia,
+        );
+      }).toList();
+    }
+
     final grupos = _detectarGrupos();
     final quantidade = treino.exercicios.length;
     final tempoBase = _tempoSeguro();
@@ -597,6 +615,7 @@ class TreinoDetalhesPage extends StatelessWidget {
         quantidadeExercicios: quantidade,
         tempoEstimado: tempoBase,
         progresso: 0,
+        treinoDoDia: treino,
       ),
       _DiaTreino(
         dia: 'Terca',
@@ -604,6 +623,7 @@ class TreinoDetalhesPage extends StatelessWidget {
         quantidadeExercicios: quantidade,
         tempoEstimado: tempoBase,
         progresso: 0,
+        treinoDoDia: treino,
       ),
       _DiaTreino(
         dia: 'Quarta',
@@ -611,6 +631,7 @@ class TreinoDetalhesPage extends StatelessWidget {
         quantidadeExercicios: quantidade,
         tempoEstimado: tempoBase,
         progresso: 0,
+        treinoDoDia: treino,
       ),
       _DiaTreino(
         dia: 'Quinta',
@@ -618,6 +639,7 @@ class TreinoDetalhesPage extends StatelessWidget {
         quantidadeExercicios: quantidade,
         tempoEstimado: tempoBase,
         progresso: 0,
+        treinoDoDia: treino,
       ),
       _DiaTreino(
         dia: 'Sexta',
@@ -625,6 +647,7 @@ class TreinoDetalhesPage extends StatelessWidget {
         quantidadeExercicios: quantidade,
         tempoEstimado: tempoBase,
         progresso: 0,
+        treinoDoDia: treino,
       ),
     ];
   }
@@ -656,6 +679,9 @@ class TreinoDetalhesPage extends StatelessWidget {
   }
 
   String _diasPorSemana() {
+    if (treino.planoDias.isNotEmpty) return '${treino.planoDias.length} dias';
+    if (treino.diasPorSemana > 0) return '${treino.diasPorSemana} dias';
+
     final nome = treino.nome.toLowerCase();
     if (nome.contains('abcde')) return '5 dias';
     if (nome.contains('abcd')) return '4 dias';
@@ -770,15 +796,15 @@ class _TreinoDiaPage extends StatelessWidget {
               _horizontalPadding(context),
               120,
             ),
-            sliver: treino.exercicios.isEmpty
+            sliver: dia.treinoDoDia.exercicios.isEmpty
                 ? SliverToBoxAdapter(child: _emptyState())
                 : SliverList.builder(
-                    itemCount: treino.exercicios.length,
+                    itemCount: dia.treinoDoDia.exercicios.length,
                     itemBuilder: (context, index) {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: _ExerciseDayCard(
-                          exercicio: treino.exercicios[index],
+                          exercicio: dia.treinoDoDia.exercicios[index],
                           index: index,
                           concluido: dia.progresso >= 100,
                         ),
@@ -876,10 +902,10 @@ class _TreinoDiaPage extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                          height: 1,
-                        ),
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      height: 1,
+                    ),
                   ),
                   const SizedBox(height: 18),
                   Row(
@@ -907,7 +933,7 @@ class _TreinoDiaPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    '${treino.exercicios.length} exercicios',
+                    '${dia.treinoDoDia.exercicios.length} exercicios',
                     style: const TextStyle(
                       color: Colors.white70,
                       fontWeight: FontWeight.w700,
@@ -958,7 +984,7 @@ class _TreinoDiaPage extends StatelessWidget {
       context,
       MaterialPageRoute(
         builder: (_) => TreinoEmAndamentoPage(
-          treino: treino,
+          treino: dia.treinoDoDia,
           nomeDia: dia.dia,
           grupoDia: dia.grupo,
         ),
@@ -1201,12 +1227,14 @@ class _DiaTreino {
   final int quantidadeExercicios;
   final int tempoEstimado;
   final int progresso;
+  final TreinoModel treinoDoDia;
 
   const _DiaTreino({
     required this.dia,
     required this.grupo,
     required this.quantidadeExercicios,
     required this.tempoEstimado,
+    required this.treinoDoDia,
     this.progresso = 0,
   });
 }

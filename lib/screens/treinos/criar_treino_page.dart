@@ -29,10 +29,10 @@ class _CriarTreinoPageState extends State<CriarTreinoPage> {
 
   final objetivos = const [
     "Hipertrofia",
-    "Emagrecimento",
     "Força",
+    "Emagrecimento",
     "Resistência",
-    "Condicionamento",
+    "Mobilidade",
   ];
 
   final niveis = const ["Iniciante", "Intermediário", "Avançado"];

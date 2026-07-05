@@ -4,19 +4,12 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
 import '../ai_workout_page.dart';
-import '../../services/storage_service.dart';
 import '../../services/treino_service.dart';
-import '../../models/historico_treino_model.dart';
-import '../../models/treino_model.dart';
-import '../../models/exercicio_model.dart';
 import 'criar_treino_page.dart';
 import 'historico_treinos_page.dart';
 import 'widgets/create_plan_bottomsheet.dart';
 import 'widgets/plan_card.dart';
 import 'treino_detalhes_page.dart';
-import 'treino_em_andamento_page.dart';
-
-
 
 class TreinosPage extends StatefulWidget {
   final Future<void> Function()? onXpAtualizado;
@@ -420,7 +413,9 @@ class _TreinosPageState extends State<TreinosPage> {
   }
 
   Widget _buildTreinos() {
-    final treinos = treinoService.treinos;
+    final treinos = treinoService.treinos
+        .where((treino) => treino.isPlanoPrincipal)
+        .toList();
 
     if (treinos.isEmpty) {
       return AppGradientCard(

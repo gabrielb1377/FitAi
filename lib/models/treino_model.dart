@@ -15,6 +15,30 @@ class TreinoModel {
 
   final int tempoEstimado;
 
+  final int diasPorSemana;
+
+  final String local;
+
+  final List<String> equipamentos;
+
+  final List<String> gruposPrioritarios;
+
+  final List<String> lesoesRestricoes;
+
+  final List<String> exerciciosFavoritos;
+
+  final List<String> exerciciosEvitados;
+
+  final String observacoes;
+
+  final String diaPlano;
+
+  final String grupoDia;
+
+  final int ordemDia;
+
+  final List<TreinoDiaModel> planoDias;
+
   final bool criadoPorIA;
 
   final List<ExercicioModel> exercicios;
@@ -29,10 +53,24 @@ class TreinoModel {
     required this.nivel,
     this.divisao = "Full Body",
     required this.tempoEstimado,
+    this.diasPorSemana = 1,
+    this.local = "",
+    this.equipamentos = const [],
+    this.gruposPrioritarios = const [],
+    this.lesoesRestricoes = const [],
+    this.exerciciosFavoritos = const [],
+    this.exerciciosEvitados = const [],
+    this.observacoes = "",
+    this.diaPlano = "",
+    this.grupoDia = "",
+    this.ordemDia = 0,
+    this.planoDias = const [],
     required this.criadoPorIA,
     required this.exercicios,
     required this.dataCriacao,
   });
+
+  bool get isPlanoPrincipal => diaPlano.trim().isEmpty || planoDias.isNotEmpty;
 
   Map<String, dynamic> toJson() {
     return {
@@ -43,6 +81,18 @@ class TreinoModel {
       "nivel": nivel,
       "divisao": divisao,
       "tempoEstimado": tempoEstimado,
+      "diasPorSemana": diasPorSemana,
+      "local": local,
+      "equipamentos": equipamentos,
+      "gruposPrioritarios": gruposPrioritarios,
+      "lesoesRestricoes": lesoesRestricoes,
+      "exerciciosFavoritos": exerciciosFavoritos,
+      "exerciciosEvitados": exerciciosEvitados,
+      "observacoes": observacoes,
+      "diaPlano": diaPlano,
+      "grupoDia": grupoDia,
+      "ordemDia": ordemDia,
+      "planoDias": planoDias.map((dia) => dia.toJson()).toList(),
       "criadoPorIA": criadoPorIA,
       "dataCriacao": dataCriacao,
       "exercicios": exercicios.map((e) => e.toJson()).toList(),
@@ -51,18 +101,128 @@ class TreinoModel {
 
   factory TreinoModel.fromJson(Map<String, dynamic> json) {
     return TreinoModel(
-      id: json["id"],
-      nome: json["nome"],
-      descricao: json["descricao"],
-      objetivo: json["objetivo"],
-      nivel: json["nivel"],
+      id: json["id"]?.toString() ?? "",
+      nome: json["nome"]?.toString() ?? "Treino",
+      descricao: json["descricao"]?.toString() ?? "",
+      objetivo: json["objetivo"]?.toString() ?? "Hipertrofia",
+      nivel: json["nivel"]?.toString() ?? "Iniciante",
       divisao: json["divisao"] ?? "Full Body",
-      tempoEstimado: json["tempoEstimado"],
-      criadoPorIA: json["criadoPorIA"],
-      dataCriacao: json["dataCriacao"],
-      exercicios: (json["exercicios"] as List)
+      tempoEstimado: _intFromJson(json["tempoEstimado"], fallback: 45),
+      diasPorSemana: _intFromJson(json["diasPorSemana"], fallback: 1),
+      local: json["local"]?.toString() ?? "",
+      equipamentos: _listFromJson(json["equipamentos"]),
+      gruposPrioritarios: _listFromJson(json["gruposPrioritarios"]),
+      lesoesRestricoes: _listFromJson(json["lesoesRestricoes"]),
+      exerciciosFavoritos: _listFromJson(json["exerciciosFavoritos"]),
+      exerciciosEvitados: _listFromJson(json["exerciciosEvitados"]),
+      observacoes: json["observacoes"]?.toString() ?? "",
+      diaPlano: json["diaPlano"]?.toString() ?? "",
+      grupoDia: json["grupoDia"]?.toString() ?? "",
+      ordemDia: _intFromJson(json["ordemDia"]),
+      planoDias: _diasFromJson(json["planoDias"]),
+      criadoPorIA: _boolFromJson(json["criadoPorIA"]),
+      dataCriacao: json["dataCriacao"]?.toString() ?? "",
+      exercicios: ((json["exercicios"] as List?) ?? [])
           .map((e) => ExercicioModel.fromJson(e))
           .toList(),
+    );
+  }
+
+  TreinoModel somenteDia(TreinoDiaModel dia) {
+    final ids = dia.exercicioIds.toSet();
+    final exerciciosDoDia = ids.isEmpty
+        ? exercicios
+        : exercicios.where((exercicio) => ids.contains(exercicio.id)).toList();
+
+    return TreinoModel(
+      id: "${id}_${dia.ordem}",
+      nome: dia.codigo.trim().isEmpty
+          ? dia.nome
+          : "${dia.codigo} - ${dia.nome}",
+      descricao: descricao,
+      objetivo: objetivo,
+      nivel: nivel,
+      divisao: divisao,
+      tempoEstimado: tempoEstimado,
+      diasPorSemana: diasPorSemana,
+      local: local,
+      equipamentos: equipamentos,
+      gruposPrioritarios: gruposPrioritarios,
+      lesoesRestricoes: lesoesRestricoes,
+      exerciciosFavoritos: exerciciosFavoritos,
+      exerciciosEvitados: exerciciosEvitados,
+      observacoes: observacoes,
+      diaPlano: dia.codigo,
+      grupoDia: dia.nome,
+      ordemDia: dia.ordem,
+      criadoPorIA: criadoPorIA,
+      exercicios: exerciciosDoDia,
+      dataCriacao: dataCriacao,
+    );
+  }
+
+  static int _intFromJson(dynamic value, {int fallback = 0}) {
+    if (value is int) return value;
+    if (value is num) return value.round();
+
+    return int.tryParse(value?.toString() ?? "") ?? fallback;
+  }
+
+  static bool _boolFromJson(dynamic value) {
+    if (value is bool) return value;
+
+    return value?.toString().toLowerCase() == "true";
+  }
+
+  static List<String> _listFromJson(dynamic value) {
+    if (value is List) {
+      return value
+          .map((item) => item.toString().trim())
+          .where((item) => item.isNotEmpty)
+          .toList();
+    }
+
+    return [];
+  }
+
+  static List<TreinoDiaModel> _diasFromJson(dynamic value) {
+    if (value is! List) return [];
+
+    return value
+        .whereType<Map>()
+        .map((item) => TreinoDiaModel.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
+  }
+}
+
+class TreinoDiaModel {
+  final String codigo;
+  final String nome;
+  final int ordem;
+  final List<String> exercicioIds;
+
+  const TreinoDiaModel({
+    required this.codigo,
+    required this.nome,
+    required this.ordem,
+    required this.exercicioIds,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      "codigo": codigo,
+      "nome": nome,
+      "ordem": ordem,
+      "exercicioIds": exercicioIds,
+    };
+  }
+
+  factory TreinoDiaModel.fromJson(Map<String, dynamic> json) {
+    return TreinoDiaModel(
+      codigo: json["codigo"]?.toString() ?? "",
+      nome: json["nome"]?.toString() ?? "Treino",
+      ordem: TreinoModel._intFromJson(json["ordem"]),
+      exercicioIds: TreinoModel._listFromJson(json["exercicioIds"]),
     );
   }
 }
