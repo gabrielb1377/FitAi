@@ -27,7 +27,7 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
   final treinoService = TreinoService.instance;
 
   String objetivo = 'Hipertrofia';
-  String divisao = 'Full Body';
+  String divisao = 'Automática';
   String nivel = 'Iniciante';
   String localTreino = 'Academia';
   int diasPorSemana = 3;
@@ -43,6 +43,7 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
   ];
 
   final divisoes = const [
+    'Automática',
     'Full Body',
     'AB',
     'ABC',
@@ -74,6 +75,7 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
   }
 
   String get divisaoSelecionada {
+    if (divisao == 'Automática') return _divisaoRecomendada();
     if (divisao != 'Personalizado') return divisao;
     final personalizada = divisaoPersonalizadaController.text.trim();
     return personalizada.isEmpty ? 'Personalizado' : personalizada;
@@ -86,10 +88,28 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
       return;
     }
 
+    final plano = _montarPlano();
+    final confirmado = await _mostrarResumoPlano(plano);
+
+    if (!mounted || confirmado != true) return;
+
     setState(() => carregando = true);
 
-    final dias = _montarDias(divisaoSelecionada);
+    treinoService.adicionarTreino(plano.treino);
+
+    if (!mounted) return;
+
+    setState(() => carregando = false);
+    _snack(
+      'Ficha ${plano.treino.divisao} gerada com ${plano.dias.length} dias.',
+    );
+    Navigator.pop(context, true);
+  }
+
+  _PlanoGerado _montarPlano() {
     final agora = DateTime.now();
+    final divisaoFinal = divisaoSelecionada;
+    final dias = _montarDias(divisaoFinal);
     final equipamentos = _split(equipamentosController.text);
     final gruposPrioritarios = _split(gruposPrioritariosController.text);
     final lesoes = _split(lesoesController.text);
@@ -126,11 +146,11 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
 
     final treino = TreinoModel(
       id: 'ia_${agora.microsecondsSinceEpoch}',
-      nome: '$divisaoSelecionada - $objetivo',
-      descricao: _descricaoPlano(divisaoSelecionada, equipamentos, lesoes),
+      nome: '$divisaoFinal - $objetivo',
+      descricao: _descricaoPlano(divisaoFinal, equipamentos, lesoes),
       objetivo: objetivo,
       nivel: nivel,
-      divisao: divisaoSelecionada,
+      divisao: divisaoFinal,
       tempoEstimado: tempoPorTreino,
       diasPorSemana: dias.length,
       local: localTreino,
@@ -146,16 +166,20 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
       dataCriacao: agora.toIso8601String(),
     );
 
-    treinoService.adicionarTreino(treino);
-
-    if (!mounted) return;
-
-    setState(() => carregando = false);
-    _snack('Ficha $divisaoSelecionada gerada com ${dias.length} dias.');
-    Navigator.pop(context, true);
+    return _PlanoGerado(
+      treino: treino,
+      dias: dias,
+      totalExercicios: todosExercicios.length,
+      volumeSemanal: _volumeSemanalEstimado(todosExercicios.length),
+      tempoTotal: tempoPorTreino * dias.length,
+    );
   }
 
   List<_DiaPlano> _montarDias(String divisaoTreino) {
+    return _prepararDias(_montarDiasBase(divisaoTreino));
+  }
+
+  List<_DiaPlano> _montarDiasBase(String divisaoTreino) {
     final normalizada = divisaoTreino.toLowerCase();
 
     if (divisao == 'Personalizado') {
@@ -198,6 +222,25 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
     }
 
     if (normalizada.contains('push')) {
+      if (normalizada.contains('upper')) {
+        return _expandirDias(const [
+          _DiaPlano('Push', 'Peito + Ombros + Tríceps', [
+            'Peito',
+            'Ombros',
+            'Tríceps',
+          ]),
+          _DiaPlano('Pull', 'Costas + Bíceps', ['Costas', 'Bíceps']),
+          _DiaPlano('Legs', 'Pernas + Glúteos', ['Pernas', 'Glúteos']),
+          _DiaPlano('Upper', 'Superior completo', [
+            'Peito',
+            'Costas',
+            'Ombros',
+            'Braços',
+          ]),
+          _DiaPlano('Core', 'Core + Condicionamento', ['Abdômen', 'Cardio']),
+        ]);
+      }
+
       return _expandirDias(const [
         _DiaPlano('Push', 'Peito + Ombros + Tríceps', [
           'Peito',
@@ -231,6 +274,92 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
         'Abdômen',
       ]);
     });
+  }
+
+  String _divisaoRecomendada() {
+    final objetivoNormalizado = _normalizar(objetivo);
+
+    switch (diasPorSemana) {
+      case 2:
+        return objetivoNormalizado.contains('mobilidade') ||
+                objetivoNormalizado.contains('resistencia')
+            ? 'Full Body'
+            : 'Superior/Inferior';
+      case 3:
+        return objetivoNormalizado.contains('mobilidade') ||
+                objetivoNormalizado.contains('emagrec')
+            ? 'Full Body'
+            : 'ABC';
+      case 4:
+        return objetivoNormalizado.contains('mobilidade')
+            ? 'Superior/Inferior'
+            : 'ABCD';
+      case 5:
+        return objetivoNormalizado.contains('forca') ||
+                objetivoNormalizado.contains('hipertrofia')
+            ? 'ABCDE'
+            : 'Push/Pull/Legs + Upper';
+      case 6:
+        return 'Push/Pull/Legs x2';
+      default:
+        return 'Full Body';
+    }
+  }
+
+  List<_DiaPlano> _prepararDias(List<_DiaPlano> dias) {
+    final comPrioridade = _aplicarPrioridadeMuscular(dias);
+    return _evitarMusculosConsecutivos(comPrioridade);
+  }
+
+  List<_DiaPlano> _aplicarPrioridadeMuscular(List<_DiaPlano> dias) {
+    final prioridades = _split(gruposPrioritariosController.text);
+    if (prioridades.isEmpty) return dias;
+
+    return List.generate(dias.length, (index) {
+      final dia = dias[index];
+      if (index >= prioridades.length) return dia;
+
+      final prioridade = prioridades[index];
+      final jaExiste = dia.grupos.any(
+        (grupo) => _normalizar(grupo) == _normalizar(prioridade),
+      );
+
+      if (jaExiste) return dia;
+
+      return _DiaPlano(dia.codigo, '${dia.nome} + $prioridade', [
+        prioridade,
+        ...dia.grupos,
+      ]);
+    });
+  }
+
+  List<_DiaPlano> _evitarMusculosConsecutivos(List<_DiaPlano> dias) {
+    final ajustados = List<_DiaPlano>.from(dias);
+
+    for (var index = 1; index < ajustados.length; index++) {
+      if (!_temSobreposicao(ajustados[index - 1], ajustados[index])) continue;
+
+      for (
+        var candidato = index + 1;
+        candidato < ajustados.length;
+        candidato++
+      ) {
+        if (!_temSobreposicao(ajustados[index - 1], ajustados[candidato])) {
+          final atual = ajustados[index];
+          ajustados[index] = ajustados[candidato];
+          ajustados[candidato] = atual;
+          break;
+        }
+      }
+    }
+
+    return ajustados;
+  }
+
+  bool _temSobreposicao(_DiaPlano anterior, _DiaPlano atual) {
+    final gruposAnteriores = anterior.grupos.map(_normalizar).toSet();
+
+    return atual.grupos.map(_normalizar).any(gruposAnteriores.contains);
   }
 
   List<_DiaPlano> _expandirDias(List<_DiaPlano> base) {
@@ -277,9 +406,8 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
     int diaIndex,
     _DiaPlano dia,
   ) {
-    final alvo = (tempoPorTreino / 9).round().clamp(4, 8);
+    final alvo = _alvoExerciciosPorDia(dia.grupos);
     final gruposDoDia = <String>[
-      ...gruposPrioritarios,
       ...grupos,
       if (objetivo == 'Emagrecimento') ...['Cardio', 'Funcional'],
       if (objetivo == 'Mobilidade') ...['Mobilidade', 'Core'],
@@ -322,16 +450,52 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
     }
 
     if (filtrados.length < alvo) {
-      filtrados = _deduplicar([
-        ...filtrados,
-        ..._templatesPorGrupo('Full Body'),
-        ..._templatesPorGrupo('Mobilidade'),
-      ]);
+      filtrados =
+          _deduplicar([
+            ...filtrados,
+            ..._templatesPorGrupo('Full Body'),
+            ..._templatesPorGrupo('Mobilidade'),
+          ]).where((seed) {
+            return !_contemAlgum(seed.nome, evitados) &&
+                !_contemAlgum(seed.nome, lesoes) &&
+                !_contemAlgum(seed.categoria, lesoes);
+          }).toList();
     }
 
-    return filtrados.take(alvo).map((seed) {
+    final variados = _rotacionarExercicios(filtrados, diaIndex);
+
+    return variados.take(alvo).map((seed) {
       return _exercicio(seed, diaIndex, dia);
     }).toList();
+  }
+
+  int _alvoExerciciosPorDia(List<String> grupos) {
+    var alvo = (tempoPorTreino / 9).round().clamp(4, 8);
+    final objetivoNormalizado = _normalizar(objetivo);
+
+    if (objetivoNormalizado.contains('forca')) {
+      alvo = alvo.clamp(4, 6);
+    } else if (objetivoNormalizado.contains('mobilidade')) {
+      alvo = alvo.clamp(3, 6);
+    } else if (diasPorSemana >= 5) {
+      alvo = alvo.clamp(4, 6);
+    }
+
+    if (grupos.length >= 3 && tempoPorTreino >= 60) {
+      alvo = (alvo + 1).clamp(4, 8);
+    }
+
+    return alvo;
+  }
+
+  List<_ExercicioSeed> _rotacionarExercicios(
+    List<_ExercicioSeed> seeds,
+    int diaIndex,
+  ) {
+    if (seeds.length < 2) return seeds;
+
+    final offset = diaIndex % seeds.length;
+    return [...seeds.skip(offset), ...seeds.take(offset)];
   }
 
   List<_ExercicioSeed> _templatesPorGrupo(String grupo) {
@@ -636,6 +800,123 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
     ];
 
     return partes.join(' ');
+  }
+
+  int _seriesPorExercicio() {
+    final objetivoNormalizado = _normalizar(objetivo);
+    final nivelNormalizado = _normalizar(nivel);
+
+    if (objetivoNormalizado.contains('mobilidade')) return 2;
+    if (objetivoNormalizado.contains('forca')) return 5;
+    if (nivelNormalizado.contains('avancado')) return 4;
+
+    return 3;
+  }
+
+  String _volumeSemanalEstimado(int totalExercicios) {
+    final series = totalExercicios * _seriesPorExercicio();
+    final intensidade = _normalizar(objetivo).contains('forca')
+        ? 'alta'
+        : _normalizar(objetivo).contains('mobilidade')
+        ? 'leve'
+        : 'moderada';
+
+    return '$series séries/$intensidade';
+  }
+
+  Future<bool?> _mostrarResumoPlano(_PlanoGerado plano) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: AppColors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: const Text('Resumo do plano'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _ResumoLinha(
+                  label: 'Plano escolhido',
+                  value: plano.treino.nome,
+                  icon: Icons.auto_awesome_rounded,
+                ),
+                _ResumoLinha(
+                  label: 'Divisão',
+                  value: plano.treino.divisao,
+                  icon: Icons.account_tree_rounded,
+                ),
+                _ResumoLinha(
+                  label: 'Dias',
+                  value: '${plano.dias.length} por semana',
+                  icon: Icons.calendar_month_rounded,
+                ),
+                _ResumoLinha(
+                  label: 'Exercícios',
+                  value: '${plano.totalExercicios}',
+                  icon: Icons.fitness_center_rounded,
+                ),
+                _ResumoLinha(
+                  label: 'Tempo estimado',
+                  value: '${plano.tempoTotal} min/semana',
+                  icon: Icons.timer_rounded,
+                ),
+                _ResumoLinha(
+                  label: 'Volume semanal',
+                  value: plano.volumeSemanal,
+                  icon: Icons.monitor_weight_rounded,
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceVariant,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Distribuição',
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      for (final dia in plano.dias)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 5),
+                          child: Text(
+                            '${dia.codigo} - ${dia.nome}',
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Ajustar'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Salvar plano'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   List<String> _split(String value) {
@@ -947,4 +1228,78 @@ class _ExercicioSeed {
     this.locais,
     this.caloriasHora,
   );
+}
+
+class _PlanoGerado {
+  final TreinoModel treino;
+  final List<_DiaPlano> dias;
+  final int totalExercicios;
+  final String volumeSemanal;
+  final int tempoTotal;
+
+  const _PlanoGerado({
+    required this.treino,
+    required this.dias,
+    required this.totalExercicios,
+    required this.volumeSemanal,
+    required this.tempoTotal,
+  });
+}
+
+class _ResumoLinha extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+
+  const _ResumoLinha({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withAlpha(24),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: AppColors.primary, size: 20),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
