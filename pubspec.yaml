@@ -59,18 +59,6 @@ flutter:
 
   assets:
     - assets/gifs/
-    - assets/gifs/abdomen/
-    - assets/gifs/alongamento/
-    - assets/gifs/antebraco/
-    - assets/gifs/biceps/
-    - assets/gifs/cardio/
-    - assets/gifs/costas/
-    - assets/gifs/funcional/
-    - assets/gifs/gluteos/
-    - assets/gifs/ombros/
-    - assets/gifs/peito/
-    - assets/gifs/pernas/
-    - assets/gifs/triceps/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

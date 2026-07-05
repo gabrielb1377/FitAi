@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme/app_theme.dart';
 
@@ -6,6 +9,7 @@ class ExercicioGifViewer extends StatelessWidget {
   final String imagem;
   final String titulo;
   final String? subtitulo;
+  final String? gifPath;
   final double height;
   final double borderRadius;
 
@@ -14,27 +18,32 @@ class ExercicioGifViewer extends StatelessWidget {
     required this.imagem,
     required this.titulo,
     this.subtitulo,
+    this.gifPath,
     this.height = 220,
     this.borderRadius = 24,
   });
 
   @override
   Widget build(BuildContext context) {
-    final imagePath = imagem.trim();
+    final temPossivelGif =
+        titulo.trim().isNotEmpty ||
+        imagem.trim().isNotEmpty ||
+        (gifPath?.trim().isNotEmpty ?? false);
 
     return Semantics(
-      button: imagePath.isNotEmpty,
-      label: imagePath.isEmpty ? 'GIF indisponivel' : 'Abrir GIF do exercicio',
+      button: temPossivelGif,
+      label: temPossivelGif ? 'Abrir GIF do exercicio' : 'GIF indisponivel',
       child: InkWell(
         borderRadius: BorderRadius.circular(borderRadius),
-        onTap: imagePath.isEmpty
-            ? null
-            : () => mostrarGifExercicioTelaCheia(
+        onTap: temPossivelGif
+            ? () => mostrarGifExercicioTelaCheia(
                 context,
-                imagem: imagePath,
+                imagem: imagem,
                 titulo: titulo,
                 subtitulo: subtitulo,
-              ),
+                gifPath: gifPath,
+              )
+            : null,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 240),
           curve: Curves.easeOut,
@@ -56,7 +65,13 @@ class ExercicioGifViewer extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              _imagem(imagePath),
+              ExercicioGifImage(
+                imagem: imagem,
+                titulo: titulo,
+                gifPath: gifPath,
+                placeholder: _placeholder(),
+                cacheHeight: 520,
+              ),
               Positioned(
                 right: 12,
                 bottom: 12,
@@ -81,31 +96,6 @@ class ExercicioGifViewer extends StatelessWidget {
     );
   }
 
-  Widget _imagem(String imagePath) {
-    if (imagePath.isEmpty) return _placeholder();
-
-    final isNetwork =
-        imagePath.startsWith('http://') || imagePath.startsWith('https://');
-
-    if (isNetwork) {
-      return Image.network(
-        imagePath,
-        fit: BoxFit.contain,
-        filterQuality: FilterQuality.low,
-        errorBuilder: (_, _, _) => _placeholder(),
-      );
-    }
-
-    return Image.asset(
-      imagePath,
-      fit: BoxFit.contain,
-      cacheHeight: 520,
-      filterQuality: FilterQuality.low,
-      semanticLabel: titulo,
-      errorBuilder: (_, _, _) => _placeholder(),
-    );
-  }
-
   Widget _placeholder() {
     return Container(
       color: Colors.black.withAlpha(36),
@@ -120,11 +110,70 @@ class ExercicioGifViewer extends StatelessWidget {
   }
 }
 
+class ExercicioGifImage extends StatelessWidget {
+  final String imagem;
+  final String titulo;
+  final String? gifPath;
+  final BoxFit fit;
+  final Widget? placeholder;
+  final int? cacheWidth;
+  final int? cacheHeight;
+
+  const ExercicioGifImage({
+    super.key,
+    required this.imagem,
+    required this.titulo,
+    this.gifPath,
+    this.fit = BoxFit.contain,
+    this.placeholder,
+    this.cacheWidth,
+    this.cacheHeight,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Map<String, String>>(
+      future: _GifResolver.manifest,
+      builder: (context, snapshot) {
+        final paths = _GifResolver.pathsFor(
+          titulo: titulo,
+          imagem: imagem,
+          gifPath: gifPath,
+          manifest: snapshot.data ?? const {},
+        );
+
+        return _GifAssetChain(
+          paths: paths,
+          fit: fit,
+          semanticLabel: titulo,
+          placeholder: placeholder ?? _defaultPlaceholder(),
+          cacheWidth: cacheWidth,
+          cacheHeight: cacheHeight,
+        );
+      },
+    );
+  }
+
+  Widget _defaultPlaceholder() {
+    return Container(
+      color: Colors.black.withAlpha(36),
+      child: const Center(
+        child: Icon(
+          Icons.fitness_center_rounded,
+          color: AppColors.primary,
+          size: 42,
+        ),
+      ),
+    );
+  }
+}
+
 void mostrarGifExercicioTelaCheia(
   BuildContext context, {
   required String imagem,
   required String titulo,
   String? subtitulo,
+  String? gifPath,
 }) {
   showDialog<void>(
     context: context,
@@ -133,6 +182,7 @@ void mostrarGifExercicioTelaCheia(
       imagem: imagem.trim(),
       titulo: titulo,
       subtitulo: subtitulo,
+      gifPath: gifPath,
     ),
   );
 }
@@ -141,11 +191,13 @@ class _ExercicioGifDialog extends StatelessWidget {
   final String imagem;
   final String titulo;
   final String? subtitulo;
+  final String? gifPath;
 
   const _ExercicioGifDialog({
     required this.imagem,
     required this.titulo,
     this.subtitulo,
+    this.gifPath,
   });
 
   @override
@@ -213,27 +265,24 @@ class _ExercicioGifDialog extends StatelessWidget {
   }
 
   Widget _imagem() {
-    if (imagem.isEmpty) return _placeholder();
+    return FutureBuilder<Map<String, String>>(
+      future: _GifResolver.manifest,
+      builder: (context, snapshot) {
+        final paths = _GifResolver.pathsFor(
+          titulo: titulo,
+          imagem: imagem,
+          gifPath: gifPath,
+          manifest: snapshot.data ?? const {},
+        );
 
-    final isNetwork =
-        imagem.startsWith('http://') || imagem.startsWith('https://');
-
-    if (isNetwork) {
-      return Image.network(
-        imagem,
-        fit: BoxFit.contain,
-        filterQuality: FilterQuality.low,
-        errorBuilder: (_, _, _) => _placeholder(),
-      );
-    }
-
-    return Image.asset(
-      imagem,
-      fit: BoxFit.contain,
-      cacheWidth: 1200,
-      filterQuality: FilterQuality.low,
-      semanticLabel: titulo,
-      errorBuilder: (_, _, _) => _placeholder(),
+        return _GifAssetChain(
+          paths: paths,
+          fit: BoxFit.contain,
+          semanticLabel: titulo,
+          placeholder: _placeholder(),
+          cacheWidth: 1200,
+        );
+      },
     );
   }
 
@@ -268,5 +317,164 @@ class _ExercicioGifDialog extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _GifAssetChain extends StatelessWidget {
+  final List<String> paths;
+  final BoxFit fit;
+  final String semanticLabel;
+  final Widget placeholder;
+  final int? cacheWidth;
+  final int? cacheHeight;
+
+  const _GifAssetChain({
+    required this.paths,
+    required this.fit,
+    required this.semanticLabel,
+    required this.placeholder,
+    this.cacheWidth,
+    this.cacheHeight,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _buildCandidate(0);
+  }
+
+  Widget _buildCandidate(int index) {
+    if (index >= paths.length) return placeholder;
+
+    final path = paths[index];
+    final isNetwork = path.startsWith('http://') || path.startsWith('https://');
+
+    if (isNetwork) {
+      return Image.network(
+        path,
+        fit: fit,
+        filterQuality: FilterQuality.low,
+        errorBuilder: (_, _, _) => _buildCandidate(index + 1),
+      );
+    }
+
+    return Image.asset(
+      path,
+      fit: fit,
+      cacheWidth: cacheWidth,
+      cacheHeight: cacheHeight,
+      filterQuality: FilterQuality.low,
+      semanticLabel: semanticLabel,
+      errorBuilder: (_, _, _) => _buildCandidate(index + 1),
+    );
+  }
+}
+
+class _GifResolver {
+  static const String manifestPath = 'assets/gifs/gif_manifest.json';
+
+  static Future<Map<String, String>>? _manifestFuture;
+
+  static Future<Map<String, String>> get manifest {
+    return _manifestFuture ??= _loadManifest();
+  }
+
+  static Future<Map<String, String>> _loadManifest() async {
+    try {
+      final raw = await rootBundle.loadString(manifestPath);
+      final decoded = jsonDecode(raw);
+
+      if (decoded is! Map) return const {};
+
+      return decoded.map<String, String>((key, value) {
+        return MapEntry(key.toString(), value.toString());
+      });
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  static List<String> pathsFor({
+    required String titulo,
+    required String imagem,
+    required String? gifPath,
+    required Map<String, String> manifest,
+  }) {
+    final slug = normalizarNome(titulo);
+    final manifestValue = manifest[slug];
+
+    return _unique([
+      _assetPath(manifestValue),
+      _assetPath(gifPath),
+      _assetPath(imagem),
+    ]);
+  }
+
+  static String normalizarNome(String value) {
+    var text = value.toLowerCase().trim();
+    const replacements = {
+      'á': 'a',
+      'à': 'a',
+      'ã': 'a',
+      'â': 'a',
+      'ä': 'a',
+      'é': 'e',
+      'è': 'e',
+      'ê': 'e',
+      'ë': 'e',
+      'í': 'i',
+      'ì': 'i',
+      'î': 'i',
+      'ï': 'i',
+      'ó': 'o',
+      'ò': 'o',
+      'õ': 'o',
+      'ô': 'o',
+      'ö': 'o',
+      'ú': 'u',
+      'ù': 'u',
+      'û': 'u',
+      'ü': 'u',
+      'ç': 'c',
+      'ñ': 'n',
+    };
+
+    for (final entry in replacements.entries) {
+      text = text.replaceAll(entry.key, entry.value);
+    }
+
+    text = text.replaceAll(RegExp(r'[^a-z0-9]+'), '_');
+    text = text.replaceAll(RegExp(r'_+'), '_');
+    return text.replaceAll(RegExp(r'^_|_$'), '');
+  }
+
+  static String? _assetPath(String? rawPath) {
+    final raw = rawPath?.trim();
+    if (raw == null || raw.isEmpty) return null;
+    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+
+    final normalized = raw.replaceAll('\\', '/').replaceAll('%25', '%');
+
+    if (normalized.startsWith('assets/gifs/')) {
+      return normalized;
+    }
+
+    if (normalized.startsWith('assets/')) {
+      return normalized;
+    }
+
+    final clean = normalized.replaceAll(RegExp(r'^/+'), '');
+    return 'assets/gifs/$clean';
+  }
+
+  static List<String> _unique(List<String?> values) {
+    final seen = <String>{};
+    final result = <String>[];
+
+    for (final value in values) {
+      if (value == null || value.trim().isEmpty) continue;
+      if (seen.add(value)) result.add(value);
+    }
+
+    return result;
   }
 }

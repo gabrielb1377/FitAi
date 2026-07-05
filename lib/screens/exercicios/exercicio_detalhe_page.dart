@@ -96,46 +96,13 @@ class ExercicioDetalhePage extends StatelessWidget {
                   const SizedBox(height: 10),
                   _heroBadge(),
                   const SizedBox(height: 14),
-                  GestureDetector(
-                    onTap: exercicio.imagem.trim().isEmpty
-                        ? null
-                        : () => mostrarGifExercicioTelaCheia(
-                            context,
-                            imagem: exercicio.imagem,
-                            titulo: exercicio.nome,
-                            subtitulo: exercicio.categoria,
-                          ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(28),
-                      child: Container(
-                        height: 246,
-                        width: double.infinity,
-                        color: AppColors.surfaceVariant,
-                        child: Stack(
-                          children: [
-                            Positioned.fill(
-                              child: exercicio.imagem.trim().isEmpty
-                                  ? _gifPlaceholder()
-                                  : Image.asset(
-                                      exercicio.imagem,
-                                      fit: BoxFit.contain,
-                                      errorBuilder: (_, _, _) =>
-                                          _gifPlaceholder(),
-                                    ),
-                            ),
-                            if (exercicio.imagem.trim().isNotEmpty)
-                              Positioned(
-                                right: 12,
-                                bottom: 12,
-                                child: _miniPill(
-                                  Icons.open_in_full_rounded,
-                                  'Ampliar',
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
+                  ExercicioGifViewer(
+                    imagem: exercicio.imagem,
+                    titulo: exercicio.nome,
+                    subtitulo: exercicio.categoria,
+                    gifPath: exercicio.gifPath,
+                    height: 246,
+                    borderRadius: 28,
                   ),
                   const SizedBox(height: 18),
                   Text(
@@ -586,16 +553,6 @@ class ExercicioDetalhePage extends StatelessWidget {
           fontSize: 12,
           fontWeight: FontWeight.w800,
         ),
-      ),
-    );
-  }
-
-  Widget _gifPlaceholder() {
-    return const Center(
-      child: Icon(
-        Icons.fitness_center_rounded,
-        color: AppColors.primary,
-        size: 44,
       ),
     );
   }

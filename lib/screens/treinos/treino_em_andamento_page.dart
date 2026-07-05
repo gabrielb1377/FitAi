@@ -6,6 +6,7 @@ import '../../models/exercicio_model.dart';
 import '../../models/historico_treino_model.dart';
 import '../../models/treino_model.dart';
 import '../../services/storage_service.dart';
+import '../../widgets/exercicio_gif_viewer.dart';
 import 'treino_finalizado_page.dart';
 
 class TreinoEmAndamentoPage extends StatefulWidget {
@@ -841,61 +842,21 @@ class _ExerciseGif extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Image.asset(
-      _gifPath(exercicio.nome),
-      width: double.infinity,
-      height: double.infinity,
-      fit: BoxFit.contain,
-      errorBuilder: (context, error, stackTrace) {
-        return Center(
+    return SizedBox.expand(
+      child: ExercicioGifImage(
+        imagem: exercicio.imagem,
+        titulo: exercicio.nome,
+        gifPath: exercicio.gifPath,
+        fit: BoxFit.contain,
+        placeholder: Center(
           child: Icon(
             Icons.fitness_center_rounded,
             size: 76,
             color: Colors.black.withAlpha(80),
           ),
-        );
-      },
+        ),
+      ),
     );
-  }
-
-  static const Map<String, String> _gifMap = {
-    'Supino Reto': 'assets/gifs/peito/supino_reto.gif',
-    'Puxada Frontal': 'assets/gifs/costas/puxada_frontal.gif',
-    'Agachamento Livre': 'assets/gifs/pernas/agachamento_livre.gif',
-  };
-
-  static String _gifPath(String nome) {
-    return _gifMap[nome] ?? 'assets/gifs/${_slug(nome)}.gif';
-  }
-
-  static String _slug(String value) {
-    var text = value.toLowerCase();
-    const replacements = {
-      '\u00e1': 'a',
-      '\u00e0': 'a',
-      '\u00e3': 'a',
-      '\u00e2': 'a',
-      '\u00e4': 'a',
-      '\u00e9': 'e',
-      '\u00ea': 'e',
-      '\u00eb': 'e',
-      '\u00ed': 'i',
-      '\u00ee': 'i',
-      '\u00ef': 'i',
-      '\u00f3': 'o',
-      '\u00f5': 'o',
-      '\u00f4': 'o',
-      '\u00f6': 'o',
-      '\u00fa': 'u',
-      '\u00fc': 'u',
-      '\u00e7': 'c',
-    };
-    for (final entry in replacements.entries) {
-      text = text.replaceAll(entry.key, entry.value);
-    }
-    text = text.replaceAll(RegExp(r'[^a-z0-9]+'), '_');
-    text = text.replaceAll(RegExp(r'_+'), '_');
-    return text.replaceAll(RegExp(r'^_|_$'), '');
   }
 }
 

@@ -137,19 +137,25 @@ extension _RecentesExerciciosStorage on StorageService {
   }
 
   Future<List<String>> registrarExercicioVisualizado(String exercicioId) async {
-    final id = exercicioId.trim();
-    if (id.isEmpty) return carregarRecentesExercicios();
-
     final prefs = await SharedPreferences.getInstance();
+
+    final id = exercicioId.trim();
+    if (id.isEmpty) {
+      return carregarRecentesExercicios();
+    }
+
     final atuais = prefs.getStringList(_recentesExerciciosKey) ?? <String>[];
+
     final atualizados = <String>[
       id,
       ...atuais.where((item) => item != id),
     ].take(20).toList(growable: false);
 
     await prefs.setStringList(_recentesExerciciosKey, atualizados);
+
     return atualizados;
   }
+
 }
 
 class BibliotecaExerciciosPage extends StatefulWidget {
@@ -475,8 +481,6 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
 
   Future<void> _abrirDetalhe(ExercicioModel exercicio) async {
     await _registrarVisualizacao(exercicio);
-
-    if (!mounted) return;
 
     final selecionado = await Navigator.push<ExercicioModel>(
       context,
@@ -926,7 +930,8 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
                   ],
                 ),
               ),
-              if (recentes.isNotEmpty) _miniChip("${recentes.length}/20"),
+              if (recentes.isNotEmpty)
+                _miniChip("${recentes.length}/20"),
             ],
           ),
           const SizedBox(height: 14),
@@ -965,7 +970,9 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.white.withAlpha(16)),
       ),
-      child: const Center(child: CircularProgressIndicator(strokeWidth: 2.4)),
+      child: const Center(
+        child: CircularProgressIndicator(strokeWidth: 2.4),
+      ),
     );
   }
 
@@ -1061,8 +1068,7 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
 
   List<ExercicioModel> _exerciciosRecentes() {
     final porChave = {
-      for (final exercicio in bancoExercicios)
-        _chaveExercicio(exercicio): exercicio,
+      for (final exercicio in bancoExercicios) _chaveExercicio(exercicio): exercicio,
     };
 
     return recentesIds

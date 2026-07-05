@@ -18,6 +18,7 @@ class ExercicioModel {
   final int caloriasHora;
 
   final String imagem;
+  final String gifPath;
   final String video;
 
   bool favorito;
@@ -36,6 +37,7 @@ class ExercicioModel {
     required this.dificuldade,
     required this.objetivo,
     required this.imagem,
+    this.gifPath = "",
     required this.video,
     required this.tags,
     required this.caloriasHora,
@@ -57,6 +59,7 @@ class ExercicioModel {
       "dificuldade": dificuldade,
       "objetivo": objetivo,
       "imagem": imagem,
+      "gifPath": gifPath,
       "video": video,
       "favorito": favorito,
       "tags": tags,
@@ -73,13 +76,15 @@ class ExercicioModel {
       comoExecutar: json["comoExecutar"] ?? "",
       cuidados: json["cuidados"] ?? "",
       musculos: List<String>.from(json["musculos"] ?? const []),
-      musculosSecundarios:
-          List<String>.from(json["musculosSecundarios"] ?? const []),
+      musculosSecundarios: List<String>.from(
+        json["musculosSecundarios"] ?? const [],
+      ),
       equipamentos: List<String>.from(json["equipamentos"] ?? const []),
       locais: List<String>.from(json["locais"] ?? const []),
       dificuldade: json["dificuldade"] ?? "Iniciante",
       objetivo: json["objetivo"] ?? "Geral",
       imagem: json["imagem"] ?? "",
+      gifPath: json["gifPath"] ?? "",
       video: json["video"] ?? "",
       favorito: json["favorito"] ?? false,
       tags: List<String>.from(json["tags"] ?? const []),
