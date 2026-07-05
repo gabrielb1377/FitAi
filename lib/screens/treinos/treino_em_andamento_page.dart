@@ -41,7 +41,9 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   int _exercicioAtual = 0;
   int _segundosTreino = 0;
   int _descansoRestante = 0;
+  int _descansoTotal = _descansoPadrao;
   bool _comentarioAberto = false;
+  bool _descansoFinalizado = false;
 
   int get _totalExercicios => widget.treino.exercicios.length;
 
@@ -107,6 +109,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     final comentario = _comentarioController.text.trim();
 
     setState(() {
+      _descansoFinalizado = false;
       _seriesConcluidas[_exercicioAtual] = {...concluidas, serieIndex};
       _comentarios[_exercicioAtual] = comentario;
       (_historico[_exercicioAtual] ??= []).insert(
@@ -135,14 +138,13 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     });
   }
 
-  void _incrementarRepeticoes() {
-    final atual = int.tryParse(_repeticoesController.text.trim()) ?? 0;
-    setState(() => _repeticoesController.text = '${atual + 1}');
-  }
-
   void _iniciarDescanso() {
     _descansoTimer?.cancel();
-    setState(() => _descansoRestante = _descansoPadrao);
+    setState(() {
+      _descansoTotal = _descansoPadrao;
+      _descansoRestante = _descansoPadrao;
+      _descansoFinalizado = false;
+    });
 
     _descansoTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) {
@@ -152,12 +154,41 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
 
       if (_descansoRestante <= 1) {
         timer.cancel();
-        setState(() => _descansoRestante = 0);
-        _mostrarMensagem('Descanso finalizado.');
+        setState(() {
+          _descansoRestante = 0;
+          _descansoFinalizado = true;
+        });
+        _mostrarMensagem('Hora da próxima série!');
       } else {
         setState(() => _descansoRestante--);
       }
     });
+  }
+
+  void _pularDescanso() {
+    _descansoTimer?.cancel();
+    setState(() {
+      _descansoRestante = 0;
+      _descansoFinalizado = true;
+    });
+    _mostrarMensagem('Hora da próxima série!');
+  }
+
+  void _ajustarDescanso(int seconds) {
+    if (!_emDescanso) return;
+    final novoTempo = (_descansoRestante + seconds).clamp(0, 999).toInt();
+    setState(() {
+      _descansoRestante = novoTempo;
+      if (seconds > 0) _descansoTotal += seconds;
+      if (_descansoTotal < _descansoRestante) {
+        _descansoTotal = _descansoRestante;
+      }
+      _descansoFinalizado = novoTempo == 0;
+    });
+    if (novoTempo == 0) {
+      _descansoTimer?.cancel();
+      _mostrarMensagem('Hora da próxima série!');
+    }
   }
 
   void _avancarDepoisDoExercicio() {
@@ -182,6 +213,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     _descansoTimer?.cancel();
     setState(() {
       _descansoRestante = 0;
+      _descansoFinalizado = false;
       _exercicioAtual = index;
       _sincronizarComentario();
     });
@@ -200,6 +232,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   Widget build(BuildContext context) {
     final exercicio = _exercicio;
     final concluidas = _seriesConcluidas[_exercicioAtual]?.length ?? 0;
+    final historicoAtual = _historico[_exercicioAtual] ?? const [];
     final progresso = _totalExercicios == 0
         ? 0.0
         : ((_exercicioAtual + (concluidas / _seriesPorExercicio)) /
@@ -257,18 +290,19 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
                                   const SizedBox(height: 18),
                                   _RestCard(
                                     seconds: _descansoRestante,
-                                    totalSeconds: _descansoPadrao,
-                                    onSkip: () {
-                                      _descansoTimer?.cancel();
-                                      setState(() => _descansoRestante = 0);
-                                    },
+                                    totalSeconds: _descansoTotal,
+                                    nextLabel: _proximoDescansoLabel(),
+                                    onSkip: _pularDescanso,
+                                    onAddTime: () => _ajustarDescanso(15),
+                                    onRemoveTime: () => _ajustarDescanso(-15),
                                   ),
                                 ],
                                 const SizedBox(height: 18),
                                 _InputsRow(
                                   pesoController: _pesoController,
                                   repeticoesController: _repeticoesController,
-                                  onAddReps: _incrementarRepeticoes,
+                                  onAddReps: _registrarSerie,
+                                  highlightRegister: _descansoFinalizado,
                                   onChanged: (_) => setState(() {}),
                                 ),
                                 const SizedBox(height: 12),
@@ -285,10 +319,18 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
                                   },
                                 ),
                                 const SizedBox(height: 18),
-                                _HistoryCard(
-                                  entries:
-                                      _historico[_exercicioAtual] ?? const [],
-                                ),
+                                _HistoryCard(entries: historicoAtual),
+                                if (historicoAtual.isNotEmpty) ...[
+                                  const SizedBox(height: 18),
+                                  _CoachFitiaCard(
+                                    entries: historicoAtual,
+                                    alvoReps:
+                                        int.tryParse(
+                                          _texto(_repeticoesController),
+                                        ) ??
+                                        0,
+                                  ),
+                                ],
                                 const SizedBox(height: 18),
                                 Row(
                                   children: [
@@ -330,6 +372,18 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
 
   String _texto(TextEditingController controller) =>
       controller.text.trim().isEmpty ? '0' : controller.text.trim();
+
+  String _proximoDescansoLabel() {
+    final concluidas = _seriesConcluidas[_exercicioAtual]?.length ?? 0;
+    if (concluidas < _seriesPorExercicio) {
+      return 'Próxima série: ${concluidas + 1}/$_seriesPorExercicio';
+    }
+    if (_exercicioAtual < _totalExercicios - 1) {
+      final proximo = widget.treino.exercicios[_exercicioAtual + 1];
+      return 'Próximo exercício: ${proximo.nome}';
+    }
+    return 'Último exercício do treino';
+  }
 
   String _grupoPrincipal() {
     final categorias = {
@@ -642,12 +696,14 @@ class _InputsRow extends StatelessWidget {
   final TextEditingController pesoController;
   final TextEditingController repeticoesController;
   final VoidCallback onAddReps;
+  final bool highlightRegister;
   final ValueChanged<String> onChanged;
 
   const _InputsRow({
     required this.pesoController,
     required this.repeticoesController,
     required this.onAddReps,
+    this.highlightRegister = false,
     required this.onChanged,
   });
 
@@ -679,12 +735,22 @@ class _InputsRow extends StatelessWidget {
             width: 58,
             height: 58,
             decoration: BoxDecoration(
-              color: const Color(0xFF00E5C3),
+              color: highlightRegister
+                  ? const Color(0xFF7CFF6B)
+                  : const Color(0xFF00E5C3),
               borderRadius: BorderRadius.circular(19),
+              border: Border.all(
+                color: highlightRegister ? Colors.white : Colors.transparent,
+                width: 1.5,
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF00E5C3).withAlpha(70),
-                  blurRadius: 24,
+                  color:
+                      (highlightRegister
+                              ? const Color(0xFF7CFF6B)
+                              : const Color(0xFF00E5C3))
+                          .withAlpha(highlightRegister ? 120 : 70),
+                  blurRadius: highlightRegister ? 34 : 24,
                   offset: const Offset(0, 10),
                 ),
               ],
@@ -1094,15 +1160,199 @@ class _HistorySeriesTile extends StatelessWidget {
   }
 }
 
+class _CoachFitiaCard extends StatelessWidget {
+  final List<_HistoricoSerieLocal> entries;
+  final int alvoReps;
+
+  const _CoachFitiaCard({required this.entries, required this.alvoReps});
+
+  @override
+  Widget build(BuildContext context) {
+    final ultima = entries.first;
+    final volumeSerie = _volume(ultima);
+    final melhorCarga = _melhorCarga();
+    final melhorVolume = _melhorVolume();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1218),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFF00E5C3).withAlpha(80)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF00E5C3).withAlpha(18),
+            blurRadius: 28,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.auto_awesome_rounded, color: Color(0xFF00E5C3)),
+              SizedBox(width: 8),
+              Text(
+                'Coach FitIA',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _CoachMetric(
+            label: '🏋 Volume da série',
+            value:
+                '${ultima.peso} kg × ${ultima.repeticoes} reps = ${_formatarNumero(volumeSerie)} kg',
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _CoachMetric(
+                  label: '🏆 Melhor carga',
+                  value: '${_formatarNumero(melhorCarga)} kg',
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _CoachMetric(
+                  label: '🔥 Melhor volume',
+                  value: '${_formatarNumero(melhorVolume)} kg',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _CoachMetric(
+            label: '📈 Sugestão para próxima série',
+            value: _sugestao(ultima),
+            highlighted: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  double _melhorCarga() {
+    var best = 0.0;
+    for (final entry in entries) {
+      final peso = _peso(entry);
+      if (peso > best) best = peso;
+    }
+    return best;
+  }
+
+  double _melhorVolume() {
+    var best = 0.0;
+    for (final entry in entries) {
+      final volume = _volume(entry);
+      if (volume > best) best = volume;
+    }
+    return best;
+  }
+
+  String _sugestao(_HistoricoSerieLocal entry) {
+    final pesoAtual = _peso(entry);
+    if (alvoReps <= 0) return 'Mantenha a carga e priorize execução.';
+    if (entry.repeticoes > alvoReps) {
+      return '+2,5 kg: tente ${_formatarNumero(pesoAtual + 2.5)} kg.';
+    }
+    if (entry.repeticoes == alvoReps) {
+      return 'Manter: repita ${_formatarNumero(pesoAtual)} kg.';
+    }
+    final novaCarga = (pesoAtual - 2.5).clamp(0.0, double.infinity);
+    return 'Reduzir 2,5 kg: tente ${_formatarNumero(novaCarga)} kg.';
+  }
+
+  static double _peso(_HistoricoSerieLocal entry) {
+    return double.tryParse(entry.peso.replaceAll(',', '.')) ?? 0;
+  }
+
+  static double _volume(_HistoricoSerieLocal entry) {
+    return _peso(entry) * entry.repeticoes;
+  }
+
+  static String _formatarNumero(double value) {
+    if (value == value.roundToDouble()) return value.toStringAsFixed(0);
+    return value.toStringAsFixed(1);
+  }
+}
+
+class _CoachMetric extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool highlighted;
+
+  const _CoachMetric({
+    required this.label,
+    required this.value,
+    this.highlighted = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: highlighted
+            ? const Color(0xFF00E5C3).withAlpha(22)
+            : const Color(0xFF111820),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: highlighted
+              ? const Color(0xFF00E5C3).withAlpha(90)
+              : const Color(0xFF233241),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withAlpha(145),
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+              height: 1.25,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _RestCard extends StatelessWidget {
   final int seconds;
   final int totalSeconds;
+  final String nextLabel;
   final VoidCallback onSkip;
+  final VoidCallback onAddTime;
+  final VoidCallback onRemoveTime;
 
   const _RestCard({
     required this.seconds,
     required this.totalSeconds,
+    required this.nextLabel,
     required this.onSkip,
+    required this.onAddTime,
+    required this.onRemoveTime,
   });
 
   @override
@@ -1118,46 +1368,130 @@ class _RestCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: const Color(0xFF00E5C3).withAlpha(70)),
       ),
-      child: Row(
+      child: Column(
         children: [
-          SizedBox(
-            width: 62,
-            height: 62,
-            child: CircularProgressIndicator(
-              value: progress,
-              strokeWidth: 7,
-              backgroundColor: const Color(0xFF233241),
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                Color(0xFF00E5C3),
+          Row(
+            children: [
+              SizedBox(
+                width: 74,
+                height: 74,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      value: progress,
+                      strokeWidth: 7,
+                      backgroundColor: const Color(0xFF233241),
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        Color(0xFF00E5C3),
+                      ),
+                    ),
+                    Text(
+                      '$seconds',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Descanso',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 17,
-                  ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Descanso',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 17,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$seconds segundos restantes',
+                      style: TextStyle(
+                        color: Colors.white.withAlpha(140),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      nextLabel,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF00E5C3),
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '$seconds segundos restantes',
-                  style: TextStyle(
-                    color: Colors.white.withAlpha(140),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-          TextButton(onPressed: onSkip, child: const Text('Pular')),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _RestActionButton(label: '-15s', onTap: onRemoveTime),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _RestActionButton(
+                  label: 'Pular',
+                  onTap: onSkip,
+                  primary: true,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _RestActionButton(label: '+15s', onTap: onAddTime),
+              ),
+            ],
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _RestActionButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  final bool primary;
+
+  const _RestActionButton({
+    required this.label,
+    required this.onTap,
+    this.primary = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 42,
+        decoration: BoxDecoration(
+          color: primary ? const Color(0xFF00E5C3) : const Color(0xFF111820),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: primary ? const Color(0xFF00E5C3) : const Color(0xFF233241),
+          ),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: primary ? Colors.black : Colors.white,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
       ),
     );
   }
