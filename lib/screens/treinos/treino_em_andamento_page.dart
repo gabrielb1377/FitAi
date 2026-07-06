@@ -39,6 +39,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   final Map<int, List<_HistoricoSerieLocal>> _historico = {};
   final Map<int, String> _comentarios = {};
   final Set<int> _exerciciosPulados = {};
+  final List<_XpVisualHistoryEntry> _xpVisualHistorico = [];
 
   final _pesoController = TextEditingController(text: '0');
   final _repeticoesController = TextEditingController(text: '12');
@@ -523,7 +524,171 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
       _xpVisualEvento = xp;
       _xpVisualTitulo = titulo;
       _xpVisualKey++;
+      _xpVisualHistorico.insert(
+        0,
+        _XpVisualHistoryEntry(
+          title: titulo,
+          xp: xp,
+          totalXp: _xpVisualSessao,
+          data: DateTime.now(),
+        ),
+      );
     });
+  }
+
+  void _abrirXpSheet() {
+    _abrirInfoSheet(
+      title: 'XP da sessao',
+      icon: Icons.bolt_rounded,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _XpSessionCard(
+            totalXp: _xpVisualSessao,
+            eventXp: _xpVisualEvento,
+            eventTitle: _xpVisualTitulo,
+            eventKey: _xpVisualKey,
+          ),
+          const SizedBox(height: 12),
+          _XpHistoryCard(entries: _xpVisualHistorico),
+        ],
+      ),
+    );
+  }
+
+  void _abrirCoachSheet(List<_HistoricoSerieLocal> entries) {
+    _abrirInfoSheet(
+      title: 'Coach FitIA',
+      icon: Icons.auto_awesome_rounded,
+      child: entries.isEmpty
+          ? const _InfoEmptyCard(
+              icon: Icons.auto_awesome_rounded,
+              title: 'Coach aguardando',
+              text:
+                  'Registre uma serie para ver volume, melhores marcas e sugestao para a proxima serie.',
+            )
+          : _CoachFitiaCard(
+              entries: entries,
+              alvoReps: int.tryParse(_texto(_repeticoesController)) ?? 0,
+            ),
+    );
+  }
+
+  void _abrirPerformanceSheet({
+    required List<_HistoricoSerieLocal> entries,
+    required List<_HistoricoSerieLocal> sessionEntries,
+    required int exerciciosConcluidos,
+  }) {
+    _abrirInfoSheet(
+      title: 'Performance',
+      icon: Icons.query_stats_rounded,
+      child: _PerformanceCard(
+        entries: entries,
+        sessionEntries: sessionEntries,
+        exerciciosConcluidos: exerciciosConcluidos,
+      ),
+    );
+  }
+
+  void _abrirInfoSheet({
+    required String title,
+    required IconData icon,
+    required Widget child,
+  }) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        final maxHeight = MediaQuery.sizeOf(sheetContext).height * 0.78;
+
+        return SafeArea(
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 430),
+              child: Container(
+                constraints: BoxConstraints(maxHeight: maxHeight),
+                margin: const EdgeInsets.symmetric(horizontal: 10),
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 18),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF070B10),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(28),
+                  ),
+                  border: Border.all(color: const Color(0xFF1D2A35)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(130),
+                      blurRadius: 34,
+                      offset: const Offset(0, -16),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withAlpha(55),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00E5C3).withAlpha(22),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: const Color(0xFF00E5C3).withAlpha(80),
+                            ),
+                          ),
+                          child: Icon(
+                            icon,
+                            color: const Color(0xFF00E5C3),
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(sheetContext),
+                          icon: const Icon(Icons.close_rounded),
+                          color: Colors.white70,
+                          tooltip: 'Fechar',
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        child: child,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   double _volumeSerie(_HistoricoSerieLocal entry) {
@@ -722,32 +887,31 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
                                   nome: exercicio.nome,
                                   categoria: exercicio.categoria,
                                 ),
+                                const SizedBox(height: 12),
+                                _QuickActionsRow(
+                                  onSwap: _trocarExercicioAtual,
+                                  onXp: _abrirXpSheet,
+                                  onCoach: () =>
+                                      _abrirCoachSheet(historicoAtual),
+                                  onPerformance: () => _abrirPerformanceSheet(
+                                    entries: historicoAtual,
+                                    sessionEntries: historicoSessao,
+                                    exerciciosConcluidos: exerciciosConcluidos,
+                                  ),
+                                ),
                                 if (_exerciciosPulados.contains(
                                   _exercicioAtual,
                                 )) ...[
                                   const SizedBox(height: 12),
                                   const _SkippedExerciseBanner(),
                                 ],
-                                const SizedBox(height: 18),
-                                _SecondaryActionButton(
-                                  label: 'Trocar exercício',
-                                  icon: Icons.swap_horiz_rounded,
-                                  onTap: _trocarExercicioAtual,
-                                ),
-                                const SizedBox(height: 18),
+                                const SizedBox(height: 14),
                                 _StatsCircles(
                                   reps: _texto(_repeticoesController),
                                   rest: _emDescanso
                                       ? '${_descansoRestante}s'
                                       : '${_descansoPadrao}s',
                                   series: '$concluidas/$_seriesPorExercicio',
-                                ),
-                                const SizedBox(height: 18),
-                                _XpSessionCard(
-                                  totalXp: _xpVisualSessao,
-                                  eventXp: _xpVisualEvento,
-                                  eventTitle: _xpVisualTitulo,
-                                  eventKey: _xpVisualKey,
                                 ),
                                 if (_emDescanso) ...[
                                   const SizedBox(height: 18),
@@ -783,23 +947,6 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
                                 ),
                                 const SizedBox(height: 18),
                                 _HistoryCard(entries: historicoAtual),
-                                if (historicoAtual.isNotEmpty) ...[
-                                  const SizedBox(height: 18),
-                                  _CoachFitiaCard(
-                                    entries: historicoAtual,
-                                    alvoReps:
-                                        int.tryParse(
-                                          _texto(_repeticoesController),
-                                        ) ??
-                                        0,
-                                  ),
-                                ],
-                                const SizedBox(height: 18),
-                                _PerformanceCard(
-                                  entries: historicoAtual,
-                                  sessionEntries: historicoSessao,
-                                  exerciciosConcluidos: exerciciosConcluidos,
-                                ),
                                 const SizedBox(height: 18),
                                 Row(
                                   children: [
@@ -1558,6 +1705,108 @@ class _ExerciseTitleBlock extends StatelessWidget {
   }
 }
 
+class _QuickActionsRow extends StatelessWidget {
+  final VoidCallback onSwap;
+  final VoidCallback onXp;
+  final VoidCallback onCoach;
+  final VoidCallback onPerformance;
+
+  const _QuickActionsRow({
+    required this.onSwap,
+    required this.onXp,
+    required this.onCoach,
+    required this.onPerformance,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _QuickActionButton(
+            label: 'Trocar',
+            icon: Icons.swap_horiz_rounded,
+            onTap: onSwap,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _QuickActionButton(
+            label: 'XP',
+            icon: Icons.bolt_rounded,
+            onTap: onXp,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _QuickActionButton(
+            label: 'Coach',
+            icon: Icons.auto_awesome_rounded,
+            onTap: onCoach,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _QuickActionButton(
+            label: 'Perf.',
+            icon: Icons.query_stats_rounded,
+            onTap: onPerformance,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickActionButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _QuickActionButton({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: label,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          height: 42,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF101820),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF233241)),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: const Color(0xFF00E5C3), size: 17),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.white.withAlpha(170),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _StatsCircles extends StatelessWidget {
   final String reps;
   final String rest;
@@ -1572,16 +1821,20 @@ class _StatsCircles extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Expanded(
+        SizedBox(
+          width: 88,
           child: _CircleStat(value: reps, label: 'Repetições'),
         ),
-        const SizedBox(width: 12),
-        Expanded(
+        const SizedBox(width: 10),
+        SizedBox(
+          width: 88,
           child: _CircleStat(value: rest, label: 'Repouso'),
         ),
-        const SizedBox(width: 12),
-        Expanded(
+        const SizedBox(width: 10),
+        SizedBox(
+          width: 88,
           child: _CircleStat(value: series, label: 'Séries'),
         ),
       ],
@@ -1597,8 +1850,8 @@ class _CircleStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 1,
+    return SizedBox(
+      height: 88,
       child: Container(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
@@ -1607,14 +1860,14 @@ class _CircleStat extends StatelessWidget {
           boxShadow: [
             BoxShadow(
               color: const Color(0xFF00E5C3).withAlpha(24),
-              blurRadius: 24,
-              offset: const Offset(0, 12),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
         child: Center(
           child: Padding(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(8),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1624,17 +1877,17 @@ class _CircleStat extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Color(0xFF00E5C3),
-                    fontSize: 21,
+                    fontSize: 18,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   label,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white.withAlpha(150),
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -1798,6 +2051,174 @@ class _XpSessionCard extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _XpHistoryCard extends StatelessWidget {
+  final List<_XpVisualHistoryEntry> entries;
+
+  const _XpHistoryCard({required this.entries});
+
+  @override
+  Widget build(BuildContext context) {
+    if (entries.isEmpty) {
+      return const _InfoEmptyCard(
+        icon: Icons.bolt_rounded,
+        title: 'Nenhum XP visual ainda',
+        text: 'Registre series para acompanhar os ganhos desta sessao.',
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1218),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFF1D2A35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Historico de XP',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 10),
+          for (var index = 0; index < entries.length; index++) ...[
+            _XpHistoryItem(entry: entries[index]),
+            if (index < entries.length - 1) const SizedBox(height: 8),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _XpHistoryItem extends StatelessWidget {
+  final _XpVisualHistoryEntry entry;
+
+  const _XpHistoryItem({required this.entry});
+
+  @override
+  Widget build(BuildContext context) {
+    final hora = entry.data.hour.toString().padLeft(2, '0');
+    final minuto = entry.data.minute.toString().padLeft(2, '0');
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111820),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF233241)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: const Color(0xFF00E5C3).withAlpha(22),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.bolt_rounded,
+              color: Color(0xFF00E5C3),
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$hora:$minuto | total +${entry.totalXp} XP',
+                  style: TextStyle(
+                    color: Colors.white.withAlpha(135),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '+${entry.xp}',
+            style: const TextStyle(
+              color: Color(0xFF00E5C3),
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoEmptyCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String text;
+
+  const _InfoEmptyCard({
+    required this.icon,
+    required this.title,
+    required this.text,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1218),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFF1D2A35)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: const Color(0xFF00E5C3), size: 28),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white.withAlpha(145),
+              height: 1.35,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -3088,6 +3509,20 @@ class _HistoricoSerieLocal {
     required this.numero,
     required this.peso,
     required this.repeticoes,
+    required this.data,
+  });
+}
+
+class _XpVisualHistoryEntry {
+  final String title;
+  final int xp;
+  final int totalXp;
+  final DateTime data;
+
+  const _XpVisualHistoryEntry({
+    required this.title,
+    required this.xp,
+    required this.totalXp,
     required this.data,
   });
 }
