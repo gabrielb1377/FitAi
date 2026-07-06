@@ -11,7 +11,6 @@ import '../../services/treino_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_components.dart';
 import '../ai_workout_page.dart';
-import '../corridas/corrida_ativa_controller.dart';
 import '../treinos/criar_treino_page.dart';
 import '../treinos/treino_profissional_page.dart';
 import 'widgets/fitia_recomendacao_card.dart';
@@ -46,7 +45,6 @@ class _HomePageState extends State<HomePage> {
   final treinoService = TreinoService.instance;
   final treinoDoDiaService = const TreinoDoDiaService();
   final streakService = const StreakService();
-  final corridaController = CorridaAtivaController.instance;
 
   bool carregandoTreinos = true;
   bool atualizandoDadosHoje = false;
@@ -58,33 +56,18 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     treinoService.addListener(_onTreinosAtualizados);
-    corridaController.addListener(_onCorridaAtualizada);
-    _inicializarCorrida();
     _carregarDadosHoje();
   }
 
   @override
   void dispose() {
     treinoService.removeListener(_onTreinosAtualizados);
-    corridaController.removeListener(_onCorridaAtualizada);
     super.dispose();
   }
 
   void _onTreinosAtualizados() {
     if (!mounted) return;
     _carregarDadosHoje();
-  }
-
-  Future<void> _inicializarCorrida() async {
-    await corridaController.inicializar();
-
-    if (!mounted) return;
-    setState(() {});
-  }
-
-  void _onCorridaAtualizada() {
-    if (!mounted) return;
-    setState(() {});
   }
 
   Future<void> _carregarDadosHoje() async {
@@ -166,10 +149,6 @@ class _HomePageState extends State<HomePage> {
     final xpSemana = streakService.xpTreinosNaSemana(historicoTreinos);
     final ultimoRecorde = _ultimoRecorde(historicoTreinos);
     final proximoObjetivo = _proximoObjetivo(selecaoTreino, xpSemana);
-    final corridaAtiva = corridaController.corridaIniciada;
-    final distanciaResumo = corridaAtiva
-        ? corridaController.distancia
-        : widget.distancia;
     const cardGap = 16.0;
 
     return Scaffold(
@@ -209,20 +188,9 @@ class _HomePageState extends State<HomePage> {
                     onGerarIa: _abrirGeradorIa,
                   ),
                 ),
-                if (corridaAtiva) ...[
-                  const SizedBox(height: cardGap),
-                  AppAnimatedEntrance(
-                    index: 2,
-                    child: _CorridaAtivaHomeCard(
-                      distancia: corridaController.distancia,
-                      segundos: corridaController.segundos,
-                      velocidadeMedia: corridaController.velocidadeMedia,
-                    ),
-                  ),
-                ],
                 const SizedBox(height: cardGap),
                 AppAnimatedEntrance(
-                  index: 3,
+                  index: 2,
                   child: _HomeEvolutionPanel(
                     xp: widget.xp,
                     nivel: widget.nivel,
@@ -233,7 +201,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const SizedBox(height: cardGap),
                 AppAnimatedEntrance(
-                  index: 4,
+                  index: 3,
                   child: FitiaRecomendacaoCard(
                     selecao: selecaoTreino,
                     recomendacao: recomendacao,
@@ -242,15 +210,15 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const SizedBox(height: cardGap),
                 AppAnimatedEntrance(
-                  index: 5,
+                  index: 4,
                   child: HomeStatsRow(
-                    distancia: distanciaResumo,
+                    distancia: widget.distancia,
                     passos: widget.passos,
                   ),
                 ),
                 const SizedBox(height: cardGap),
                 AppAnimatedEntrance(
-                  index: 6,
+                  index: 5,
                   child: MissoesHojeCard(
                     treinoConcluidoHoje: treinoConcluidoHoje,
                     passos: widget.passos,
@@ -560,111 +528,6 @@ class _HomeEvolutionPanel extends StatelessWidget {
     final mes = local.month.toString().padLeft(2, '0');
 
     return '$dia/$mes';
-  }
-}
-
-class _CorridaAtivaHomeCard extends StatelessWidget {
-  final double distancia;
-  final int segundos;
-  final double velocidadeMedia;
-
-  const _CorridaAtivaHomeCard({
-    required this.distancia,
-    required this.segundos,
-    required this.velocidadeMedia,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      padding: const EdgeInsets.all(18),
-      gradient: AppColors.gradientRun,
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: Colors.black.withAlpha(28),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(
-              Icons.directions_run_rounded,
-              color: Colors.black,
-              size: 28,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'CORRIDA EM ANDAMENTO',
-                  style: TextStyle(
-                    color: Colors.black54,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  '${distancia.toStringAsFixed(2)} km | ${_tempoFormatado()}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  '${velocidadeMedia.toStringAsFixed(1)} km/h media',
-                  style: const TextStyle(
-                    color: Colors.black87,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-            decoration: BoxDecoration(
-              color: Colors.black.withAlpha(24),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: const Text(
-              'AO VIVO',
-              style: TextStyle(
-                color: Colors.black,
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _tempoFormatado() {
-    final h = segundos ~/ 3600;
-    final m = (segundos % 3600) ~/ 60;
-    final s = segundos % 60;
-
-    if (h > 0) {
-      return '${h.toString().padLeft(2, '0')}:'
-          '${m.toString().padLeft(2, '0')}:'
-          '${s.toString().padLeft(2, '0')}';
-    }
-
-    return '${m.toString().padLeft(2, '0')}:'
-        '${s.toString().padLeft(2, '0')}';
   }
 }
 
