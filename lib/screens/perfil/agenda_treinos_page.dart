@@ -16,36 +16,67 @@ class _AgendaTreinosPageState extends State<AgendaTreinosPage> {
   final _service = const AgendaTreinosService();
   late DateTime _mesAtual;
   late Future<AgendaTreinosMes> _future;
+  AgendaTreinosMes? _agendaAtual;
 
   @override
   void initState() {
     super.initState();
     final agora = DateTime.now();
     _mesAtual = DateTime(agora.year, agora.month);
-    _future = _service.carregarMes(_mesAtual);
+    _future = _carregarMes(_mesAtual);
   }
 
-  Future<void> _recarregar() async {
-    final future = _service.carregarMes(_mesAtual);
-    setState(() => _future = future);
-    await future;
+  Future<AgendaTreinosMes> _carregarMes(DateTime mes) async {
+    return _service.carregarMes(mes);
+  }
+
+  Future<void> _recarregar({DateTime? reabrirDia}) async {
+    if (!mounted) return;
+
+    final future = _carregarMes(_mesAtual);
+    setState(() {
+      _future = future;
+    });
+
+    final agenda = await future;
+    if (!mounted) return;
+
+    setState(() {
+      _agendaAtual = agenda;
+    });
+
+    if (reabrirDia != null) {
+      _reabrirDiaAtualizado(reabrirDia, agenda);
+    }
   }
 
   void _mudarMes(int delta) {
+    final novoMes = DateTime(_mesAtual.year, _mesAtual.month + delta);
+    final future = _carregarMes(novoMes);
+
     setState(() {
-      _mesAtual = DateTime(_mesAtual.year, _mesAtual.month + delta);
-      _future = _service.carregarMes(_mesAtual);
+      _mesAtual = novoMes;
+      _future = future;
+    });
+
+    future.then((agenda) {
+      if (!mounted || !_mesmaData(_mesAtual, novoMes)) return;
+
+      setState(() {
+        _agendaAtual = agenda;
+      });
     });
   }
 
   Future<void> _moverParaAmanha(AgendaDiaTreino dia) async {
     final hoje = DateTime.now();
-    await _service.moverTreino(
-      dia,
-      DateTime(hoje.year, hoje.month, hoje.day + 1),
+    final destino = DateTime(hoje.year, hoje.month, hoje.day + 1);
+
+    await _executarAcaoAgenda(
+      salvar: () => _service.moverTreino(dia, destino),
+      reabrirDia: destino,
+      mensagem: 'Treino movido para amanha.',
     );
-    await _recarregar();
-    _mensagem('Treino movido para amanhã.');
   }
 
   Future<void> _reagendar(AgendaDiaTreino dia) async {
@@ -57,22 +88,50 @@ class _AgendaTreinosPageState extends State<AgendaTreinosPage> {
     );
 
     if (selecionada == null) return;
+    if (!mounted) return;
 
-    await _service.moverTreino(dia, selecionada);
-    await _recarregar();
-    _mensagem('Treino reagendado.');
+    await _executarAcaoAgenda(
+      salvar: () => _service.moverTreino(dia, selecionada),
+      reabrirDia: selecionada,
+      mensagem: 'Treino reagendado.',
+    );
   }
 
   Future<void> _marcarDescanso(AgendaDiaTreino dia) async {
-    await _service.marcarDescanso(dia);
-    await _recarregar();
-    _mensagem('Descanso marcado.');
+    await _executarAcaoAgenda(
+      salvar: () => _service.marcarDescanso(dia),
+      reabrirDia: dia.data,
+      mensagem: 'Descanso marcado.',
+    );
   }
 
   Future<void> _pularTreino(AgendaDiaTreino dia) async {
-    await _service.pularTreino(dia);
-    await _recarregar();
-    _mensagem('Treino pulado.');
+    await _executarAcaoAgenda(
+      salvar: () => _service.pularTreino(dia),
+      reabrirDia: dia.data,
+      mensagem: 'Treino pulado.',
+    );
+  }
+
+  Future<void> _executarAcaoAgenda({
+    required Future<void> Function() salvar,
+    required DateTime reabrirDia,
+    required String mensagem,
+  }) async {
+    await salvar();
+    if (!mounted) return;
+
+    final mesDestino = DateTime(reabrirDia.year, reabrirDia.month);
+    if (!_mesmaData(_mesAtual, mesDestino)) {
+      setState(() {
+        _mesAtual = mesDestino;
+      });
+    }
+
+    await _recarregar(reabrirDia: reabrirDia);
+    if (!mounted) return;
+
+    _mensagem(mensagem);
   }
 
   void _abrirDia(AgendaDiaTreino dia) {
@@ -104,6 +163,30 @@ class _AgendaTreinosPageState extends State<AgendaTreinosPage> {
     );
   }
 
+  void _reabrirDiaAtualizado(DateTime data, AgendaTreinosMes agenda) {
+    if (!mounted) return;
+
+    final diaAtualizado = _buscarDiaPorData(agenda, data);
+    if (diaAtualizado == null) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _abrirDia(diaAtualizado);
+    });
+  }
+
+  AgendaDiaTreino? _buscarDiaPorData(AgendaTreinosMes agenda, DateTime data) {
+    for (final dia in agenda.dias) {
+      if (_mesmaData(dia.data, data)) return dia;
+    }
+
+    return null;
+  }
+
+  bool _mesmaData(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
   void _mensagem(String texto) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -119,7 +202,7 @@ class _AgendaTreinosPageState extends State<AgendaTreinosPage> {
         title: const Text('Agenda de treinos'),
         actions: [
           IconButton(
-            onPressed: _recarregar,
+            onPressed: () => _recarregar(),
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Atualizar',
           ),
@@ -136,7 +219,7 @@ class _AgendaTreinosPageState extends State<AgendaTreinosPage> {
             );
           }
 
-          final agenda = snapshot.data;
+          final agenda = snapshot.data ?? _agendaAtual;
           if (agenda == null) {
             return const Padding(
               padding: EdgeInsets.all(20),
@@ -149,7 +232,7 @@ class _AgendaTreinosPageState extends State<AgendaTreinosPage> {
           }
 
           return RefreshIndicator(
-            onRefresh: _recarregar,
+            onRefresh: () => _recarregar(),
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(
                 parent: BouncingScrollPhysics(),

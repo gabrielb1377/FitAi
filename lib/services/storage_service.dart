@@ -476,9 +476,7 @@ class StorageService {
             AgendaTreinoOverrideModel.fromJson(Map<String, dynamic>.from(json)),
           );
         }
-      } catch (erro) {
-        debugPrint('Erro ao carregar agenda de treino: $erro');
-      }
+      } catch (_) {}
     }
 
     overrides.sort((a, b) => a.data.compareTo(b.data));
