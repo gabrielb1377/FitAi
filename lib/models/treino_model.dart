@@ -132,7 +132,9 @@ class TreinoModel {
     final ids = dia.exercicioIds.toSet();
     final exerciciosDoDia = ids.isEmpty
         ? exercicios
-        : exercicios.where((exercicio) => ids.contains(exercicio.id)).toList();
+        : exercicios.where((exercicio) {
+            return ids.contains(exercicio.id) || ids.contains(exercicio.nome);
+          }).toList();
 
     return TreinoModel(
       id: "${id}_${dia.ordem}",

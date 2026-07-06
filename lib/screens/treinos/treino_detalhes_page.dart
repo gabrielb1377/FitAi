@@ -587,7 +587,10 @@ class TreinoDetalhesPage extends StatelessWidget {
 
   List<_DiaTreino> _montarDivisaoSemanal() {
     if (treino.planoDias.isNotEmpty) {
-      return treino.planoDias.map((dia) {
+      final diasPlano = [...treino.planoDias]
+        ..sort((a, b) => a.ordem.compareTo(b.ordem));
+
+      return diasPlano.map((dia) {
         final treinoDoDia = treino.somenteDia(dia);
         final codigo = dia.codigo.trim();
 
