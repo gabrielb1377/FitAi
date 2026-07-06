@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/xp/xp_config.dart';
 import '../../../theme/app_theme.dart';
 
 class XpRankCard extends StatelessWidget {
@@ -14,8 +15,10 @@ class XpRankCard extends StatelessWidget {
     final rankIcon = _iconRank();
     final rankNome = _rankAtual();
     final proximoRankNome = _proximoRank();
-    const xpParaProximoNivel = 100;
-    final xpAtualNoNivel = xp % xpParaProximoNivel;
+    final xpParaProximoNivel = XpConfig.xpParaProximoNivel(nivel);
+    final xpAtualNoNivel = XpConfig.normalizarXp(
+      xp,
+    ).clamp(0, xpParaProximoNivel).toInt();
     final progresso = (xpAtualNoNivel / xpParaProximoNivel).clamp(0.0, 1.0);
 
     return Material(

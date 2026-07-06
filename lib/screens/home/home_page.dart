@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/xp/xp_config.dart';
 import '../../models/historico_treino_model.dart';
 import '../../models/treino_model.dart';
 import '../../services/ia_evolutiva_service.dart';
@@ -300,7 +301,6 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-
 class _HomeQuickActionsPanel extends StatelessWidget {
   final TreinoDoDiaSelecao selecao;
   final Future<void> Function(TreinoModel treino) onAbrirTreino;
@@ -357,9 +357,9 @@ class _HomeQuickActionsPanel extends StatelessWidget {
                     Text(
                       'Central FITAI',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -0.2,
-                          ),
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.2,
+                      ),
                     ),
                     const SizedBox(height: 3),
                     const Text(
@@ -432,6 +432,11 @@ class _HomeEvolutionPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final xpParaProximoNivel = XpConfig.xpParaProximoNivel(nivel);
+    final xpNoNivel = XpConfig.normalizarXp(
+      xp,
+    ).clamp(0, xpParaProximoNivel).toInt();
+
     return AppCard(
       padding: const EdgeInsets.all(18),
       child: Column(
@@ -477,9 +482,9 @@ class _HomeEvolutionPanel extends StatelessWidget {
               _PulseTile(
                 icon: Icons.bolt_rounded,
                 title: 'XP',
-                value: '$xp/100',
+                value: '$xpNoNivel/$xpParaProximoNivel',
                 detail: 'Nível $nivel',
-                progress: xp / 100,
+                progress: xpNoNivel / xpParaProximoNivel,
                 color: AppColors.primary,
               ),
               _PulseTile(

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/xp/xp_config.dart';
 import '../../models/exercicio_model.dart';
 import '../../models/historico_treino_model.dart';
 import '../../models/treino_model.dart';
@@ -138,7 +139,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
         ),
       );
     });
-    _adicionarXpVisual(20, 'Série registrada');
+    _adicionarXpVisual(XpConfig.treinoSerieConcluida, 'Série registrada');
 
     final totalConcluido =
         _seriesConcluidas[_exercicioAtual]?.length ?? serieIndex + 1;
@@ -152,7 +153,12 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     final ultimoExercicio = _exercicioAtual >= _totalExercicios - 1;
 
     Future.delayed(const Duration(milliseconds: 260), () {
-      if (mounted) _adicionarXpVisual(80, '🏅 Exercício concluído');
+      if (mounted) {
+        _adicionarXpVisual(
+          XpConfig.treinoExercicioConcluido,
+          '🏅 Exercício concluído',
+        );
+      }
     });
 
     if (ultimoExercicio) {
@@ -560,7 +566,13 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     required int seriesConcluidas,
     required int exerciciosConcluidos,
   }) {
-    return (seriesConcluidas * 20) + (exerciciosConcluidos * 80) + 350;
+    final treinoPerfeito =
+        _totalExercicios > 0 && exerciciosConcluidos >= _totalExercicios;
+
+    return (seriesConcluidas * XpConfig.treinoSerieConcluida) +
+        (exerciciosConcluidos * XpConfig.treinoExercicioConcluido) +
+        XpConfig.treinoConcluido +
+        (treinoPerfeito ? XpConfig.treinoPerfeitoBonus : 0);
   }
 
   int _caloriasEstimadas({
@@ -583,7 +595,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
 
     if (!_treinoFinalizadoVisual && mounted) {
       setState(() => _treinoFinalizadoVisual = true);
-      _adicionarXpVisual(350, 'Treino finalizado');
+      _adicionarXpVisual(XpConfig.treinoConcluido, 'Treino finalizado');
     }
 
     final seriesConcluidas = _seriesConcluidasTotal();

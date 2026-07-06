@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/xp/xp_config.dart';
 import '../../models/achievement_model.dart';
 import '../../models/exercicio_model.dart';
 import '../../models/historico_serie_treino_model.dart';
@@ -118,10 +119,11 @@ class _TreinoProfissionalPageState extends State<TreinoProfissionalPage> {
   int get xpGanho {
     final treinoCompleto =
         exercicios.isNotEmpty && exerciciosConcluidos == exercicios.length;
-    return 20 +
-        (exerciciosConcluidos * 10) +
-        (treinoCompleto ? 5 : 0) +
-        (recordesBatidos * 20);
+    return XpConfig.treinoConcluido +
+        (totalSeriesConcluidas * XpConfig.treinoSerieConcluida) +
+        (exerciciosConcluidos * XpConfig.treinoExercicioConcluido) +
+        (treinoCompleto ? XpConfig.treinoPerfeitoBonus : 0) +
+        (recordesBatidos * XpConfig.recordePessoalBonus);
   }
 
   int get caloriasEstimadas {

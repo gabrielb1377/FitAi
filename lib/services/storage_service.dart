@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/xp/xp_config.dart';
 import '../models/achievement_model.dart';
 import '../models/corrida_model.dart';
 import '../models/fitai_memory_model.dart';
@@ -30,6 +31,10 @@ class XpNivelResultado {
 class StorageService {
   static const int xpPorNivel = 100;
 
+  static int xpNecessarioParaNivel(int nivelAtual) {
+    return XpConfig.xpParaProximoNivel(nivelAtual);
+  }
+
   static Future<void> salvarPerfilUsuario({
     required String nome,
     required String peso,
@@ -56,15 +61,16 @@ class StorageService {
 
   static Future<void> salvarXp(int xp) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('xp', xp);
+    final xpSeguro = XpConfig.normalizarXp(xp);
+    await prefs.setInt('xp', xpSeguro);
 
-    debugPrint("XP SALVO: $xp");
+    debugPrint("XP SALVO: $xpSeguro");
   }
 
   static Future<int> carregarXp() async {
     final prefs = await SharedPreferences.getInstance();
 
-    int xp = prefs.getInt('xp') ?? 0;
+    int xp = XpConfig.normalizarXp(prefs.getInt('xp') ?? 0);
 
     debugPrint("XP CARREGADO: $xp");
 
@@ -73,15 +79,17 @@ class StorageService {
 
   static Future<void> salvarNivel(int nivel) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('nivel', nivel);
+    final nivelSeguro = nivel < 1 ? 1 : nivel;
+    await prefs.setInt('nivel', nivelSeguro);
 
-    debugPrint("NIVEL SALVO: $nivel");
+    debugPrint("NIVEL SALVO: $nivelSeguro");
   }
 
   static Future<int> carregarNivel() async {
     final prefs = await SharedPreferences.getInstance();
 
     int nivel = prefs.getInt('nivel') ?? 1;
+    if (nivel < 1) nivel = 1;
 
     debugPrint("NIVEL CARREGADO: $nivel");
 
@@ -93,12 +101,12 @@ class StorageService {
     required int nivel,
     int xpGanho = 0,
   }) {
-    var xpRestante = xp;
-    var nivelAtual = nivel;
+    var xpRestante = XpConfig.normalizarXp(xp);
+    var nivelAtual = nivel < 1 ? 1 : nivel;
     var niveisGanhos = 0;
 
-    while (xpRestante >= xpPorNivel) {
-      xpRestante -= xpPorNivel;
+    while (xpRestante >= XpConfig.xpParaProximoNivel(nivelAtual)) {
+      xpRestante -= XpConfig.xpParaProximoNivel(nivelAtual);
       nivelAtual++;
       niveisGanhos++;
     }
@@ -131,11 +139,12 @@ class StorageService {
   static Future<XpNivelResultado> adicionarXp(int xpGanho) async {
     final xpAtual = await carregarXp();
     final nivelAtual = await carregarNivel();
+    final ganhoSeguro = XpConfig.normalizarGanho(xpGanho);
 
     return salvarXpNivelado(
-      xp: xpAtual + xpGanho,
+      xp: xpAtual + ganhoSeguro,
       nivel: nivelAtual,
-      xpGanho: xpGanho,
+      xpGanho: ganhoSeguro,
     );
   }
 
