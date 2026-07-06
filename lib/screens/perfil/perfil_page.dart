@@ -423,7 +423,7 @@ class PerfilPage extends StatelessWidget {
           _buildAcaoTile(
             context,
             icon: Icons.auto_graph_rounded,
-            label: 'Dashboard de Evolução',
+            label: 'Evolução',
             color: AppColors.accent1,
             onTap: () {
               Navigator.push(
