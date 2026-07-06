@@ -7,6 +7,7 @@ import '../../models/historico_treino_model.dart';
 import '../../models/treino_model.dart';
 import '../../services/storage_service.dart';
 import '../../widgets/exercicio_gif_viewer.dart';
+import '../exercicios/biblioteca_exercicios_page.dart';
 import 'treino_finalizado_page.dart';
 
 class TreinoEmAndamentoPage extends StatefulWidget {
@@ -30,6 +31,8 @@ class TreinoEmAndamentoPage extends StatefulWidget {
 class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   static const int _seriesPorExercicio = 3;
   static const int _descansoPadrao = 60;
+
+  late final List<ExercicioModel> _exercicios;
 
   final Map<int, Set<int>> _seriesConcluidas = {};
   final Map<int, List<_HistoricoSerieLocal>> _historico = {};
@@ -55,10 +58,10 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   bool _finalizacaoEmAndamento = false;
   String _xpVisualTitulo = '';
 
-  int get _totalExercicios => widget.treino.exercicios.length;
+  int get _totalExercicios => _exercicios.length;
 
   ExercicioModel? get _exercicio =>
-      _totalExercicios == 0 ? null : widget.treino.exercicios[_exercicioAtual];
+      _totalExercicios == 0 ? null : _exercicios[_exercicioAtual];
 
   bool get _emDescanso => _descansoRestante > 0;
 
@@ -78,10 +81,11 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   @override
   void initState() {
     super.initState();
+    _exercicios = List<ExercicioModel>.of(widget.treino.exercicios);
 
     debugPrint('Treino: ${widget.treino.nome}');
-    debugPrint('Qtd exercícios: ${widget.treino.exercicios.length}');
-    debugPrint(widget.treino.exercicios.map((e) => e.nome).toList().toString());
+    debugPrint('Qtd exercícios: ${_exercicios.length}');
+    debugPrint(_exercicios.map((e) => e.nome).toList().toString());
 
     _iniciarCronometro();
   }
@@ -241,6 +245,49 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
       _exercicioAtual = index;
       _sincronizarComentario();
     });
+  }
+
+  Future<void> _trocarExercicioAtual() async {
+    final exercicioAtual = _exercicio;
+    if (exercicioAtual == null) return;
+
+    ExercicioModel? selecionado;
+
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => BibliotecaExerciciosPage(
+          onSelecionar: (exercicio) {
+            selecionado = exercicio;
+          },
+        ),
+      ),
+    );
+
+    if (!mounted || selecionado == null) return;
+
+    final novoExercicio = selecionado!;
+    if (_mesmoExercicio(exercicioAtual, novoExercicio)) return;
+
+    _descansoTimer?.cancel();
+
+    setState(() {
+      _exercicios[_exercicioAtual] = novoExercicio;
+      _seriesConcluidas.remove(_exercicioAtual);
+      _historico.remove(_exercicioAtual);
+      _comentarios.remove(_exercicioAtual);
+      _comentarioController.clear();
+      _comentarioAberto = false;
+      _descansoRestante = 0;
+      _descansoFinalizado = false;
+    });
+
+    _mostrarMensagem('Exercício substituído.');
+  }
+
+  bool _mesmoExercicio(ExercicioModel a, ExercicioModel b) {
+    final aKey = a.id.trim().isEmpty ? a.nome.trim() : a.id.trim();
+    final bKey = b.id.trim().isEmpty ? b.nome.trim() : b.id.trim();
+    return aKey == bKey;
   }
 
   void _sincronizarComentario() {
@@ -451,6 +498,12 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
                                   categoria: exercicio.categoria,
                                 ),
                                 const SizedBox(height: 18),
+                                _SecondaryActionButton(
+                                  label: 'Trocar exercício',
+                                  icon: Icons.swap_horiz_rounded,
+                                  onTap: _trocarExercicioAtual,
+                                ),
+                                const SizedBox(height: 18),
                                 _StatsCircles(
                                   reps: _texto(_repeticoesController),
                                   rest: _emDescanso
@@ -564,7 +617,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
       return 'Próxima série: ${concluidas + 1}/$_seriesPorExercicio';
     }
     if (_exercicioAtual < _totalExercicios - 1) {
-      final proximo = widget.treino.exercicios[_exercicioAtual + 1];
+      final proximo = _exercicios[_exercicioAtual + 1];
       return 'Próximo exercício: ${proximo.nome}';
     }
     return 'Último exercício do treino';
@@ -572,7 +625,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
 
   String _grupoPrincipal() {
     final categorias = {
-      for (final exercicio in widget.treino.exercicios)
+      for (final exercicio in _exercicios)
         if (exercicio.categoria.trim().isNotEmpty) exercicio.categoria,
     }.take(2).toList();
 
