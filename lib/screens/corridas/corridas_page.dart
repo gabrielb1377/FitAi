@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_components.dart';
+import 'corrida_ativa_controller.dart';
 import 'historico_corridas_page.dart';
 
-class CorridasPage extends StatelessWidget {
+class CorridasPage extends StatefulWidget {
   final double distancia;
   final double velocidadeMedia;
   final int segundos;
@@ -21,10 +22,72 @@ class CorridasPage extends StatelessWidget {
     required this.pararCorrida,
   });
 
+  @override
+  State<CorridasPage> createState() => _CorridasPageState();
+}
+
+class _CorridasPageState extends State<CorridasPage> {
+  final corridaController = CorridaAtivaController.instance;
+
+  bool get _corridaIniciada => corridaController.inicializado
+      ? corridaController.corridaIniciada
+      : widget.corridaIniciada;
+
+  int get _segundos => corridaController.inicializado
+      ? corridaController.segundos
+      : widget.segundos;
+
+  double get _distancia => corridaController.inicializado
+      ? corridaController.distancia
+      : widget.distancia;
+
+  double get _velocidadeMedia => corridaController.inicializado
+      ? corridaController.velocidadeMedia
+      : widget.velocidadeMedia;
+
+  @override
+  void initState() {
+    super.initState();
+    corridaController.addListener(_onCorridaAtualizada);
+    _inicializarCorrida();
+  }
+
+  @override
+  void dispose() {
+    corridaController.removeListener(_onCorridaAtualizada);
+    super.dispose();
+  }
+
+  Future<void> _inicializarCorrida() async {
+    await corridaController.inicializar();
+
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  void _onCorridaAtualizada() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  void _iniciarCorrida() {
+    corridaController.iniciar();
+  }
+
+  Future<void> _pararCorrida() async {
+    final corrida = await corridaController.parar();
+
+    if (!mounted || corrida == null) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Corrida salva no historico.')),
+    );
+  }
+
   String _formatTempo() {
-    final h = segundos ~/ 3600;
-    final m = (segundos % 3600) ~/ 60;
-    final s = segundos % 60;
+    final h = _segundos ~/ 3600;
+    final m = (_segundos % 3600) ~/ 60;
+    final s = _segundos % 60;
     if (h > 0) {
       return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
     }
@@ -77,21 +140,21 @@ class CorridasPage extends StatelessWidget {
         24,
       ),
       child: AppPremiumHeader(
-        eyebrow: corridaIniciada ? "Em andamento" : "Pronto para correr?",
+        eyebrow: _corridaIniciada ? "Em andamento" : "Pronto para correr?",
         title: "Corridas",
         subtitle: "Controle tempo, distancia e ritmo em uma experiencia limpa.",
         icon: Icons.directions_run_rounded,
-        gradient: corridaIniciada
+        gradient: _corridaIniciada
             ? AppColors.gradientRun
             : AppColors.gradientPrimary,
-        trailing: corridaIniciada ? const _LiveBadge() : null,
+        trailing: _corridaIniciada ? const _LiveBadge() : null,
       ),
     );
   }
 
   Widget _buildMainMetric(BuildContext context) {
     return AppGradientCard(
-      gradient: corridaIniciada
+      gradient: _corridaIniciada
           ? AppColors.gradientRun
           : AppColors.gradientCard,
       child: Column(
@@ -99,7 +162,7 @@ class CorridasPage extends StatelessWidget {
           Text(
             'DISTÃ‚NCIA',
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: corridaIniciada ? Colors.white60 : null,
+              color: _corridaIniciada ? Colors.white60 : null,
               letterSpacing: 1.5,
             ),
           ),
@@ -109,11 +172,13 @@ class CorridasPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                distancia.toStringAsFixed(2),
+                _distancia.toStringAsFixed(2),
                 style: TextStyle(
                   fontSize: 64,
                   fontWeight: FontWeight.w800,
-                  color: corridaIniciada ? Colors.white : AppColors.textPrimary,
+                  color: _corridaIniciada
+                      ? Colors.white
+                      : AppColors.textPrimary,
                   letterSpacing: -2,
                   height: 1,
                 ),
@@ -125,7 +190,7 @@ class CorridasPage extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
-                    color: corridaIniciada
+                    color: _corridaIniciada
                         ? Colors.white60
                         : AppColors.textSecondary,
                   ),
@@ -154,7 +219,7 @@ class CorridasPage extends StatelessWidget {
           child: _buildStatCard(
             context,
             label: 'VELOCIDADE',
-            value: '${velocidadeMedia.toStringAsFixed(1)} km/h',
+            value: '${_velocidadeMedia.toStringAsFixed(1)} km/h',
             icon: Icons.speed_outlined,
             iconColor: AppColors.accent2,
           ),
@@ -200,15 +265,15 @@ class CorridasPage extends StatelessWidget {
   }
 
   Widget _buildRunButton(BuildContext context) {
-    final isRunning = corridaIniciada;
+    final isRunning = _corridaIniciada;
     return isRunning
         ? AppButton.danger(
-            onPressed: pararCorrida,
+            onPressed: _pararCorrida,
             icon: Icons.stop_rounded,
             label: "Parar Corrida",
           )
         : AppButton.primary(
-            onPressed: iniciarCorrida,
+            onPressed: _iniciarCorrida,
             icon: Icons.play_arrow_rounded,
             label: "Iniciar Corrida",
           );
