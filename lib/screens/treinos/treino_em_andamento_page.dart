@@ -37,6 +37,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   final Map<int, Set<int>> _seriesConcluidas = {};
   final Map<int, List<_HistoricoSerieLocal>> _historico = {};
   final Map<int, String> _comentarios = {};
+  final Set<int> _exerciciosPulados = {};
 
   final _pesoController = TextEditingController(text: '0');
   final _repeticoesController = TextEditingController(text: '12');
@@ -124,6 +125,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
 
     setState(() {
       _descansoFinalizado = false;
+      _exerciciosPulados.remove(_exercicioAtual);
       _seriesConcluidas[_exercicioAtual] = {...concluidas, serieIndex};
       _comentarios[_exercicioAtual] = comentario;
       (_historico[_exercicioAtual] ??= []).insert(
@@ -247,10 +249,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     });
   }
 
-  Future<void> _trocarExercicioAtual() async {
-    final exercicioAtual = _exercicio;
-    if (exercicioAtual == null) return;
-
+  Future<ExercicioModel?> _selecionarExercicioDaBiblioteca() async {
     ExercicioModel? selecionado;
 
     await Navigator.of(context).push<void>(
@@ -263,31 +262,244 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
       ),
     );
 
+    if (!mounted) return null;
+    return selecionado;
+  }
+
+  List<_ExerciseSessionSlot> _snapshotSlots() {
+    return List<_ExerciseSessionSlot>.generate(_exercicios.length, (index) {
+      return _ExerciseSessionSlot(
+        exercicio: _exercicios[index],
+        series: Set<int>.from(_seriesConcluidas[index] ?? const <int>{}),
+        historico: List<_HistoricoSerieLocal>.from(
+          _historico[index] ?? const <_HistoricoSerieLocal>[],
+        ),
+        comentario: _comentarios[index] ?? '',
+        pulado: _exerciciosPulados.contains(index),
+      );
+    });
+  }
+
+  void _restoreSlots(List<_ExerciseSessionSlot> slots) {
+    _exercicios
+      ..clear()
+      ..addAll(slots.map((slot) => slot.exercicio));
+    _seriesConcluidas.clear();
+    _historico.clear();
+    _comentarios.clear();
+    _exerciciosPulados.clear();
+
+    for (var index = 0; index < slots.length; index++) {
+      final slot = slots[index];
+      if (slot.series.isNotEmpty) {
+        _seriesConcluidas[index] = Set<int>.from(slot.series);
+      }
+      if (slot.historico.isNotEmpty) {
+        _historico[index] = List<_HistoricoSerieLocal>.from(slot.historico);
+      }
+      if (slot.comentario.isNotEmpty) {
+        _comentarios[index] = slot.comentario;
+      }
+      if (slot.pulado) {
+        _exerciciosPulados.add(index);
+      }
+    }
+  }
+
+  void _resetarEstadoDoExercicioAtual() {
+    _descansoTimer?.cancel();
+    _seriesConcluidas.remove(_exercicioAtual);
+    _historico.remove(_exercicioAtual);
+    _comentarios.remove(_exercicioAtual);
+    _exerciciosPulados.remove(_exercicioAtual);
+    _comentarioController.clear();
+    _comentarioAberto = false;
+    _descansoRestante = 0;
+    _descansoFinalizado = false;
+  }
+
+  Future<void> _adicionarExercicioDepoisAtual() async {
+    final selecionado = await _selecionarExercicioDaBiblioteca();
     if (!mounted || selecionado == null) return;
 
-    final novoExercicio = selecionado!;
-    if (_mesmoExercicio(exercicioAtual, novoExercicio)) return;
+    setState(() {
+      final slots = _snapshotSlots();
+      final insertIndex = _totalExercicios == 0 ? 0 : _exercicioAtual + 1;
+      slots.insert(insertIndex, _ExerciseSessionSlot(exercicio: selecionado));
+      _restoreSlots(slots);
+    });
 
-    _descansoTimer?.cancel();
+    _mostrarMensagem('Exercício adicionado.');
+  }
+
+  Future<void> _trocarExercicioAtual() async {
+    final exercicioAtual = _exercicio;
+    if (exercicioAtual == null) return;
+
+    final selecionado = await _selecionarExercicioDaBiblioteca();
+
+    if (!mounted || selecionado == null) return;
+
+    if (_mesmoExercicio(exercicioAtual, selecionado)) return;
 
     setState(() {
-      _exercicios[_exercicioAtual] = novoExercicio;
-      _seriesConcluidas.remove(_exercicioAtual);
-      _historico.remove(_exercicioAtual);
-      _comentarios.remove(_exercicioAtual);
-      _comentarioController.clear();
-      _comentarioAberto = false;
-      _descansoRestante = 0;
-      _descansoFinalizado = false;
+      _exercicios[_exercicioAtual] = selecionado;
+      _resetarEstadoDoExercicioAtual();
     });
 
     _mostrarMensagem('Exercício substituído.');
   }
 
+  Future<void> _removerExercicioAtual() async {
+    if (_totalExercicios <= 1) {
+      _mostrarMensagem('O treino precisa ter pelo menos um exercício.');
+      return;
+    }
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF0D1218),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: const BorderSide(color: Color(0xFF233241)),
+          ),
+          title: const Text(
+            'Remover exercício?',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+          ),
+          content: Text(
+            'Somente o exercício atual será removido. O restante do treino continua igual.',
+            style: TextStyle(color: Colors.white.withAlpha(180), height: 1.4),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text(
+                'Remover',
+                style: TextStyle(color: Color(0xFFFF6B6B)),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!mounted || confirmar != true) return;
+
+    setState(() {
+      _descansoTimer?.cancel();
+      final slots = _snapshotSlots()..removeAt(_exercicioAtual);
+      _restoreSlots(slots);
+      if (_exercicioAtual >= _totalExercicios) {
+        _exercicioAtual = _totalExercicios - 1;
+      }
+      _descansoRestante = 0;
+      _descansoFinalizado = false;
+      _sincronizarComentario();
+    });
+
+    _mostrarMensagem('Exercício removido.');
+  }
+
+  void _reordenarExercicios(int oldIndex, int newIndex) {
+    final slots = _snapshotSlots();
+    final currentSlot = slots[_exercicioAtual];
+
+    final moved = slots.removeAt(oldIndex);
+    slots.insert(newIndex, moved);
+    _restoreSlots(slots);
+    _exercicioAtual = slots.indexOf(currentSlot);
+    _sincronizarComentario();
+  }
+
+  Future<void> _abrirReordenarExercicios() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, modalSetState) {
+            return _ReorderExercisesSheet(
+              exercicios: _exercicios,
+              currentIndex: _exercicioAtual,
+              pulados: _exerciciosPulados,
+              seriesConcluidas: _seriesConcluidas,
+              onReorder: (oldIndex, newIndex) {
+                setState(() => _reordenarExercicios(oldIndex, newIndex));
+                modalSetState(() {});
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _pularExercicioAtual() {
+    if (_exercicioAtual >= _totalExercicios - 1) {
+      _mostrarMensagem('Não há próximo exercício.');
+      return;
+    }
+
+    setState(() => _exerciciosPulados.add(_exercicioAtual));
+    _mudarExercicio(_exercicioAtual + 1);
+    _mostrarMensagem('Exercício pulado.');
+  }
+
+  void _reiniciarExercicioAtual() {
+    setState(() => _resetarEstadoDoExercicioAtual());
+    _mostrarMensagem('Exercício reiniciado.');
+  }
+
+  void _abrirMenuEdicaoTreino() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return _WorkoutEditMenuSheet(
+          onAddExercise: () {
+            Navigator.pop(sheetContext);
+            _adicionarExercicioDepoisAtual();
+          },
+          onSwapExercise: () {
+            Navigator.pop(sheetContext);
+            _trocarExercicioAtual();
+          },
+          onRemoveExercise: () {
+            Navigator.pop(sheetContext);
+            _removerExercicioAtual();
+          },
+          onReorderExercises: () {
+            Navigator.pop(sheetContext);
+            _abrirReordenarExercicios();
+          },
+          onSkipExercise: () {
+            Navigator.pop(sheetContext);
+            _pularExercicioAtual();
+          },
+          onRestartExercise: () {
+            Navigator.pop(sheetContext);
+            _reiniciarExercicioAtual();
+          },
+        );
+      },
+    );
+  }
+
   bool _mesmoExercicio(ExercicioModel a, ExercicioModel b) {
-    final aKey = a.id.trim().isEmpty ? a.nome.trim() : a.id.trim();
-    final bKey = b.id.trim().isEmpty ? b.nome.trim() : b.id.trim();
-    return aKey == bKey;
+    return _exercicioKey(a) == _exercicioKey(b);
+  }
+
+  String _exercicioKey(ExercicioModel exercicio) {
+    final id = exercicio.id.trim();
+    return id.isEmpty ? exercicio.nome.trim() : id;
   }
 
   void _sincronizarComentario() {
@@ -478,6 +690,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
                       tempoMinutos: '${_segundosTreino ~/ 60} min',
                       volume: '${_formatarVolume(volumeSessao)} kg',
                       onBack: () => Navigator.pop(context),
+                      onMenu: _abrirMenuEdicaoTreino,
                     ),
                     Expanded(
                       child: exercicio == null
@@ -497,6 +710,12 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
                                   nome: exercicio.nome,
                                   categoria: exercicio.categoria,
                                 ),
+                                if (_exerciciosPulados.contains(
+                                  _exercicioAtual,
+                                )) ...[
+                                  const SizedBox(height: 12),
+                                  const _SkippedExerciseBanner(),
+                                ],
                                 const SizedBox(height: 18),
                                 _SecondaryActionButton(
                                   label: 'Trocar exercício',
@@ -633,6 +852,374 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   }
 }
 
+class _ExerciseSessionSlot {
+  final ExercicioModel exercicio;
+  final Set<int> series;
+  final List<_HistoricoSerieLocal> historico;
+  final String comentario;
+  final bool pulado;
+
+  _ExerciseSessionSlot({
+    required this.exercicio,
+    Set<int>? series,
+    List<_HistoricoSerieLocal>? historico,
+    this.comentario = '',
+    this.pulado = false,
+  }) : series = series ?? <int>{},
+       historico = historico ?? <_HistoricoSerieLocal>[];
+}
+
+class _WorkoutEditMenuSheet extends StatelessWidget {
+  final VoidCallback onAddExercise;
+  final VoidCallback onSwapExercise;
+  final VoidCallback onRemoveExercise;
+  final VoidCallback onReorderExercises;
+  final VoidCallback onSkipExercise;
+  final VoidCallback onRestartExercise;
+
+  const _WorkoutEditMenuSheet({
+    required this.onAddExercise,
+    required this.onSwapExercise,
+    required this.onRemoveExercise,
+    required this.onReorderExercises,
+    required this.onSkipExercise,
+    required this.onRestartExercise,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Container(
+        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0D1218),
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: const Color(0xFF233241)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(120),
+              blurRadius: 32,
+              offset: const Offset(0, 16),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 44,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white.withAlpha(70),
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Editar treino',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _EditMenuAction(
+              icon: Icons.add_circle_outline_rounded,
+              label: 'Adicionar exercício',
+              onTap: onAddExercise,
+            ),
+            _EditMenuAction(
+              icon: Icons.swap_horiz_rounded,
+              label: 'Trocar exercício atual',
+              onTap: onSwapExercise,
+            ),
+            _EditMenuAction(
+              icon: Icons.delete_outline_rounded,
+              label: 'Remover exercício',
+              color: const Color(0xFFFF6B6B),
+              onTap: onRemoveExercise,
+            ),
+            _EditMenuAction(
+              icon: Icons.drag_indicator_rounded,
+              label: 'Reordenar exercícios',
+              onTap: onReorderExercises,
+            ),
+            _EditMenuAction(
+              icon: Icons.skip_next_rounded,
+              label: 'Pular exercício',
+              onTap: onSkipExercise,
+            ),
+            _EditMenuAction(
+              icon: Icons.restart_alt_rounded,
+              label: 'Reiniciar exercício atual',
+              onTap: onRestartExercise,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EditMenuAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _EditMenuAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.color = Colors.white,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Material(
+        color: const Color(0xFF111820),
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  color: color == Colors.white
+                      ? const Color(0xFF00E5C3)
+                      : color,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: Colors.white.withAlpha(90),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReorderExercisesSheet extends StatelessWidget {
+  final List<ExercicioModel> exercicios;
+  final int currentIndex;
+  final Set<int> pulados;
+  final Map<int, Set<int>> seriesConcluidas;
+  final ReorderCallback onReorder;
+
+  const _ReorderExercisesSheet({
+    required this.exercicios,
+    required this.currentIndex,
+    required this.pulados,
+    required this.seriesConcluidas,
+    required this.onReorder,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: FractionallySizedBox(
+        heightFactor: 0.78,
+        child: Container(
+          margin: const EdgeInsets.all(12),
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0D1218),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: const Color(0xFF233241)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: 44,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white.withAlpha(70),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Reordenar exercícios',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded),
+                    color: Colors.white,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Expanded(
+                child: ReorderableListView.builder(
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: exercicios.length,
+                  onReorderItem: onReorder,
+                  itemBuilder: (context, index) {
+                    final exercicio = exercicios[index];
+                    return _ReorderExerciseTile(
+                      key: ValueKey('${exercicio.id}_${exercicio.nome}_$index'),
+                      index: index,
+                      exercicio: exercicio,
+                      isCurrent: index == currentIndex,
+                      isSkipped: pulados.contains(index),
+                      completedSeries: seriesConcluidas[index]?.length ?? 0,
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReorderExerciseTile extends StatelessWidget {
+  final int index;
+  final ExercicioModel exercicio;
+  final bool isCurrent;
+  final bool isSkipped;
+  final int completedSeries;
+
+  const _ReorderExerciseTile({
+    super.key,
+    required this.index,
+    required this.exercicio,
+    required this.isCurrent,
+    required this.isSkipped,
+    required this.completedSeries,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = isCurrent
+        ? const Color(0xFF00E5C3)
+        : const Color(0xFF233241);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111820),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: borderColor.withAlpha(isCurrent ? 170 : 255)),
+      ),
+      child: Row(
+        children: [
+          Text(
+            (index + 1).toString().padLeft(2, '0'),
+            style: const TextStyle(
+              color: Color(0xFF00E5C3),
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  exercicio.nome,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${exercicio.categoria} • $completedSeries série(s)'
+                  '${isSkipped ? ' • Pulado' : ''}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withAlpha(150),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Icon(
+            Icons.drag_indicator_rounded,
+            color: Colors.white.withAlpha(130),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SkippedExerciseBanner extends StatelessWidget {
+  const _SkippedExerciseBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFC857).withAlpha(18),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFFFC857).withAlpha(90)),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.redo_rounded, color: Color(0xFFFFC857), size: 18),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Exercício pulado. Você pode voltar e concluir quando quiser.',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _WorkoutHeader extends StatelessWidget {
   final String title;
   final String time;
@@ -644,6 +1231,7 @@ class _WorkoutHeader extends StatelessWidget {
   final String tempoMinutos;
   final String volume;
   final VoidCallback onBack;
+  final VoidCallback onMenu;
 
   const _WorkoutHeader({
     required this.title,
@@ -656,6 +1244,7 @@ class _WorkoutHeader extends StatelessWidget {
     required this.tempoMinutos,
     required this.volume,
     required this.onBack,
+    required this.onMenu,
   });
 
   @override
@@ -703,6 +1292,13 @@ class _WorkoutHeader extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
+              ),
+              const SizedBox(width: 6),
+              IconButton(
+                onPressed: onMenu,
+                icon: const Icon(Icons.more_vert_rounded),
+                color: Colors.white,
+                tooltip: 'Editar treino',
               ),
             ],
           ),
