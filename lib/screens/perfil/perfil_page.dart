@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/achievement_model.dart';
 import '../../services/achievement_service.dart';
 import '../../theme/app_theme.dart';
+import 'agenda_treinos_page.dart';
 import 'calendario_treinos_page.dart';
 import 'edit_profile_page.dart';
 import 'conquistas_page.dart';
@@ -436,6 +437,19 @@ class PerfilPage extends StatelessWidget {
           _buildAcaoTile(
             context,
             icon: Icons.calendar_month_rounded,
+            label: 'Agenda de Treinos',
+            color: AppColors.accent2,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AgendaTreinosPage()),
+              );
+            },
+          ),
+          const Divider(height: 1, indent: 56),
+          _buildAcaoTile(
+            context,
+            icon: Icons.event_available_rounded,
             label: 'Calendário de Treinos',
             color: AppColors.primary,
             isLast: true,

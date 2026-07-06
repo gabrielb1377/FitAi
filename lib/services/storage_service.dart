@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/xp/xp_config.dart';
+import '../models/agenda_treino_override_model.dart';
 import '../models/achievement_model.dart';
 import '../models/corrida_model.dart';
 import '../models/fitai_memory_model.dart';
@@ -398,6 +399,55 @@ class StorageService {
   static Future<void> limparHistoricoTreinos() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove("historicoTreinos");
+  }
+
+  static Future<void> salvarAgendaTreinoOverride(
+    AgendaTreinoOverrideModel override,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final overrides = await carregarAgendaTreinoOverrides();
+    final atualizados =
+        overrides.where((item) => item.id != override.id).toList()
+          ..add(override);
+    final lista = atualizados.map((item) => jsonEncode(item.toJson())).toList();
+
+    await prefs.setStringList('agendaTreinoOverrides', lista);
+  }
+
+  static Future<List<AgendaTreinoOverrideModel>>
+  carregarAgendaTreinoOverrides() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lista = prefs.getStringList('agendaTreinoOverrides') ?? [];
+    final overrides = <AgendaTreinoOverrideModel>[];
+
+    for (final item in lista) {
+      try {
+        final json = jsonDecode(item);
+        if (json is Map<String, dynamic>) {
+          overrides.add(AgendaTreinoOverrideModel.fromJson(json));
+        } else if (json is Map) {
+          overrides.add(
+            AgendaTreinoOverrideModel.fromJson(Map<String, dynamic>.from(json)),
+          );
+        }
+      } catch (erro) {
+        debugPrint('Erro ao carregar agenda de treino: $erro');
+      }
+    }
+
+    overrides.sort((a, b) => a.data.compareTo(b.data));
+    return overrides;
+  }
+
+  static Future<void> removerAgendaTreinoOverride(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    final overrides = await carregarAgendaTreinoOverrides();
+    final atualizados = overrides
+        .where((item) => item.id != id)
+        .map((item) => jsonEncode(item.toJson()))
+        .toList();
+
+    await prefs.setStringList('agendaTreinoOverrides', atualizados);
   }
 
   static Future<void> salvarConquistas(
