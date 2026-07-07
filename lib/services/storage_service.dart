@@ -696,6 +696,59 @@ class StorageService {
     return true;
   }
 
+  static Future<List<String>> carregarNotasExercicio(String idOuNome) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_chaveNotasExercicio(idOuNome)) ??
+        const <String>[];
+  }
+
+  static Future<void> salvarNotasExercicio(
+    String idOuNome,
+    List<String> notas,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final limpas = notas
+        .map((nota) => nota.trim())
+        .where((nota) => nota.isNotEmpty)
+        .toList(growable: false);
+
+    await prefs.setStringList(_chaveNotasExercicio(idOuNome), limpas);
+  }
+
+  static Future<void> adicionarNotaExercicio(
+    String idOuNome,
+    String nota,
+  ) async {
+    final texto = nota.trim();
+    if (texto.isEmpty) return;
+
+    final notas = await carregarNotasExercicio(idOuNome);
+    await salvarNotasExercicio(idOuNome, [texto, ...notas]);
+  }
+
+  static Future<void> editarNotaExercicio(
+    String idOuNome,
+    int index,
+    String nota,
+  ) async {
+    final texto = nota.trim();
+    final notas = await carregarNotasExercicio(idOuNome);
+
+    if (index < 0 || index >= notas.length || texto.isEmpty) return;
+
+    final atualizadas = [...notas];
+    atualizadas[index] = texto;
+    await salvarNotasExercicio(idOuNome, atualizadas);
+  }
+
+  static Future<void> removerNotaExercicio(String idOuNome, int index) async {
+    final notas = await carregarNotasExercicio(idOuNome);
+    if (index < 0 || index >= notas.length) return;
+
+    final atualizadas = [...notas]..removeAt(index);
+    await salvarNotasExercicio(idOuNome, atualizadas);
+  }
+
   static Future<void> salvarProgresso(ProgressoExercicioModel progresso) async {
     final prefs = await SharedPreferences.getInstance();
     final lista = prefs.getStringList("progressosExercicios") ?? [];
@@ -827,6 +880,15 @@ class StorageService {
     }
 
     return valor;
+  }
+
+  static String _chaveNotasExercicio(String idOuNome) {
+    final normalizado = _normalizarNomeExercicio(idOuNome)
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '');
+
+    return 'notasExercicio_${normalizado.isEmpty ? 'sem_nome' : normalizado}';
   }
 
   // ===============================

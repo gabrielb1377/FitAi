@@ -8,6 +8,7 @@ import '../../services/treino_service.dart';
 import '../../theme/app_theme.dart';
 import 'treino_em_andamento_page.dart';
 import 'widgets/exercise_hub_widgets.dart';
+import 'widgets/exercise_notes_card.dart';
 
 class ExercicioDetalhePage extends StatefulWidget {
   final ExercicioModel exercicio;
@@ -120,6 +121,8 @@ class _ExercicioDetalhePageState extends State<ExercicioDetalhePage> {
                           );
                         },
                       ),
+                      const SizedBox(height: 14),
+                      ExerciseNotesCard(exercicio: exercicio),
                       const SizedBox(height: 14),
                       ExerciseTechniqueCard(exercicio: exercicio),
                       const SizedBox(height: 14),
