@@ -291,10 +291,9 @@ class _AppNavigationFrameState extends State<AppNavigationFrame> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final useSideNavigation = constraints.maxWidth >= 840;
-        final page = _AnimatedShellPage(
+        final page = IndexedStack(
           index: index,
-          previousIndex: previousIndex,
-          child: widget.pages[index],
+          children: widget.pages,
         );
 
         if (useSideNavigation) {
