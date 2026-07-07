@@ -9,6 +9,7 @@ import '../../theme/app_theme.dart';
 import 'treino_em_andamento_page.dart';
 import 'widgets/exercise_hub_widgets.dart';
 import 'widgets/exercise_notes_card.dart';
+import 'widgets/exercise_progression_card.dart';
 
 class ExercicioDetalhePage extends StatefulWidget {
   final ExercicioModel exercicio;
@@ -26,6 +27,7 @@ class ExercicioDetalhePage extends StatefulWidget {
 
 class _ExercicioDetalhePageState extends State<ExercicioDetalhePage> {
   late Future<ResumoCargaExercicio> _resumoCargaFuture;
+  late Future<ProgressaoInteligenteResumo> _progressaoFuture;
   bool _favorito = false;
 
   ExercicioModel get exercicio => widget.exercicio;
@@ -34,6 +36,7 @@ class _ExercicioDetalhePageState extends State<ExercicioDetalhePage> {
   void initState() {
     super.initState();
     _resumoCargaFuture = _carregarResumoCarga();
+    _progressaoFuture = _carregarProgressao();
     _carregarFavorito();
   }
 
@@ -43,12 +46,20 @@ class _ExercicioDetalhePageState extends State<ExercicioDetalhePage> {
     if (oldWidget.exercicio.id != exercicio.id ||
         oldWidget.exercicio.nome != exercicio.nome) {
       _resumoCargaFuture = _carregarResumoCarga();
+      _progressaoFuture = _carregarProgressao();
       _carregarFavorito();
     }
   }
 
   Future<ResumoCargaExercicio> _carregarResumoCarga() {
     return const ProgressaoService().carregarResumoCarga(exercicio: exercicio);
+  }
+
+  Future<ProgressaoInteligenteResumo> _carregarProgressao() {
+    return const ProgressaoService().carregarProgressaoInteligente(
+      exercicio: exercicio,
+      metaRepeticoes: 8,
+    );
   }
 
   Future<void> _carregarFavorito() async {
@@ -116,6 +127,10 @@ class _ExercicioDetalhePageState extends State<ExercicioDetalhePage> {
                                 ExerciseHistoryCard(resumo: resumo),
                                 const SizedBox(height: 14),
                                 ExerciseStatsCard(resumo: resumo),
+                                const SizedBox(height: 14),
+                                ExerciseProgressionCard(
+                                  future: _progressaoFuture,
+                                ),
                               ],
                             ),
                           );

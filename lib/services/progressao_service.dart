@@ -5,6 +5,8 @@ import 'storage_service.dart';
 
 enum TipoProgressao { inicial, progressao, manutencao, deload }
 
+enum IndicadorProgressao { evolucao, queda, estavel }
+
 class UltimaExecucaoExercicio {
   final double peso;
   final int repeticoes;
@@ -162,8 +164,138 @@ class ResumoCargaExercicio {
   }
 }
 
+class ProgressaoInteligenteResumo {
+  final ResumoCargaExercicio resumoCarga;
+  final ProgressaoSugestao sugestao;
+  final double cargaMedia;
+  final double volumeMedio;
+  final IndicadorProgressao indicador;
+  final String recomendacao;
+
+  const ProgressaoInteligenteResumo({
+    required this.resumoCarga,
+    required this.sugestao,
+    required this.cargaMedia,
+    required this.volumeMedio,
+    required this.indicador,
+    required this.recomendacao,
+  });
+
+  bool get temHistorico => resumoCarga.temHistorico;
+
+  bool get temSugestao => sugestao.cargaSugerida > 0;
+
+  SerieCargaExercicio? get ultimaExecucao => resumoCarga.ultimaExecucao;
+
+  SerieCargaExercicio? get melhorExecucao {
+    final melhorVolume = resumoCarga.melhorVolume;
+    final melhorCarga = resumoCarga.melhorCarga;
+
+    if (melhorVolume == null) return melhorCarga;
+    if (melhorCarga == null) return melhorVolume;
+
+    return melhorVolume.volume >= melhorCarga.volume
+        ? melhorVolume
+        : melhorCarga;
+  }
+
+  List<SerieCargaExercicio> get ultimasCinco {
+    return resumoCarga.execucoes.take(5).toList(growable: false);
+  }
+
+  String get indicadorSimbolo {
+    switch (indicador) {
+      case IndicadorProgressao.evolucao:
+        return "↑";
+      case IndicadorProgressao.queda:
+        return "↓";
+      case IndicadorProgressao.estavel:
+        return "→";
+    }
+  }
+
+  String get indicadorTexto {
+    switch (indicador) {
+      case IndicadorProgressao.evolucao:
+        return "evolucao";
+      case IndicadorProgressao.queda:
+        return "queda";
+      case IndicadorProgressao.estavel:
+        return "estavel";
+    }
+  }
+
+  String get cargaSugeridaInput {
+    if (!temSugestao) return "";
+    return _formatarNumero(sugestao.cargaSugerida);
+  }
+
+  String get cargaSugeridaTexto {
+    if (!temSugestao) return "Sem carga sugerida";
+    return "${_formatarNumero(sugestao.cargaSugerida)} kg";
+  }
+
+  String get repsSugeridasTexto {
+    return "${sugestao.repeticoesMin}-${sugestao.repeticoesMax} reps";
+  }
+
+  String get ultimaExecucaoTexto {
+    final ultima = ultimaExecucao;
+    if (ultima == null) return "Sem historico";
+    return "${ultima.cargaFormatada} • ${ultima.repeticoes} reps";
+  }
+
+  String get melhorExecucaoTexto {
+    final melhor = melhorExecucao;
+    if (melhor == null) return "Sem historico";
+    return "${melhor.cargaFormatada} • ${_formatarPeso(melhor.volume)}";
+  }
+
+  String get cargaMediaTexto {
+    if (!temHistorico) return "-";
+    return "${_formatarNumero(cargaMedia)} kg";
+  }
+
+  String get volumeMedioTexto {
+    if (!temHistorico) return "-";
+    return _formatarPeso(volumeMedio);
+  }
+
+  static String _formatarPeso(double valor) {
+    if (valor <= 0) return "0 kg";
+    if (valor >= 1000) return "${_formatarNumero(valor / 1000)} t";
+    return "${_formatarNumero(valor)} kg";
+  }
+
+  static String _formatarNumero(double valor) {
+    if (valor == valor.roundToDouble()) return valor.round().toString();
+    return valor.toStringAsFixed(1).replaceAll(".", ",");
+  }
+}
+
 class ProgressaoService {
   const ProgressaoService();
+
+  Future<ProgressaoInteligenteResumo> carregarProgressaoInteligente({
+    required ExercicioModel exercicio,
+    int metaRepeticoes = 10,
+  }) async {
+    final resumo = await carregarResumoCarga(exercicio: exercicio);
+    final sugestao = await calcularSugestao(
+      exercicio: exercicio,
+      metaRepeticoes: metaRepeticoes,
+    );
+    final indicador = _calcularIndicador(resumo.execucoes);
+
+    return ProgressaoInteligenteResumo(
+      resumoCarga: resumo,
+      sugestao: sugestao,
+      cargaMedia: _media(resumo.execucoes.map((item) => item.peso)),
+      volumeMedio: _media(resumo.execucoes.map((item) => item.volume)),
+      indicador: indicador,
+      recomendacao: _recomendacao(sugestao),
+    );
+  }
 
   Future<ResumoCargaExercicio> carregarResumoCarga({
     required ExercicioModel exercicio,
@@ -383,6 +515,52 @@ class ProgressaoService {
     }
 
     return unicos;
+  }
+
+  IndicadorProgressao _calcularIndicador(List<SerieCargaExercicio> execucoes) {
+    if (execucoes.length < 2) return IndicadorProgressao.estavel;
+
+    final recentes = execucoes.take(5).toList();
+    final atual = recentes.first.volume > 0
+        ? recentes.first.volume
+        : recentes.first.peso;
+    final anterior = recentes.last.volume > 0
+        ? recentes.last.volume
+        : recentes.last.peso;
+
+    if (anterior <= 0) return IndicadorProgressao.estavel;
+
+    final variacao = ((atual - anterior) / anterior) * 100;
+    if (variacao > 2) return IndicadorProgressao.evolucao;
+    if (variacao < -2) return IndicadorProgressao.queda;
+    return IndicadorProgressao.estavel;
+  }
+
+  double _media(Iterable<double> valores) {
+    final lista = valores.where((valor) => valor > 0).toList();
+    if (lista.isEmpty) return 0;
+
+    return lista.reduce((a, b) => a + b) / lista.length;
+  }
+
+  String _recomendacao(ProgressaoSugestao sugestao) {
+    if (!sugestao.temHistorico) {
+      return "Registre a primeira execucao para liberar recomendacoes precisas.";
+    }
+
+    final carga = SerieCargaExercicio._formatarNumero(sugestao.cargaSugerida);
+    final faixa = "${sugestao.repeticoesMin}-${sugestao.repeticoesMax}";
+
+    switch (sugestao.tipo) {
+      case TipoProgressao.progressao:
+        return "Aumente aproximadamente 2,5-5%. Tente ${carga}kg para $faixa repeticoes.";
+      case TipoProgressao.deload:
+        return "Reduza aproximadamente 5% e priorize tecnica. Tente ${carga}kg para $faixa repeticoes.";
+      case TipoProgressao.manutencao:
+        return "Repita a carga atual e consolide a execucao em $faixa repeticoes.";
+      case TipoProgressao.inicial:
+        return "Escolha uma carga confortavel e registre suas series.";
+    }
   }
 
   String _normalizar(String texto) {

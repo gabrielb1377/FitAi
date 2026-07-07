@@ -7,6 +7,7 @@ import '../../models/exercicio_model.dart';
 import '../../models/historico_serie_treino_model.dart';
 import '../../models/historico_treino_model.dart';
 import '../../models/treino_model.dart';
+import '../../services/progressao_service.dart';
 import '../../services/storage_service.dart';
 import '../../widgets/exercicio_gif_viewer.dart';
 import '../exercicios/biblioteca_exercicios_page.dart';
@@ -591,6 +592,49 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     );
   }
 
+  void _abrirProgressaoSheet() {
+    final exercicio = _exercicio;
+    if (exercicio == null) return;
+
+    final metaRepeticoes = int.tryParse(_texto(_repeticoesController)) ?? 8;
+
+    _abrirInfoSheet(
+      title: 'Progressão',
+      icon: Icons.trending_up_rounded,
+      child: FutureBuilder<ProgressaoInteligenteResumo>(
+        future: const ProgressaoService().carregarProgressaoInteligente(
+          exercicio: exercicio,
+          metaRepeticoes: metaRepeticoes,
+        ),
+        builder: (context, snapshot) {
+          final progressao = snapshot.data;
+
+          if (progressao == null) {
+            return const LinearProgressIndicator(minHeight: 6);
+          }
+
+          return _ProgressaoTreinoCard(
+            progressao: progressao,
+            onApply: progressao.temSugestao
+                ? () => _aplicarSugestaoProgressao(progressao)
+                : null,
+          );
+        },
+      ),
+    );
+  }
+
+  void _aplicarSugestaoProgressao(ProgressaoInteligenteResumo progressao) {
+    if (!progressao.temSugestao) return;
+
+    setState(() {
+      _pesoController.text = progressao.cargaSugeridaInput;
+      _repeticoesController.text = progressao.sugestao.repeticoesMax.toString();
+    });
+
+    _mostrarMensagem('Sugestão aplicada.');
+  }
+
   void _abrirInfoSheet({
     required String title,
     required IconData icon,
@@ -936,6 +980,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
                                   onXp: _abrirXpSheet,
                                   onCoach: () =>
                                       _abrirCoachSheet(historicoAtual),
+                                  onProgression: _abrirProgressaoSheet,
                                   onPerformance: () => _abrirPerformanceSheet(
                                     entries: historicoAtual,
                                     sessionEntries: historicoSessao,
@@ -1752,12 +1797,14 @@ class _QuickActionsRow extends StatelessWidget {
   final VoidCallback onSwap;
   final VoidCallback onXp;
   final VoidCallback onCoach;
+  final VoidCallback onProgression;
   final VoidCallback onPerformance;
 
   const _QuickActionsRow({
     required this.onSwap,
     required this.onXp,
     required this.onCoach,
+    required this.onProgression,
     required this.onPerformance,
   });
 
@@ -1786,6 +1833,14 @@ class _QuickActionsRow extends StatelessWidget {
             label: 'Coach',
             icon: Icons.auto_awesome_rounded,
             onTap: onCoach,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _QuickActionButton(
+            label: 'Prog.',
+            icon: Icons.trending_up_rounded,
+            onTap: onProgression,
           ),
         ),
         const SizedBox(width: 8),
@@ -2733,6 +2788,199 @@ class _HistorySeriesTile extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ProgressaoTreinoCard extends StatelessWidget {
+  final ProgressaoInteligenteResumo progressao;
+  final VoidCallback? onApply;
+
+  const _ProgressaoTreinoCard({
+    required this.progressao,
+    required this.onApply,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1218),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFF00E5C3).withAlpha(70)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.trending_up_rounded, color: Color(0xFF00E5C3)),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Progressão inteligente',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              _ProgressaoPill(
+                text:
+                    '${progressao.indicadorSimbolo} ${progressao.indicadorTexto}',
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _ProgressaoMetric(
+                  label: 'Última execução',
+                  value: progressao.ultimaExecucaoTexto,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _ProgressaoMetric(
+                  label: 'Melhor execução',
+                  value: progressao.melhorExecucaoTexto,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _ProgressaoMetric(
+                  label: 'Carga média',
+                  value: progressao.cargaMediaTexto,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _ProgressaoMetric(
+                  label: 'Volume médio',
+                  value: progressao.volumeMedioTexto,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            progressao.recomendacao,
+            style: TextStyle(
+              color: Colors.white.withAlpha(180),
+              height: 1.4,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (progressao.ultimasCinco.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            const Text(
+              'Últimas 5 execuções',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: progressao.ultimasCinco
+                  .map((item) => _ProgressaoPill(text: item.cargaFormatada))
+                  .toList(),
+            ),
+          ],
+          if (onApply != null) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: onApply,
+                icon: const Icon(Icons.check_rounded),
+                label: Text(
+                  'Aplicar sugestão • ${progressao.cargaSugeridaTexto}',
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ProgressaoMetric extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _ProgressaoMetric({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111820),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF233241)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withAlpha(135),
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProgressaoPill extends StatelessWidget {
+  final String text;
+
+  const _ProgressaoPill({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFF00E5C3).withAlpha(20),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFF00E5C3).withAlpha(70)),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Color(0xFF00E5C3),
+          fontSize: 12,
+          fontWeight: FontWeight.w900,
+        ),
       ),
     );
   }
