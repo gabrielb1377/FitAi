@@ -8,6 +8,9 @@ class HistoricoSerieTreinoModel {
   final int serieNumero;
   final double peso;
   final int repeticoes;
+  final int series;
+  final int descansoSegundos;
+  final String comentario;
   final DateTime dataHora;
 
   const HistoricoSerieTreinoModel({
@@ -20,10 +23,13 @@ class HistoricoSerieTreinoModel {
     required this.serieNumero,
     required this.peso,
     required this.repeticoes,
+    this.series = 1,
+    this.descansoSegundos = 0,
+    this.comentario = "",
     required this.dataHora,
   });
 
-  double get volume => peso * repeticoes;
+  double get volume => peso * repeticoes * (series <= 0 ? 1 : series);
 
   Map<String, dynamic> toJson() {
     return {
@@ -36,6 +42,10 @@ class HistoricoSerieTreinoModel {
       "serieNumero": serieNumero,
       "peso": peso,
       "repeticoes": repeticoes,
+      "series": series,
+      "descansoSegundos": descansoSegundos,
+      "comentario": comentario,
+      "volume": volume,
       "dataHora": dataHora.toIso8601String(),
     };
   }
@@ -51,6 +61,11 @@ class HistoricoSerieTreinoModel {
       serieNumero: _intFromJson(json["serieNumero"]),
       peso: _doubleFromJson(json["peso"]),
       repeticoes: _intFromJson(json["repeticoes"]),
+      series: _intFromJson(json["series"]) <= 0
+          ? 1
+          : _intFromJson(json["series"]),
+      descansoSegundos: _intFromJson(json["descansoSegundos"]),
+      comentario: json["comentario"]?.toString() ?? "",
       dataHora:
           DateTime.tryParse(json["dataHora"]?.toString() ?? "") ??
           DateTime.fromMillisecondsSinceEpoch(0),

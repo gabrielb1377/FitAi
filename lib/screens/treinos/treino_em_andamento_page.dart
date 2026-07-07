@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/xp/xp_config.dart';
 import '../../models/exercicio_model.dart';
+import '../../models/historico_serie_treino_model.dart';
 import '../../models/historico_treino_model.dart';
 import '../../models/treino_model.dart';
 import '../../services/storage_service.dart';
@@ -727,6 +728,47 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
         .fold<double>(0, (total, entry) => total + _volumeSerie(entry));
   }
 
+  Future<void> _salvarHistoricoIndividualExercicios(
+    HistoricoTreinoModel historicoTreino,
+  ) async {
+    for (final entry in _historico.entries) {
+      final index = entry.key;
+      if (index < 0 || index >= _exercicios.length) continue;
+
+      final exercicio = _exercicios[index];
+      final comentario = _comentarios[index] ?? '';
+
+      for (final serie in entry.value) {
+        final serieHistorico = HistoricoSerieTreinoModel(
+          id: [
+            historicoTreino.id,
+            _exercicioKey(exercicio),
+            serie.numero,
+            serie.data.microsecondsSinceEpoch,
+          ].join('_'),
+          treinoId: widget.treino.id,
+          sessaoTreinoId: historicoTreino.id,
+          nomeTreino: widget.treino.nome,
+          exercicioId: exercicio.id,
+          nomeExercicio: exercicio.nome,
+          serieNumero: serie.numero,
+          peso: _pesoSerie(serie),
+          repeticoes: serie.repeticoes,
+          series: 1,
+          descansoSegundos: _descansoPadrao,
+          comentario: comentario,
+          dataHora: serie.data,
+        );
+
+        await StorageService.salvarHistoricoExercicio(serieHistorico);
+      }
+    }
+  }
+
+  double _pesoSerie(_HistoricoSerieLocal entry) {
+    return double.tryParse(entry.peso.replaceAll(',', '.')) ?? 0;
+  }
+
   int _calcularXpGanho({
     required int seriesConcluidas,
     required int exerciciosConcluidos,
@@ -793,6 +835,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     );
 
     try {
+      await _salvarHistoricoIndividualExercicios(historico);
       await StorageService.salvarHistoricoTreino(historico);
       await StorageService.adicionarXp(xpGanho);
       await widget.onXpAtualizado?.call();

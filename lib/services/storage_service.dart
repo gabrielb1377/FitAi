@@ -586,6 +586,12 @@ class StorageService {
     await prefs.setStringList("historicoSeriesTreino", atualizados);
   }
 
+  static Future<void> salvarHistoricoExercicio(
+    HistoricoSerieTreinoModel historico,
+  ) async {
+    await salvarHistoricoSerieTreino(historico);
+  }
+
   static Future<List<HistoricoSerieTreinoModel>>
   carregarHistoricoSeriesTreino() async {
     final prefs = await SharedPreferences.getInstance();
@@ -618,6 +624,24 @@ class StorageService {
     final historico = await carregarHistoricoSeriesTreino();
 
     return historico.where((item) => item.treinoId == treinoId).toList();
+  }
+
+  static Future<List<HistoricoSerieTreinoModel>>
+  carregarHistoricoSeriesExercicio(String idOuNome) async {
+    final historico = await carregarHistoricoSeriesTreino();
+    final busca = idOuNome.trim();
+    final buscaNormalizada = _normalizarNomeExercicio(busca);
+
+    return historico.where((item) {
+      final mesmoId =
+          busca.isNotEmpty &&
+          item.exercicioId.trim().isNotEmpty &&
+          item.exercicioId.trim() == busca;
+      final mesmoNome =
+          _normalizarNomeExercicio(item.nomeExercicio) == buscaNormalizada;
+
+      return mesmoId || mesmoNome;
+    }).toList();
   }
 
   static Future<void> removerHistoricoSerieTreino(String id) async {
@@ -710,23 +734,30 @@ class StorageService {
   static Future<ProgressoExercicioModel?> carregarUltimoProgresso(
     String nomeExercicio,
   ) async {
-    final historico = await carregarHistoricoExercicio(nomeExercicio);
+    final historico = await carregarHistoricoExercicio<ProgressoExercicioModel>(
+      nomeExercicio,
+    );
 
     if (historico.isEmpty) return null;
 
     return historico.first;
   }
 
-  static Future<List<ProgressoExercicioModel>> carregarHistoricoExercicio(
-    String nomeExercicio,
-  ) async {
-    final progressos = await carregarProgressos();
-    final nomeNormalizado = _normalizarNomeExercicio(nomeExercicio);
+  static Future<List<T>> carregarHistoricoExercicio<T>(String idOuNome) async {
+    if (T == HistoricoSerieTreinoModel) {
+      final historico = await carregarHistoricoSeriesExercicio(idOuNome);
+      return historico.cast<T>();
+    }
 
-    return progressos.where((progresso) {
+    final progressos = await carregarProgressos();
+    final nomeNormalizado = _normalizarNomeExercicio(idOuNome);
+
+    final historico = progressos.where((progresso) {
       return _normalizarNomeExercicio(progresso.nomeExercicio) ==
           nomeNormalizado;
     }).toList();
+
+    return historico.cast<T>();
   }
 
   static Future<void> removerProgresso(String id) async {
