@@ -321,6 +321,35 @@ class StorageService {
     await prefs.setStringList('historicoCorridas', lista);
   }
 
+  static Future<void> salvarCorridaIniciada(bool valor) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('corridaIniciada', valor);
+  }
+
+  static Future<bool> carregarCorridaIniciada() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('corridaIniciada') ?? false;
+  }
+
+  static Future<void> salvarInicioCorridaIso(String? valor) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    if (valor == null || valor.trim().isEmpty) {
+      await prefs.remove('inicioCorridaIso');
+      await prefs.remove('inicioCorrida');
+      return;
+    }
+
+    await prefs.setString('inicioCorridaIso', valor);
+    await prefs.setString('inicioCorrida', valor);
+  }
+
+  static Future<String?> carregarInicioCorridaIso() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('inicioCorridaIso') ??
+        prefs.getString('inicioCorrida');
+  }
+
   static Future<void> salvarCorridaAtiva({
     required bool corridaIniciada,
     required DateTime? inicioCorrida,
@@ -330,7 +359,7 @@ class StorageService {
   }) async {
     final prefs = await SharedPreferences.getInstance();
 
-    await prefs.setBool('corridaIniciada', corridaIniciada);
+    await salvarCorridaIniciada(corridaIniciada);
     await prefs.setInt('corridaAtivaSegundos', segundos);
     await prefs.setDouble('corridaAtivaDistancia', distancia);
     await prefs.setDouble('corridaAtivaVelocidadeMedia', velocidadeMedia);
@@ -338,19 +367,15 @@ class StorageService {
     await prefs.setDouble('distancia', distancia);
     await prefs.setDouble('velocidadeMedia', velocidadeMedia);
 
-    if (inicioCorrida == null) {
-      await prefs.remove('inicioCorrida');
-    } else {
-      await prefs.setString('inicioCorrida', inicioCorrida.toIso8601String());
-    }
+    await salvarInicioCorridaIso(inicioCorrida?.toIso8601String());
   }
 
   static Future<Map<String, dynamic>> carregarCorridaAtiva() async {
     final prefs = await SharedPreferences.getInstance();
 
     return {
-      'corridaIniciada': prefs.getBool('corridaIniciada') ?? false,
-      'inicioCorrida': prefs.getString('inicioCorrida'),
+      'corridaIniciada': await carregarCorridaIniciada(),
+      'inicioCorrida': await carregarInicioCorridaIso(),
       'segundos': prefs.getInt('corridaAtivaSegundos') ?? 0,
       'distancia': prefs.getDouble('corridaAtivaDistancia') ?? 0.0,
       'velocidadeMedia': prefs.getDouble('corridaAtivaVelocidadeMedia') ?? 0.0,
@@ -360,11 +385,16 @@ class StorageService {
   static Future<void> limparCorridaAtiva() async {
     final prefs = await SharedPreferences.getInstance();
 
-    await prefs.setBool('corridaIniciada', false);
+    await salvarCorridaIniciada(false);
+    await salvarInicioCorridaIso(null);
     await prefs.remove('inicioCorrida');
+    await prefs.remove('inicioCorridaIso');
     await prefs.remove('corridaAtivaSegundos');
     await prefs.remove('corridaAtivaDistancia');
     await prefs.remove('corridaAtivaVelocidadeMedia');
+    await prefs.setInt('segundos', 0);
+    await prefs.setDouble('distancia', 0);
+    await prefs.setDouble('velocidadeMedia', 0);
   }
 
   static Future<List<CorridaModel>> carregarCorridas() async {

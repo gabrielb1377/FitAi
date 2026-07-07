@@ -1,8 +1,144 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+
+import '../../models/corrida_model.dart';
+import '../../services/storage_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_components.dart';
-import 'corrida_ativa_controller.dart';
 import 'historico_corridas_page.dart';
+
+class CorridaAtivaController extends ChangeNotifier {
+  CorridaAtivaController._();
+
+  static final CorridaAtivaController instance = CorridaAtivaController._();
+  static const double _velocidadeSimuladaKmh = 8.0;
+
+  Timer? _timerUi;
+  bool _inicializado = false;
+  bool _inicializando = false;
+  bool _corridaIniciada = false;
+  DateTime? _inicioCorrida;
+
+  bool get inicializado => _inicializado;
+  bool get corridaIniciada => _corridaIniciada;
+  DateTime? get inicioCorrida => _inicioCorrida;
+
+  int get segundos {
+    if (!_corridaIniciada || _inicioCorrida == null) return 0;
+
+    final valor = DateTime.now().difference(_inicioCorrida!).inSeconds;
+    return valor < 0 ? 0 : valor;
+  }
+
+  double get distancia {
+    if (!_corridaIniciada) return 0;
+
+    return (segundos / 3600) * _velocidadeSimuladaKmh;
+  }
+
+  double get velocidadeMedia {
+    if (!_corridaIniciada || segundos <= 0) return 0;
+
+    return distancia / (segundos / 3600);
+  }
+
+  Future<void> inicializar() async {
+    if (_inicializado || _inicializando) return;
+
+    _inicializando = true;
+    final ativa = await StorageService.carregarCorridaIniciada();
+    final inicioIso = await StorageService.carregarInicioCorridaIso();
+    final inicio = DateTime.tryParse(inicioIso ?? '');
+
+    if (ativa && inicio != null) {
+      _corridaIniciada = true;
+      _inicioCorrida = inicio;
+      _garantirTimerUi();
+      _persistirCorridaAtiva();
+    } else if (ativa) {
+      await StorageService.limparCorridaAtiva();
+      _corridaIniciada = false;
+      _inicioCorrida = null;
+    }
+
+    _inicializado = true;
+    _inicializando = false;
+    notifyListeners();
+  }
+
+  void iniciar() {
+    if (_corridaIniciada) return;
+
+    _inicioCorrida = DateTime.now();
+    _corridaIniciada = true;
+    _garantirTimerUi();
+    _persistirCorridaAtiva();
+    notifyListeners();
+  }
+
+  Future<CorridaModel?> parar() async {
+    if (!_corridaIniciada || _inicioCorrida == null) return null;
+
+    final segundosFinais = segundos;
+    final distanciaFinal = distancia;
+    final corrida = CorridaModel(
+      distancia: distanciaFinal,
+      segundos: segundosFinais,
+      data: DateTime.now().toIso8601String(),
+    );
+
+    _timerUi?.cancel();
+    _timerUi = null;
+    _corridaIniciada = false;
+    _inicioCorrida = null;
+
+    await StorageService.salvarCorrida(corrida);
+    await _somarEstatisticas(corrida);
+    await StorageService.limparCorridaAtiva();
+
+    notifyListeners();
+    return corrida;
+  }
+
+  void _garantirTimerUi() {
+    if (_timerUi?.isActive ?? false) return;
+
+    _timerUi = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!_corridaIniciada) return;
+
+      if (segundos % 5 == 0) {
+        _persistirCorridaAtiva();
+      }
+
+      notifyListeners();
+    });
+  }
+
+  void _persistirCorridaAtiva() {
+    unawaited(
+      StorageService.salvarCorridaAtiva(
+        corridaIniciada: _corridaIniciada,
+        inicioCorrida: _inicioCorrida,
+        segundos: segundos,
+        distancia: distancia,
+        velocidadeMedia: velocidadeMedia,
+      ),
+    );
+  }
+
+  Future<void> _somarEstatisticas(CorridaModel corrida) async {
+    final distanciaTotal = await StorageService.carregarDistanciaTotal();
+    final tempoTotal = await StorageService.carregarTempoTotal();
+    final totalCorridas = await StorageService.carregarTotalCorridas();
+
+    await StorageService.salvarDistanciaTotal(
+      distanciaTotal + corrida.distancia,
+    );
+    await StorageService.salvarTempoTotal(tempoTotal + corrida.segundos);
+    await StorageService.salvarTotalCorridas(totalCorridas + 1);
+  }
+}
 
 class CorridasPage extends StatefulWidget {
   final double distancia;
