@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
 
 import '../../../theme/app_theme.dart';
+import 'home_notification_bell.dart';
 
 class HeaderHome extends StatelessWidget {
   final String nome;
   final int nivel;
+  final int notificacoesNaoLidas;
+  final VoidCallback? onAbrirNotificacoes;
 
-  const HeaderHome({super.key, required this.nome, required this.nivel});
+  const HeaderHome({
+    super.key,
+    required this.nome,
+    required this.nivel,
+    this.notificacoesNaoLidas = 0,
+    this.onAbrirNotificacoes,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -53,6 +62,11 @@ class HeaderHome extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 14),
+            HomeNotificationBell(
+              count: notificacoesNaoLidas,
+              onTap: onAbrirNotificacoes,
+            ),
+            const SizedBox(width: 10),
             Container(
               padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(

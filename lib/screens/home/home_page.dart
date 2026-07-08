@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../core/xp/xp_config.dart';
+import '../../models/fitai_notification_model.dart';
 import '../../models/historico_treino_model.dart';
 import '../../models/treino_model.dart';
 import '../../services/ia_evolutiva_service.dart';
+import '../../services/notification_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/streak_service.dart';
 import '../../services/treino_do_dia_service.dart';
@@ -11,6 +13,9 @@ import '../../services/treino_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_components.dart';
 import '../ai_workout_page.dart';
+import '../perfil/agenda_treinos_page.dart';
+import '../perfil/evolucao_page.dart';
+import '../perfil/notificacoes_page.dart';
 import '../treinos/criar_treino_page.dart';
 import '../treinos/treino_profissional_page.dart';
 import 'widgets/fitia_recomendacao_card.dart';
@@ -48,7 +53,9 @@ class _HomePageState extends State<HomePage> {
 
   bool carregandoTreinos = true;
   bool atualizandoDadosHoje = false;
+  bool atualizandoNotificacoes = false;
   bool treinoConcluidoHoje = false;
+  int notificacoesNaoLidas = 0;
   List<HistoricoTreinoModel> historicoTreinos = [];
   IaEvolutivaRecomendacao? recomendacao;
 
@@ -57,6 +64,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     treinoService.addListener(_onTreinosAtualizados);
     _carregarDadosHoje();
+    _carregarNotificacoes();
   }
 
   @override
@@ -96,8 +104,22 @@ class _HomePageState extends State<HomePage> {
         recomendacao = recomendacaoAtual;
         carregandoTreinos = false;
       });
+      await _carregarNotificacoes();
     } finally {
       atualizandoDadosHoje = false;
+    }
+  }
+
+  Future<void> _carregarNotificacoes() async {
+    if (atualizandoNotificacoes) return;
+    atualizandoNotificacoes = true;
+
+    try {
+      final total = await const NotificationService().contarNaoLidas();
+      if (!mounted) return;
+      setState(() => notificacoesNaoLidas = total);
+    } finally {
+      atualizandoNotificacoes = false;
     }
   }
 
@@ -138,6 +160,66 @@ class _HomePageState extends State<HomePage> {
     await _carregarDadosHoje();
   }
 
+  Future<void> _abrirNotificacoes() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => NotificacoesPage(onAbrirAcao: _abrirAcaoNotificacao),
+      ),
+    );
+
+    await _carregarNotificacoes();
+  }
+
+  Future<void> _abrirAcaoNotificacao(FitaiNotificationModel notificacao) async {
+    final acao = notificacao.acao;
+
+    if (acao.startsWith('treino:')) {
+      final treino = await _buscarTreinoPorId(acao.substring(7));
+      if (!mounted) return;
+      if (treino != null) {
+        await _abrirTreino(treino);
+        return;
+      }
+    }
+
+    if (acao == 'agenda') {
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const AgendaTreinosPage()),
+      );
+      return;
+    }
+
+    if (acao == 'evolucao') {
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const EvolucaoPage()),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Notificacao marcada como lida.')),
+    );
+  }
+
+  Future<TreinoModel?> _buscarTreinoPorId(String id) async {
+    for (final treino in treinoService.treinos) {
+      if (treino.id == id) return treino;
+    }
+
+    final salvos = await StorageService.carregarTreinos();
+    for (final treino in salvos) {
+      if (treino.id == id) return treino;
+    }
+
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final selecaoTreino = treinoDoDiaService.selecionarTreinoDoDiaDetalhado(
@@ -157,7 +239,12 @@ class _HomePageState extends State<HomePage> {
         physics: const BouncingScrollPhysics(),
         slivers: [
           SliverToBoxAdapter(
-            child: HeaderHome(nome: widget.nome, nivel: widget.nivel),
+            child: HeaderHome(
+              nome: widget.nome,
+              nivel: widget.nivel,
+              notificacoesNaoLidas: notificacoesNaoLidas,
+              onAbrirNotificacoes: _abrirNotificacoes,
+            ),
           ),
           SliverPadding(
             padding: EdgeInsets.fromLTRB(

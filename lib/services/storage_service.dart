@@ -7,6 +7,7 @@ import '../models/agenda_treino_override_model.dart';
 import '../models/achievement_model.dart';
 import '../models/corrida_model.dart';
 import '../models/fitai_memory_model.dart';
+import '../models/fitai_notification_model.dart';
 import '../models/historico_serie_treino_model.dart';
 import '../models/historico_treino_model.dart';
 import '../models/passos_diarios_model.dart';
@@ -948,5 +949,79 @@ class StorageService {
   static Future<void> apagarTreinos() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove("treinos");
+  }
+
+  static Future<List<FitaiNotificationModel>> carregarNotificacoes() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lista = prefs.getStringList("fitaiNotificacoes") ?? [];
+    final notificacoes = <FitaiNotificationModel>[];
+
+    for (final item in lista) {
+      try {
+        final json = jsonDecode(item);
+        if (json is Map<String, dynamic>) {
+          notificacoes.add(FitaiNotificationModel.fromJson(json));
+        } else if (json is Map) {
+          notificacoes.add(
+            FitaiNotificationModel.fromJson(Map<String, dynamic>.from(json)),
+          );
+        }
+      } catch (erro) {
+        debugPrint("Erro ao carregar notificacao: $erro");
+      }
+    }
+
+    notificacoes.sort((a, b) => b.data.compareTo(a.data));
+    return notificacoes;
+  }
+
+  static Future<void> salvarNotificacoes(
+    List<FitaiNotificationModel> notificacoes,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final lista = notificacoes
+        .where((item) => item.id.trim().isNotEmpty)
+        .map((item) => jsonEncode(item.toJson()))
+        .toList();
+
+    await prefs.setStringList("fitaiNotificacoes", lista);
+  }
+
+  static Future<void> salvarNotificacao(
+    FitaiNotificationModel notificacao,
+  ) async {
+    final notificacoes = await carregarNotificacoes();
+    final atualizadas = notificacoes
+        .where((item) => item.id != notificacao.id)
+        .toList();
+
+    atualizadas.add(notificacao);
+    await salvarNotificacoes(atualizadas);
+  }
+
+  static Future<void> marcarNotificacaoLida(String id) async {
+    final notificacoes = await carregarNotificacoes();
+    final atualizadas = notificacoes.map((item) {
+      if (item.id != id) return item;
+      return item.copyWith(lida: true);
+    }).toList();
+
+    await salvarNotificacoes(atualizadas);
+  }
+
+  static Future<void> marcarTodasNotificacoesLidas() async {
+    final notificacoes = await carregarNotificacoes();
+    final atualizadas = notificacoes
+        .map((item) => item.copyWith(lida: true))
+        .toList();
+
+    await salvarNotificacoes(atualizadas);
+  }
+
+  static Future<void> excluirNotificacao(String id) async {
+    final notificacoes = await carregarNotificacoes();
+    final atualizadas = notificacoes.where((item) => item.id != id).toList();
+
+    await salvarNotificacoes(atualizadas);
   }
 }
