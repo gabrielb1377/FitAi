@@ -8,6 +8,7 @@ import '../../models/historico_serie_treino_model.dart';
 import '../../models/historico_treino_model.dart';
 import '../../models/treino_model.dart';
 import '../../services/progressao_service.dart';
+import '../../services/recorde_service.dart';
 import '../../services/storage_service.dart';
 import '../../widgets/exercicio_gif_viewer.dart';
 import '../exercicios/biblioteca_exercicios_page.dart';
@@ -861,7 +862,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
       volumeTotal: volumeTotal,
     );
     final agora = DateTime.now();
-    final historico = HistoricoTreinoModel(
+    final historicoBase = HistoricoTreinoModel(
       id: '${agora.microsecondsSinceEpoch}_${widget.treino.nome.hashCode}',
       nomeTreino: widget.treino.nome,
       dataHora: agora,
@@ -878,8 +879,27 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
       recordesBatidos: 0,
     );
 
+    var recordesBatidos = 0;
+
     try {
-      await _salvarHistoricoIndividualExercicios(historico);
+      await const RecordeService().sincronizarRecordesHistoricos();
+      await _salvarHistoricoIndividualExercicios(historicoBase);
+
+      final seriesSalvas = await StorageService.carregarHistoricoSeriesTreino();
+      final seriesSessao = seriesSalvas.where((serie) {
+        return serie.sessaoTreinoId == historicoBase.id;
+      }).toList();
+      final novosRecordes = await const RecordeService().detectarRecordesTreino(
+        historico: historicoBase,
+        seriesSessao: seriesSessao,
+      );
+      recordesBatidos = novosRecordes.length;
+
+      final historico = HistoricoTreinoModel.fromJson({
+        ...historicoBase.toJson(),
+        'recordesBatidos': recordesBatidos,
+      });
+
       await StorageService.salvarHistoricoTreino(historico);
       await StorageService.adicionarXp(xpGanho);
       await widget.onXpAtualizado?.call();
@@ -902,7 +922,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
           seriesConcluidas: seriesConcluidas,
           volume: '${_formatarVolume(volumeTotal)} kg',
           xp: xpGanho,
-          recordes: historico.recordesBatidos,
+          recordes: recordesBatidos,
           resumoIa:
               'Treino salvo no histórico. Você concluiu $exerciciosConcluidos exercícios e movimentou ${_formatarVolume(volumeTotal)} kg.',
         ),

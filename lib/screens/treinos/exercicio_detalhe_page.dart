@@ -13,6 +13,7 @@ import 'widgets/exercise_hub_widgets.dart';
 import 'widgets/exercise_coach_insights_card.dart';
 import 'widgets/exercise_notes_card.dart';
 import 'widgets/exercise_progression_card.dart';
+import 'widgets/exercise_records_card.dart';
 
 class ExercicioDetalhePage extends StatefulWidget {
   final ExercicioModel exercicio;
@@ -141,6 +142,8 @@ class _ExercicioDetalhePageState extends State<ExercicioDetalhePage> {
                                 ExerciseHistoryCard(resumo: resumo),
                                 const SizedBox(height: 14),
                                 ExerciseStatsCard(resumo: resumo),
+                                const SizedBox(height: 14),
+                                ExerciseRecordsCard(exercicio: exercicio),
                                 const SizedBox(height: 14),
                                 ExerciseProgressionCard(
                                   future: _progressaoFuture,

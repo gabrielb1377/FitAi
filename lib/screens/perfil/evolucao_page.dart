@@ -5,6 +5,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_components.dart';
 import 'widgets/coach_insights_card.dart';
 import 'widgets/evolucao_dashboard_widgets.dart';
+import 'widgets/recordes_resumo_action_card.dart';
 
 class EvolucaoPage extends StatefulWidget {
   const EvolucaoPage({super.key});
@@ -95,6 +96,8 @@ class _EvolucaoPageState extends State<EvolucaoPage> {
                 ),
                 const SizedBox(height: 12),
                 RecordesPessoaisCard(recordes: dados.recordes),
+                const SizedBox(height: 12),
+                const RecordesResumoActionCard(),
                 const SizedBox(height: 24),
                 const EvolucaoSectionTitle(
                   icon: Icons.calendar_month_rounded,

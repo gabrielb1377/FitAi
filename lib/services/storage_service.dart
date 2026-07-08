@@ -6,6 +6,7 @@ import '../core/xp/xp_config.dart';
 import '../models/agenda_treino_override_model.dart';
 import '../models/achievement_model.dart';
 import '../models/corrida_model.dart';
+import '../models/fitai_recorde_model.dart';
 import '../models/fitai_memory_model.dart';
 import '../models/fitai_notification_model.dart';
 import '../models/historico_serie_treino_model.dart';
@@ -320,6 +321,126 @@ class StorageService {
     lista.add(jsonEncode(corrida.toJson()));
 
     await prefs.setStringList('historicoCorridas', lista);
+    await _salvarRecordesCorrida(corrida);
+  }
+
+  static Future<void> salvarRecordes(List<FitaiRecordeModel> recordes) async {
+    final prefs = await SharedPreferences.getInstance();
+    final unicos = <String, FitaiRecordeModel>{};
+
+    for (final recorde in recordes) {
+      if (recorde.id.trim().isEmpty) continue;
+      unicos[recorde.id] = recorde;
+    }
+
+    final lista = unicos.values
+        .map((recorde) => jsonEncode(recorde.toJson()))
+        .toList();
+
+    await prefs.setStringList('fitaiRecordes', lista);
+  }
+
+  static Future<List<FitaiRecordeModel>> carregarRecordes() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lista = prefs.getStringList('fitaiRecordes') ?? [];
+    final recordes = <FitaiRecordeModel>[];
+
+    for (final item in lista) {
+      try {
+        final json = jsonDecode(item);
+
+        if (json is Map<String, dynamic>) {
+          recordes.add(FitaiRecordeModel.fromJson(json));
+        } else if (json is Map) {
+          recordes.add(
+            FitaiRecordeModel.fromJson(Map<String, dynamic>.from(json)),
+          );
+        }
+      } catch (erro) {
+        debugPrint("Erro ao carregar recorde: $erro");
+      }
+    }
+
+    recordes.sort((a, b) => b.data.compareTo(a.data));
+    return recordes;
+  }
+
+  static Future<void> salvarRecorde(FitaiRecordeModel recorde) async {
+    final recordes = await carregarRecordes();
+    final atualizados = recordes.where((item) => item.id != recorde.id).toList()
+      ..add(recorde);
+
+    await salvarRecordes(atualizados);
+  }
+
+  static Future<bool> salvarRecordeSeMaior(FitaiRecordeModel recorde) async {
+    final recordes = await carregarRecordes();
+    FitaiRecordeModel? atual;
+
+    for (final item in recordes) {
+      if (item.id == recorde.id) {
+        atual = item;
+        break;
+      }
+    }
+
+    if (atual != null && recorde.valor <= atual.valor + 0.0001) {
+      return false;
+    }
+
+    await salvarRecorde(recorde);
+    return true;
+  }
+
+  static Future<void> _salvarRecordesCorrida(CorridaModel corrida) async {
+    final data =
+        DateTime.tryParse(corrida.data) ??
+        DateTime.fromMillisecondsSinceEpoch(0);
+    final minutos = corrida.segundos / 60;
+    final horas = corrida.segundos <= 0 ? 0.0 : corrida.segundos / 3600;
+    final velocidade = horas <= 0 ? 0.0 : corrida.distancia / horas;
+
+    if (corrida.distancia > 0) {
+      await salvarRecordeSeMaior(
+        FitaiRecordeModel(
+          id: 'corrida_distancia',
+          titulo: 'Maior distancia corrida',
+          descricao: 'Sua maior distancia registrada em uma corrida.',
+          categoria: FitaiRecordeCategoria.corridas,
+          valor: corrida.distancia,
+          unidade: 'km',
+          data: data,
+        ),
+      );
+    }
+
+    if (minutos > 0) {
+      await salvarRecordeSeMaior(
+        FitaiRecordeModel(
+          id: 'corrida_tempo',
+          titulo: 'Maior tempo correndo',
+          descricao: 'Seu maior tempo continuo em uma corrida.',
+          categoria: FitaiRecordeCategoria.corridas,
+          valor: minutos,
+          unidade: 'min',
+          data: data,
+        ),
+      );
+    }
+
+    if (velocidade > 0) {
+      await salvarRecordeSeMaior(
+        FitaiRecordeModel(
+          id: 'corrida_velocidade',
+          titulo: 'Melhor velocidade media',
+          descricao: 'Sua melhor velocidade media registrada.',
+          categoria: FitaiRecordeCategoria.corridas,
+          valor: velocidade,
+          unidade: 'km/h',
+          data: data,
+        ),
+      );
+    }
   }
 
   static Future<void> salvarCorridaIniciada(bool valor) async {

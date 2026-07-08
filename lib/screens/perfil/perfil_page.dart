@@ -9,6 +9,7 @@ import 'conquistas_page.dart';
 import 'evolucao_page.dart';
 import 'metas_page.dart';
 import 'perfil_ia_page.dart';
+import 'recordes_page.dart';
 import '../../services/storage_service.dart';
 
 class PerfilPage extends StatelessWidget {
@@ -418,6 +419,19 @@ class PerfilPage extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const ConquistasPage()),
+              );
+            },
+          ),
+          const Divider(height: 1, indent: 56),
+          _buildAcaoTile(
+            context,
+            icon: Icons.military_tech_rounded,
+            label: 'Recordes Pessoais',
+            color: AppColors.primary,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const RecordesPage()),
               );
             },
           ),
