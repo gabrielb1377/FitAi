@@ -1,6 +1,8 @@
+import '../models/coach_insight_model.dart';
 import '../models/historico_serie_treino_model.dart';
 import '../models/historico_treino_model.dart';
 import '../models/progresso_exercicio_model.dart';
+import 'coach_insight_service.dart';
 import 'storage_service.dart';
 import 'streak_service.dart';
 
@@ -23,6 +25,10 @@ class EvolucaoDashboardService {
     final musculos = _musculosTreinados(historico, registros);
     final carga = _cargaResumo(registros);
     final recordes = _recordes(registros);
+    final coachInsights = const CoachInsightService().analisarHistorico(
+      historicoTreinos: historico,
+      historicoSeries: historicoSeries,
+    );
 
     return EvolucaoDashboardData(
       historico: historico,
@@ -36,15 +42,18 @@ class EvolucaoDashboardService {
         maiorSequencia: streak.melhor,
       ),
       musculos: musculos,
-      insights: _insights(
-        historico: historico,
-        registros: registros,
-        semanaAtual: semanaAtual,
-        semanaAnterior: semanaAnterior,
-        musculos: musculos,
-        carga: carga,
-        streak: streak,
-      ),
+      coachInsights: coachInsights,
+      insights: coachInsights.isNotEmpty
+          ? _resumosCoach(coachInsights)
+          : _insights(
+              historico: historico,
+              registros: registros,
+              semanaAtual: semanaAtual,
+              semanaAnterior: semanaAnterior,
+              musculos: musculos,
+              carga: carga,
+              streak: streak,
+            ),
     );
   }
 
@@ -326,6 +335,31 @@ class EvolucaoDashboardService {
     return insights.take(4).toList();
   }
 
+  List<CoachInsightResumo> _resumosCoach(List<CoachInsightModel> insights) {
+    return insights.take(4).map((insight) {
+      return CoachInsightResumo(
+        titulo: insight.titulo,
+        descricao: insight.descricao,
+        tipo: _tipoInsight(insight),
+      );
+    }).toList();
+  }
+
+  CoachInsightTipo _tipoInsight(CoachInsightModel insight) {
+    if (insight.prioridade == CoachInsightPrioridade.alta ||
+        insight.categoria == CoachInsightCategoria.recuperacao) {
+      return CoachInsightTipo.alerta;
+    }
+
+    if (insight.categoria == CoachInsightCategoria.evolucao ||
+        insight.categoria == CoachInsightCategoria.recordes ||
+        insight.categoria == CoachInsightCategoria.progressao) {
+      return CoachInsightTipo.positivo;
+    }
+
+    return CoachInsightTipo.neutro;
+  }
+
   double _variacao(double atual, double anterior) {
     if (anterior <= 0) return atual > 0 ? 100 : 0;
     return ((atual - anterior) / anterior) * 100;
@@ -367,6 +401,7 @@ class EvolucaoDashboardData {
   final List<RecordePessoalResumo> recordes;
   final FrequenciaResumo frequencia;
   final List<MusculoTreinadoResumo> musculos;
+  final List<CoachInsightModel> coachInsights;
   final List<CoachInsightResumo> insights;
 
   const EvolucaoDashboardData({
@@ -377,6 +412,7 @@ class EvolucaoDashboardData {
     required this.recordes,
     required this.frequencia,
     required this.musculos,
+    required this.coachInsights,
     required this.insights,
   });
 

@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 
+import '../../models/coach_insight_model.dart';
 import '../../models/exercicio_model.dart';
 import '../../models/treino_model.dart';
+import '../../services/coach_insight_service.dart';
 import '../../services/progressao_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/treino_service.dart';
 import '../../theme/app_theme.dart';
 import 'treino_em_andamento_page.dart';
 import 'widgets/exercise_hub_widgets.dart';
+import 'widgets/exercise_coach_insights_card.dart';
 import 'widgets/exercise_notes_card.dart';
 import 'widgets/exercise_progression_card.dart';
 
@@ -28,6 +31,7 @@ class ExercicioDetalhePage extends StatefulWidget {
 class _ExercicioDetalhePageState extends State<ExercicioDetalhePage> {
   late Future<ResumoCargaExercicio> _resumoCargaFuture;
   late Future<ProgressaoInteligenteResumo> _progressaoFuture;
+  late Future<List<CoachInsightModel>> _coachInsightsFuture;
   bool _favorito = false;
 
   ExercicioModel get exercicio => widget.exercicio;
@@ -37,6 +41,7 @@ class _ExercicioDetalhePageState extends State<ExercicioDetalhePage> {
     super.initState();
     _resumoCargaFuture = _carregarResumoCarga();
     _progressaoFuture = _carregarProgressao();
+    _coachInsightsFuture = _carregarCoachInsights();
     _carregarFavorito();
   }
 
@@ -47,6 +52,7 @@ class _ExercicioDetalhePageState extends State<ExercicioDetalhePage> {
         oldWidget.exercicio.nome != exercicio.nome) {
       _resumoCargaFuture = _carregarResumoCarga();
       _progressaoFuture = _carregarProgressao();
+      _coachInsightsFuture = _carregarCoachInsights();
       _carregarFavorito();
     }
   }
@@ -60,6 +66,10 @@ class _ExercicioDetalhePageState extends State<ExercicioDetalhePage> {
       exercicio: exercicio,
       metaRepeticoes: 8,
     );
+  }
+
+  Future<List<CoachInsightModel>> _carregarCoachInsights() {
+    return const CoachInsightService().gerarInsightsExercicio(exercicio);
   }
 
   Future<void> _carregarFavorito() async {
@@ -123,6 +133,10 @@ class _ExercicioDetalhePageState extends State<ExercicioDetalhePage> {
                               key: ValueKey(snapshot.connectionState),
                               children: [
                                 ExerciseCoachCard(resumo: resumo),
+                                const SizedBox(height: 14),
+                                ExerciseCoachInsightsCard(
+                                  future: _coachInsightsFuture,
+                                ),
                                 const SizedBox(height: 14),
                                 ExerciseHistoryCard(resumo: resumo),
                                 const SizedBox(height: 14),

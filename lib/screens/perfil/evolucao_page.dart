@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../services/evolucao_dashboard_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_components.dart';
+import 'widgets/coach_insights_card.dart';
 import 'widgets/evolucao_dashboard_widgets.dart';
 
 class EvolucaoPage extends StatefulWidget {
@@ -114,7 +115,7 @@ class _EvolucaoPageState extends State<EvolucaoPage> {
                   title: 'Coach FitIA',
                 ),
                 const SizedBox(height: 12),
-                CoachFitiaCard(insights: dados.insights),
+                CoachInsightsCard(insights: dados.coachInsights),
               ],
             ),
           );
