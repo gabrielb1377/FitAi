@@ -7,6 +7,7 @@ import 'calendario_treinos_page.dart';
 import 'edit_profile_page.dart';
 import 'conquistas_page.dart';
 import 'evolucao_page.dart';
+import 'metas_page.dart';
 import 'perfil_ia_page.dart';
 import '../../services/storage_service.dart';
 
@@ -430,6 +431,19 @@ class PerfilPage extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const EvolucaoPage()),
+              );
+            },
+          ),
+          const Divider(height: 1, indent: 56),
+          _buildAcaoTile(
+            context,
+            icon: Icons.flag_rounded,
+            label: 'Metas',
+            color: Colors.greenAccent,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const MetasPage()),
               );
             },
           ),
