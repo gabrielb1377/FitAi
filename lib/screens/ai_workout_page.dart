@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/exercicio_model.dart';
 import '../models/treino_model.dart';
+import '../services/backend_ai_service.dart';
 import '../services/treino_service.dart';
 import '../theme/app_theme.dart';
 
@@ -25,6 +26,7 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
   final divisaoPersonalizadaController = TextEditingController();
 
   final treinoService = TreinoService.instance;
+  final backendAIService = BackendAIService();
 
   String objetivo = 'Hipertrofia';
   String divisao = 'Automática';
@@ -88,7 +90,38 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
       return;
     }
 
-    final plano = _montarPlano();
+    setState(() => carregando = true);
+
+    late final _PlanoGerado plano;
+    late final String mensagem;
+
+    try {
+      final treinoBackend = await backendAIService.generateWorkout(
+        objetivo: objetivo,
+        divisao: divisaoSelecionada,
+        nivel: nivel,
+        diasPorSemana: diasPorSemana,
+        tempoPorTreino: tempoPorTreino,
+        local: localTreino,
+        equipamentos: _split(equipamentosController.text),
+        restricoes: _split(lesoesController.text),
+        prioridades: _split(gruposPrioritariosController.text),
+        observacoes: observacoesController.text.trim(),
+      );
+
+      plano = _planoGeradoFromTreino(treinoBackend);
+      mensagem = 'Treino gerado pela IA FitIA.';
+      _debugLog('Treino gerado pelo backend.');
+    } catch (erro) {
+      _debugLog('Backend indisponivel. Usando fallback local. Detalhe: $erro');
+      plano = _montarPlano();
+      mensagem = 'Backend indisponível. Usando geração local.';
+    }
+
+    if (!mounted) return;
+
+    setState(() => carregando = false);
+
     final confirmado = await _mostrarResumoPlano(plano);
 
     if (!mounted || confirmado != true) return;
@@ -100,9 +133,7 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
     if (!mounted) return;
 
     setState(() => carregando = false);
-    _snack(
-      'Ficha ${plano.treino.divisao} gerada com ${plano.dias.length} dias.',
-    );
+    _snack(mensagem);
     Navigator.pop(context, true);
   }
 
@@ -172,6 +203,32 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
       totalExercicios: todosExercicios.length,
       volumeSemanal: _volumeSemanalEstimado(todosExercicios.length),
       tempoTotal: tempoPorTreino * dias.length,
+    );
+  }
+
+  _PlanoGerado _planoGeradoFromTreino(TreinoModel treino) {
+    final dias = treino.planoDias.isEmpty
+        ? [
+            _DiaPlano(
+              'Dia 1',
+              treino.nome,
+              treino.exercicios
+                  .map((exercicio) => exercicio.categoria)
+                  .toSet()
+                  .toList(),
+            ),
+          ]
+        : treino.planoDias.map((dia) {
+            return _DiaPlano(dia.codigo, dia.nome, _gruposFromTitulo(dia.nome));
+          }).toList();
+    final diasCount = dias.isEmpty ? 1 : dias.length;
+
+    return _PlanoGerado(
+      treino: treino,
+      dias: dias,
+      totalExercicios: treino.exercicios.length,
+      volumeSemanal: _volumeSemanalEstimado(treino.exercicios.length),
+      tempoTotal: treino.tempoEstimado * diasCount,
     );
   }
 
@@ -927,6 +984,16 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
         .toList();
   }
 
+  List<String> _gruposFromTitulo(String value) {
+    final grupos = value
+        .split(RegExp(r'\+|/| e '))
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
+
+    return grupos.isEmpty ? [value] : grupos;
+  }
+
   bool _contemAlgum(String texto, List<String> termos) {
     final normalizado = _normalizar(texto);
 
@@ -961,6 +1028,13 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(texto), behavior: SnackBarBehavior.floating),
     );
+  }
+
+  void _debugLog(String message) {
+    assert(() {
+      debugPrint('[AIWorkoutPage] $message');
+      return true;
+    }());
   }
 
   @override

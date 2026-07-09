@@ -2,6 +2,23 @@
 
 A new Flutter project.
 
+## Backend IA
+
+O gerador de treino com IA tenta chamar o backend real em:
+
+```text
+POST http://localhost:3001/ai/generate-workout
+```
+
+Para usar a API real, deixe o backend `C:\fitai-backend` rodando com:
+
+```powershell
+cd C:\fitai-backend
+npm run dev
+```
+
+Se o backend estiver desligado, indisponivel ou retornar uma resposta invalida, o app continua funcionando e usa a geracao local atual como fallback. A chave OpenAI fica somente no backend; ela nao deve ser colocada no Flutter.
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.

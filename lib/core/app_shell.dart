@@ -291,10 +291,7 @@ class _AppNavigationFrameState extends State<AppNavigationFrame> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final useSideNavigation = constraints.maxWidth >= 840;
-        final page = IndexedStack(
-          index: index,
-          children: widget.pages,
-        );
+        final page = IndexedStack(index: index, children: widget.pages);
 
         if (useSideNavigation) {
           return Scaffold(
@@ -327,6 +324,7 @@ class _AppNavigationFrameState extends State<AppNavigationFrame> {
   }
 }
 
+// ignore: unused_element
 class _AnimatedShellPage extends StatelessWidget {
   final int index;
   final int previousIndex;
