@@ -1,0 +1,177 @@
+{
+  "abdominal_bicicleta": {
+    "status": "aprovado",
+    "gif": "sit_up.gif",
+    "exercise": "Abdominal Bicicleta"
+  },
+  "abdominal_com_bola_suica": {
+    "status": "aprovado",
+    "gif": "exercise_ball_hug.gif",
+    "exercise": "Abdominal com Bola Suíça"
+  },
+  "abdominal_crunch": {
+    "status": "aprovado",
+    "gif": "sit_up.gif",
+    "exercise": "Abdominal Crunch"
+  },
+  "abdominal_elevado_hanging_knee_raise": {
+    "status": "aprovado",
+    "gif": "hanging_leg_hip_raise.gif",
+    "exercise": "Abdominal Elevado (Hanging Knee Raise)"
+  },
+  "abdominal_escalador_climber_crunch": {
+    "status": "aprovado",
+    "gif": "mountain_climber.gif",
+    "exercise": "Abdominal Escalador (Climber Crunch)"
+  },
+  "abdominal_infra_com_elevacao_de_quadril": {
+    "status": "aprovado",
+    "gif": "hip_raise_crunch.gif",
+    "exercise": "Abdominal Infra com Elevação de Quadril"
+  },
+  "abdominal_no_banco_declinado": {
+    "status": "aprovado",
+    "gif": "decline_sit_up.gif",
+    "exercise": "Abdominal no Banco Declinado"
+  },
+  "abdominal_no_cabo": {
+    "status": "aprovado",
+    "gif": "cable_standing_crunch.gif",
+    "exercise": "Abdominal no Cabo"
+  },
+  "abdominal_obliquo_crunch_lateral": {
+    "status": "aprovado",
+    "gif": "alternate_oblique_crunch.gif",
+    "exercise": "Abdominal Oblíquo (Crunch Lateral)"
+  },
+  "abdominal_roda_ab_wheel": {
+    "status": "aprovado",
+    "gif": "wheel_rollout.gif",
+    "exercise": "Abdominal Roda (Ab Wheel)"
+  },
+  "abducao_de_quadril_com_elastico": {
+    "status": "aprovado",
+    "gif": "resistance_band_standing_balance_hip_abduction_male.gif",
+    "exercise": "Abdução de Quadril com Elástico"
+  },
+  "abertura_de_quadril_hip_circles": {
+    "status": "aprovado",
+    "gif": "hip_circles_stretch.gif",
+    "exercise": "Abertura de Quadril (Hip Circles)"
+  },
+  "afastamento_com_elastico_monster_walk": {
+    "status": "aprovado",
+    "gif": "resistance_band_lateral_walk.gif",
+    "exercise": "Afastamento com Elástico (Monster Walk)"
+  },
+  "afundo_com_passada_walking_lunge": {
+    "status": "aprovado",
+    "gif": "walking_lunge_male.gif",
+    "exercise": "Afundo com Passada (Walking Lunge)"
+  },
+  "afundo_lunge": {
+    "status": "aprovado",
+    "gif": "lunge.gif",
+    "exercise": "Afundo (Lunge)"
+  },
+  "agachamento_bulgaro": {
+    "status": "aprovado",
+    "gif": "bulgarian_split_squat.gif",
+    "exercise": "Agachamento Búlgaro"
+  },
+  "agachamento_com_barra_no_peito_front_squat": {
+    "status": "aprovado",
+    "gif": "barbell_front_squat.gif",
+    "exercise": "Agachamento com Barra no Peito (Front Squat)"
+  },
+  "agachamento_com_elastico": {
+    "status": "aprovado",
+    "gif": "band_squat.gif",
+    "exercise": "Agachamento com Elástico"
+  },
+  "agachamento_com_salto": {
+    "status": "aprovado",
+    "gif": "jump_squat.gif",
+    "exercise": "Agachamento com Salto"
+  },
+  "agachamento_com_salto_e_recepcao": {
+    "status": "aprovado",
+    "gif": "jump_squat_version_2.gif",
+    "exercise": "Agachamento com Salto e Recepção"
+  },
+  "agachamento_com_salto_em_caixote_box_jump": {
+    "status": "aprovado",
+    "gif": "jump_box_male.gif",
+    "exercise": "Agachamento com Salto em Caixote (Box Jump)"
+  },
+  "agachamento_com_salto_unilateral_single_leg_broad_jump": {
+    "status": "aprovado",
+    "gif": "single_leg_board_jump.gif",
+    "exercise": "Agachamento com Salto Unilateral (Single Leg Broad Jump)"
+  },
+  "agachamento_goblet": {
+    "status": "aprovado",
+    "gif": "clock_goblet_squat.gif",
+    "exercise": "Agachamento Goblet"
+  },
+  "agachamento_hack": {
+    "status": "aprovado",
+    "gif": "sled_hack_squat.gif",
+    "exercise": "Agachamento Hack"
+  },
+  "agachamento_isometrico_na_parede": {
+    "status": "aprovado",
+    "gif": "bodyweight_wall_squat.gif",
+    "exercise": "Agachamento Isométrico na Parede"
+  },
+  "agachamento_livre": {
+    "status": "aprovado",
+    "gif": "squat.gif",
+    "exercise": "Agachamento Livre"
+  },
+  "agachamento_na_parede_wall_sit": {
+    "status": "aprovado",
+    "gif": "sit_wall.gif",
+    "exercise": "Agachamento na Parede (Wall Sit)"
+  },
+  "agachamento_no_smith": {
+    "status": "aprovado",
+    "gif": "smith_squat.gif",
+    "exercise": "Agachamento no Smith"
+  },
+  "agachamento_pistol": {
+    "status": "aprovado",
+    "gif": "single_leg_squat_pistolmale.gif",
+    "exercise": "Agachamento Pistol"
+  },
+  "agachamento_sumo": {
+    "status": "aprovado",
+    "gif": "sumo_squat.gif",
+    "exercise": "Agachamento Sumô"
+  },
+  "agachamento_sumo_com_halter": {
+    "status": "aprovado",
+    "gif": "dumbbell_sumo_squat_female.gif",
+    "exercise": "Agachamento Sumô com Halter"
+  },
+  "agachamento_sumo_com_kettlebell": {
+    "status": "aprovado",
+    "gif": "kettlebell_sumo_deadlift.gif",
+    "exercise": "Agachamento Sumô com Kettlebell"
+  },
+  "alongamento_de_adutores_borboleta": {
+    "status": "aprovado",
+    "gif": "adductor_stretch.gif",
+    "exercise": "Alongamento de Adutores (Borboleta)"
+  },
+  "alongamento_de_biceps_na_parede": {
+    "status": "aprovado",
+    "gif": "standing_isometric_biceps_hold.gif",
+    "exercise": "Alongamento de Bíceps na Parede"
+  },
+  "alongamento_de_coluna_lombar_joelhos_ao_peito": {
+    "status": "aprovado",
+    "gif": "sit_wall.gif",
+    "exercise": "Alongamento de Coluna Lombar (Joelhos ao Peito)"
+  }
+}
