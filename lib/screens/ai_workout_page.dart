@@ -34,6 +34,7 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
   String localTreino = 'Academia';
   int diasPorSemana = 3;
   int tempoPorTreino = 45;
+  int minExerciciosPorDia = 6;
   bool carregando = false;
 
   final objetivos = const [
@@ -60,6 +61,7 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
   final locais = const ['Academia', 'Casa', 'Ar livre'];
   final diasOptions = const [2, 3, 4, 5, 6];
   final temposOptions = const [30, 45, 60, 75, 90];
+  final minExerciciosOptions = const [6, 7, 8, 9, 10];
 
   @override
   void dispose() {
@@ -102,6 +104,7 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
         nivel: nivel,
         diasPorSemana: diasPorSemana,
         tempoPorTreino: tempoPorTreino,
+        minExerciciosPorDia: _minExerciciosSeguro(),
         local: localTreino,
         equipamentos: _split(equipamentosController.text),
         restricoes: _split(lesoesController.text),
@@ -510,7 +513,15 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
       filtrados =
           _deduplicar([
             ...filtrados,
+            for (final grupo in gruposDoDia) ..._templatesPorGrupo(grupo),
             ..._templatesPorGrupo('Full Body'),
+            ..._templatesPorGrupo('Peito'),
+            ..._templatesPorGrupo('Costas'),
+            ..._templatesPorGrupo('Pernas'),
+            ..._templatesPorGrupo('Ombros'),
+            ..._templatesPorGrupo('Bracos'),
+            ..._templatesPorGrupo('Abdomen'),
+            ..._templatesPorGrupo('Cardio'),
             ..._templatesPorGrupo('Mobilidade'),
           ]).where((seed) {
             return !_contemAlgum(seed.nome, evitados) &&
@@ -527,19 +538,24 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
   }
 
   int _alvoExerciciosPorDia(List<String> grupos) {
-    var alvo = (tempoPorTreino / 9).round().clamp(4, 8);
+    var alvo = (tempoPorTreino / 9).round().clamp(4, 10).toInt();
     final objetivoNormalizado = _normalizar(objetivo);
+    final minimo = _minExerciciosSeguro();
 
     if (objetivoNormalizado.contains('forca')) {
-      alvo = alvo.clamp(4, 6);
+      alvo = alvo.clamp(4, 10).toInt();
     } else if (objetivoNormalizado.contains('mobilidade')) {
-      alvo = alvo.clamp(3, 6);
+      alvo = alvo.clamp(3, 10).toInt();
     } else if (diasPorSemana >= 5) {
-      alvo = alvo.clamp(4, 6);
+      alvo = alvo.clamp(4, 10).toInt();
     }
 
     if (grupos.length >= 3 && tempoPorTreino >= 60) {
-      alvo = (alvo + 1).clamp(4, 8);
+      alvo = (alvo + 1).clamp(4, 10).toInt();
+    }
+
+    if (alvo < minimo) {
+      alvo = minimo;
     }
 
     return alvo;
@@ -916,6 +932,11 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
                   icon: Icons.fitness_center_rounded,
                 ),
                 _ResumoLinha(
+                  label: 'Minimo por dia',
+                  value: '${_minExerciciosSeguro()} exercicios',
+                  icon: Icons.format_list_numbered_rounded,
+                ),
+                _ResumoLinha(
                   label: 'Tempo estimado',
                   value: '${plano.tempoTotal} min/semana',
                   icon: Icons.timer_rounded,
@@ -974,6 +995,12 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
         );
       },
     );
+  }
+
+  int _minExerciciosSeguro() {
+    return minExerciciosOptions.contains(minExerciciosPorDia)
+        ? minExerciciosPorDia
+        : 6;
   }
 
   List<String> _split(String value) {
@@ -1156,6 +1183,10 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
           ) {
             setState(() => tempoPorTreino = value);
           }, suffix: 'min'),
+          const SizedBox(height: 12),
+          _buildMinExerciciosSelector(),
+          const SizedBox(height: 12),
+          _buildResumoSolicitacao(),
         ],
       ),
     );
@@ -1221,6 +1252,72 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
         fontSize: 18,
         fontWeight: FontWeight.w900,
       ),
+    );
+  }
+
+  Widget _buildMinExerciciosSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Quantidade minima de exercicios por dia',
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: minExerciciosOptions.map((value) {
+            final selected = value == _minExerciciosSeguro();
+
+            return ChoiceChip(
+              label: Text('$value exercicios'),
+              selected: selected,
+              showCheckmark: false,
+              selectedColor: AppColors.primary,
+              backgroundColor: AppColors.surfaceVariant,
+              labelStyle: TextStyle(
+                color: selected ? Colors.black : AppColors.textSecondary,
+                fontWeight: FontWeight.w900,
+              ),
+              onSelected: (_) {
+                setState(() => minExerciciosPorDia = value);
+              },
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResumoSolicitacao() {
+    final divisaoFinal = divisaoSelecionada;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Resumo antes de gerar',
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          '$diasPorSemana dias por semana, $tempoPorTreino min por treino, minimo de ${_minExerciciosSeguro()} exercicios por dia, divisao $divisaoFinal.',
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w700,
+            height: 1.35,
+          ),
+        ),
+      ],
     );
   }
 

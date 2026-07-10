@@ -28,6 +28,7 @@ class BackendAIService {
     required String nivel,
     required int diasPorSemana,
     required int tempoPorTreino,
+    required int minExerciciosPorDia,
     required String local,
     required List<String> equipamentos,
     required List<String> restricoes,
@@ -41,6 +42,7 @@ class BackendAIService {
       'nivel': nivel,
       'diasPorSemana': diasPorSemana,
       'tempoPorTreino': tempoPorTreino,
+      'minExerciciosPorDia': _safeMinExercises(minExerciciosPorDia),
       'local': local,
       'equipamentos': equipamentos,
       'restricoes': restricoes,
@@ -70,7 +72,10 @@ class BackendAIService {
       final decoded = _decodeResponse(response.body);
       final treino = _treinoFromBackendJson(decoded, request: payload);
 
-      _validateTreino(treino);
+      _validateTreino(
+        treino,
+        minExerciciosPorDia: _safeMinExercises(minExerciciosPorDia),
+      );
       _debugLog(
         'Treino recebido do backend com ${treino.planoDias.length} dias.',
       );
@@ -249,7 +254,7 @@ class BackendAIService {
     );
   }
 
-  void _validateTreino(TreinoModel treino) {
+  void _validateTreino(TreinoModel treino, {required int minExerciciosPorDia}) {
     if (treino.planoDias.isEmpty) {
       throw const BackendAIException('Treino recebido sem dias.');
     }
@@ -262,7 +267,17 @@ class BackendAIService {
       if (dia.exercicioIds.isEmpty) {
         throw BackendAIException('Dia ${dia.codigo} sem exercicios.');
       }
+
+      if (dia.exercicioIds.length < minExerciciosPorDia) {
+        throw BackendAIException(
+          'Dia ${dia.codigo} com menos de $minExerciciosPorDia exercicios.',
+        );
+      }
     }
+  }
+
+  int _safeMinExercises(int value) {
+    return const [6, 7, 8, 9, 10].contains(value) ? value : 6;
   }
 
   List<Map<String, dynamic>> _listOfMaps(dynamic value) {
