@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,6 +15,7 @@ import '../models/historico_treino_model.dart';
 import '../models/passos_diarios_model.dart';
 import '../models/progresso_exercicio_model.dart';
 import '../models/treino_model.dart';
+import 'sync_service.dart';
 
 class XpNivelResultado {
   final int xp;
@@ -49,6 +51,15 @@ class StorageService {
     await prefs.setString('perfilPeso', peso);
     await prefs.setString('perfilAltura', altura);
     await prefs.setString('perfilIdade', idade);
+
+    unawaited(
+      SyncService.instance.syncProfile({
+        'nome': nome,
+        'peso': peso,
+        'altura': altura,
+        'idade': idade,
+      }),
+    );
   }
 
   static Future<Map<String, String>> carregarPerfilUsuario() async {
@@ -210,6 +221,26 @@ class StorageService {
     await prefs.setInt('metaPassosDiaria', diaria);
     await prefs.setInt('metaPassosSemanal', semanal);
     await prefs.setInt('metaPassosMensal', mensal);
+
+    unawaited(
+      SyncService.instance.syncGoals([
+        _metaPassosToJson(
+          'meta_passos_diaria',
+          'Meta diaria de passos',
+          diaria,
+        ),
+        _metaPassosToJson(
+          'meta_passos_semanal',
+          'Meta semanal de passos',
+          semanal,
+        ),
+        _metaPassosToJson(
+          'meta_passos_mensal',
+          'Meta mensal de passos',
+          mensal,
+        ),
+      ]),
+    );
   }
 
   static Future<Map<String, int>> carregarMetasPassos() async {
@@ -322,6 +353,8 @@ class StorageService {
 
     await prefs.setStringList('historicoCorridas', lista);
     await _salvarRecordesCorrida(corrida);
+
+    unawaited(SyncService.instance.syncRunning([corrida.toJson()]));
   }
 
   static Future<void> salvarRecordes(List<FitaiRecordeModel> recordes) async {
@@ -338,6 +371,12 @@ class StorageService {
         .toList();
 
     await prefs.setStringList('fitaiRecordes', lista);
+
+    unawaited(
+      SyncService.instance.syncRecords(
+        unicos.values.map((recorde) => recorde.toJson()).toList(),
+      ),
+    );
   }
 
   static Future<List<FitaiRecordeModel>> carregarRecordes() async {
@@ -565,6 +604,8 @@ class StorageService {
     lista.add(jsonEncode(historico.toJson()));
 
     await prefs.setStringList("historicoTreinos", lista);
+
+    unawaited(SyncService.instance.syncWorkoutHistory([historico.toJson()]));
   }
 
   static Future<List<HistoricoTreinoModel>> carregarHistoricoTreinos() async {
@@ -1050,11 +1091,28 @@ class StorageService {
   static Future<void> salvarTreino(TreinoModel treino) async {
     final prefs = await SharedPreferences.getInstance();
 
-    List<String> lista = prefs.getStringList("treinos") ?? [];
+    final lista = prefs.getStringList("treinos") ?? [];
+    final atualizados = lista.where((item) {
+      try {
+        final json = jsonDecode(item);
+        if (json is Map<String, dynamic>) {
+          return json["id"]?.toString() != treino.id;
+        }
+        if (json is Map) {
+          return json["id"]?.toString() != treino.id;
+        }
+      } catch (erro) {
+        debugPrint("Erro ao comparar treino salvo: $erro");
+      }
 
-    lista.add(jsonEncode(treino.toJson()));
+      return true;
+    }).toList();
 
-    await prefs.setStringList("treinos", lista);
+    atualizados.add(jsonEncode(treino.toJson()));
+
+    await prefs.setStringList("treinos", atualizados);
+
+    unawaited(SyncService.instance.syncWorkouts([treino.toJson()]));
   }
 
   static Future<List<TreinoModel>> carregarTreinos() async {
@@ -1144,5 +1202,22 @@ class StorageService {
     final atualizadas = notificacoes.where((item) => item.id != id).toList();
 
     await salvarNotificacoes(atualizadas);
+  }
+
+  static Map<String, dynamic> _metaPassosToJson(
+    String id,
+    String titulo,
+    int valorObjetivo,
+  ) {
+    return {
+      'id': id,
+      'titulo': titulo,
+      'descricao': 'Meta configurada localmente no FitIA.',
+      'categoria': 'passos',
+      'status': 'emAndamento',
+      'valorAtual': 0,
+      'valorObjetivo': valorObjetivo,
+      'unidade': 'passos',
+    };
   }
 }

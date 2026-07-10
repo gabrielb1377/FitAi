@@ -62,6 +62,66 @@ class FitaiMetaModel {
   String get progressoPercentual {
     return '${(progresso.clamp(0, 1) * 100).round()}%';
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'titulo': titulo,
+      'descricao': descricao,
+      'valorAtual': valorAtual,
+      'valorObjetivo': valorObjetivo,
+      'categoria': categoria.name,
+      'status': status.name,
+      'progresso': progresso,
+      'unidade': unidade,
+      'tempoRestante': tempoRestante,
+      'estimativa': estimativa,
+      'coachDica': coachDica,
+    };
+  }
+
+  factory FitaiMetaModel.fromJson(Map<String, dynamic> json) {
+    return FitaiMetaModel(
+      id: json['id']?.toString() ?? '',
+      titulo: json['titulo']?.toString() ?? 'Meta',
+      descricao: json['descricao']?.toString() ?? '',
+      valorAtual: _doubleFromJson(json['valorAtual']),
+      valorObjetivo: _doubleFromJson(json['valorObjetivo']),
+      categoria: _categoriaFromJson(json['categoria']),
+      status: _statusFromJson(json['status']),
+      progresso: _doubleFromJson(json['progresso']),
+      unidade: json['unidade']?.toString() ?? '',
+      tempoRestante: json['tempoRestante']?.toString() ?? '',
+      estimativa: json['estimativa']?.toString() ?? '',
+      coachDica: json['coachDica']?.toString() ?? '',
+    );
+  }
+
+  static FitaiMetaCategoria _categoriaFromJson(dynamic value) {
+    final text = value?.toString() ?? '';
+
+    return FitaiMetaCategoria.values.firstWhere(
+      (item) => item.name == text,
+      orElse: () => FitaiMetaCategoria.treinos,
+    );
+  }
+
+  static FitaiMetaStatus _statusFromJson(dynamic value) {
+    final text = value?.toString() ?? '';
+
+    return FitaiMetaStatus.values.firstWhere(
+      (item) => item.name == text,
+      orElse: () => FitaiMetaStatus.emAndamento,
+    );
+  }
+
+  static double _doubleFromJson(dynamic value) {
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is num) return value.toDouble();
+
+    return double.tryParse(value?.toString().replaceAll(',', '.') ?? '') ?? 0;
+  }
 }
 
 class FitaiMetasResumo {

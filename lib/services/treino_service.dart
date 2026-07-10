@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../models/treino_model.dart';
+import 'storage_service.dart';
 
 class TreinoService extends ChangeNotifier {
   TreinoService._();
@@ -11,7 +14,15 @@ class TreinoService extends ChangeNotifier {
   List<TreinoModel> get treinos => List.unmodifiable(_treinos);
 
   void adicionarTreino(TreinoModel treino) {
-    _treinos.add(treino);
+    final index = _treinos.indexWhere((item) => item.id == treino.id);
+
+    if (index >= 0) {
+      _treinos[index] = treino;
+    } else {
+      _treinos.add(treino);
+    }
+
+    unawaited(StorageService.salvarTreino(treino));
     notifyListeners();
   }
 

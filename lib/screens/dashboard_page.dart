@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../core/app_shell.dart';
+import '../services/sync_service.dart';
 import 'corridas/corridas_page.dart';
 
 class DashboardPage extends StatefulWidget {
@@ -16,6 +17,7 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void initState() {
     super.initState();
+    SyncService.instance.startAutoSync();
     unawaited(CorridaAtivaController.instance.inicializar());
   }
 

@@ -21,6 +21,12 @@ O formulario permite escolher de 6 a 10 exercicios minimos por dia. Esse valor e
 
 Se o backend estiver desligado, indisponivel ou retornar uma resposta invalida, o app continua funcionando e usa a geracao local atual como fallback. A chave OpenAI fica somente no backend; ela nao deve ser colocada no Flutter.
 
+## Sincronizacao offline-first
+
+O app continua salvando primeiro no SharedPreferences. Depois tenta enviar perfil, metas, recordes, planos, historico de treino e corridas para `C:\fitai-backend`.
+
+Se o backend estiver offline, o item fica em uma fila local pendente e o app tenta reenviar automaticamente quando abrir ou a cada nova tentativa de sync. O header `X-FitIA-Client-Id` identifica o dispositivo enquanto o login nao for obrigatorio.
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.
