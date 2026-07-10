@@ -1,15 +1,28 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
+
 import '../models/coach_insight_model.dart';
 import '../models/exercicio_model.dart';
 import '../models/historico_serie_treino_model.dart';
 import '../models/historico_treino_model.dart';
+import 'backend_coach_service.dart';
+import 'metas_service.dart';
 import 'storage_service.dart';
 
 class CoachInsightService {
   const CoachInsightService();
 
   Future<List<CoachInsightModel>> gerarInsightsGerais() async {
+    try {
+      final backendInsights = await BackendCoachService().gerarInsights();
+      if (backendInsights.isNotEmpty) {
+        return backendInsights;
+      }
+    } catch (error) {
+      _debugLog('Backend indisponivel. Usando Coach local: $error');
+    }
+
     final historicoTreinos = await StorageService.carregarHistoricoTreinos();
     final historicoSeries =
         await StorageService.carregarHistoricoSeriesTreino();
@@ -23,6 +36,20 @@ class CoachInsightService {
   Future<List<CoachInsightModel>> gerarInsightsExercicio(
     ExercicioModel exercicio,
   ) async {
+    try {
+      final backendInsights = await BackendCoachService().gerarInsights(
+        tipo: 'exercicio',
+        exercicioId: exercicio.id.trim().isEmpty
+            ? exercicio.nome
+            : exercicio.id,
+      );
+      if (backendInsights.isNotEmpty) {
+        return backendInsights.take(5).toList();
+      }
+    } catch (error) {
+      _debugLog('Backend indisponivel para exercicio. Usando local: $error');
+    }
+
     final historicoTreinos = await StorageService.carregarHistoricoTreinos();
     final historicoSeries =
         await StorageService.carregarHistoricoSeriesTreino();
@@ -33,6 +60,30 @@ class CoachInsightService {
     ];
 
     return _semDuplicar(insights).take(5).toList();
+  }
+
+  Future<List<CoachInsightModel>> gerarInsightsPorTipo(String tipo) async {
+    try {
+      final backendInsights = await BackendCoachService().gerarInsights(
+        tipo: tipo,
+      );
+      if (backendInsights.isNotEmpty) {
+        return backendInsights;
+      }
+    } catch (error) {
+      _debugLog('Backend indisponivel para $tipo. Usando local: $error');
+    }
+
+    if (tipo == 'metas') {
+      return _insightsMetasLocais();
+    }
+
+    if (tipo == 'corrida') {
+      return _insightsCorridaLocais();
+    }
+
+    final gerais = await gerarInsightsGerais();
+    return _filtrarPorTipo(gerais, tipo).take(8).toList();
   }
 
   List<CoachInsightModel> analisarHistorico({
@@ -102,6 +153,89 @@ class CoachInsightService {
     }
 
     return _semDuplicar(insights).take(8).toList();
+  }
+
+  Future<List<CoachInsightModel>> _insightsMetasLocais() async {
+    final resumo = await const MetasService().carregarMetas();
+
+    return resumo.dicasCoach.take(3).map((dica) {
+      return CoachInsightModel(
+        id: 'meta_${_normalizar(dica)}',
+        titulo: 'Dica para metas',
+        descricao: dica,
+        acao: 'Escolha uma meta pequena para avancar hoje.',
+        prioridade: CoachInsightPrioridade.media,
+        categoria: CoachInsightCategoria.sugestoes,
+        icone: 'flag',
+      );
+    }).toList();
+  }
+
+  Future<List<CoachInsightModel>> _insightsCorridaLocais() async {
+    final corridas = await StorageService.carregarCorridas();
+
+    if (corridas.isEmpty) {
+      return const [
+        CoachInsightModel(
+          id: 'corrida_sem_historico',
+          titulo: 'Primeira corrida',
+          descricao:
+              'Registre uma corrida para receber analises de ritmo e distancia.',
+          acao: 'Comece com uma corrida leve e salve o resultado.',
+          prioridade: CoachInsightPrioridade.baixa,
+          categoria: CoachInsightCategoria.sugestoes,
+          icone: 'directions_run',
+        ),
+      ];
+    }
+
+    final distancia = corridas.fold<double>(
+      0,
+      (total, corrida) => total + corrida.distancia,
+    );
+
+    return [
+      CoachInsightModel(
+        id: 'corrida_distancia_local',
+        titulo: 'Historico de corrida',
+        descricao:
+            'Voce tem ${corridas.length} corrida(s) salvas e ${distancia.toStringAsFixed(1)} km acumulados.',
+        acao: 'Mantenha progressao gradual de distancia ou ritmo.',
+        prioridade: CoachInsightPrioridade.baixa,
+        categoria: CoachInsightCategoria.sugestoes,
+        icone: 'directions_run',
+      ),
+    ];
+  }
+
+  List<CoachInsightModel> _filtrarPorTipo(
+    List<CoachInsightModel> insights,
+    String tipo,
+  ) {
+    switch (tipo) {
+      case 'progressao':
+        return insights.where((insight) {
+          return insight.categoria == CoachInsightCategoria.progressao ||
+              insight.categoria == CoachInsightCategoria.evolucao ||
+              insight.categoria == CoachInsightCategoria.recordes;
+        }).toList();
+      case 'recuperacao':
+        return insights
+            .where(
+              (insight) =>
+                  insight.categoria == CoachInsightCategoria.recuperacao,
+            )
+            .toList();
+      case 'frequencia':
+        return insights
+            .where(
+              (insight) =>
+                  insight.categoria == CoachInsightCategoria.frequencia,
+            )
+            .toList();
+      default:
+        return insights;
+    }
   }
 
   List<CoachInsightModel> _insightsExercicio(
@@ -671,6 +805,12 @@ class CoachInsightService {
       valor = valor.replaceAll(entrada.key, entrada.value);
     }
     return valor;
+  }
+
+  void _debugLog(String message) {
+    if (kDebugMode) {
+      debugPrint('[CoachInsightService] $message');
+    }
   }
 }
 

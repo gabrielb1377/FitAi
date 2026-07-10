@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/xp/xp_config.dart';
+import '../../models/coach_insight_model.dart';
 import '../../models/exercicio_model.dart';
 import '../../models/historico_serie_treino_model.dart';
 import '../../models/historico_treino_model.dart';
 import '../../models/treino_model.dart';
+import '../../services/coach_insight_service.dart';
 import '../../services/progressao_service.dart';
 import '../../services/recorde_service.dart';
 import '../../services/storage_service.dart';
@@ -559,21 +561,39 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     );
   }
 
+  Future<List<CoachInsightModel>> _coachTreinoInsights() async {
+    final insights = await const CoachInsightService().gerarInsightsGerais();
+    final focados = insights.where((insight) {
+      return insight.categoria == CoachInsightCategoria.progressao ||
+          insight.categoria == CoachInsightCategoria.evolucao ||
+          insight.categoria == CoachInsightCategoria.recuperacao ||
+          insight.categoria == CoachInsightCategoria.recordes;
+    }).toList();
+
+    return (focados.isEmpty ? insights : focados).take(3).toList();
+  }
+
   void _abrirCoachSheet(List<_HistoricoSerieLocal> entries) {
     _abrirInfoSheet(
       title: 'Coach FitIA',
       icon: Icons.auto_awesome_rounded,
-      child: entries.isEmpty
-          ? const _InfoEmptyCard(
-              icon: Icons.auto_awesome_rounded,
-              title: 'Coach aguardando',
-              text:
-                  'Registre uma serie para ver volume, melhores marcas e sugestao para a proxima serie.',
-            )
-          : _CoachFitiaCard(
-              entries: entries,
-              alvoReps: int.tryParse(_texto(_repeticoesController)) ?? 0,
-            ),
+      child: Column(
+        children: [
+          entries.isEmpty
+              ? const _InfoEmptyCard(
+                  icon: Icons.auto_awesome_rounded,
+                  title: 'Coach aguardando',
+                  text:
+                      'Registre uma serie para ver volume, melhores marcas e sugestao para a proxima serie.',
+                )
+              : _CoachFitiaCard(
+                  entries: entries,
+                  alvoReps: int.tryParse(_texto(_repeticoesController)) ?? 0,
+                ),
+          const SizedBox(height: 12),
+          _CoachBackendTreinoCard(future: _coachTreinoInsights()),
+        ],
+      ),
     );
   }
 
@@ -3002,6 +3022,78 @@ class _ProgressaoPill extends StatelessWidget {
           fontWeight: FontWeight.w900,
         ),
       ),
+    );
+  }
+}
+
+class _CoachBackendTreinoCard extends StatelessWidget {
+  final Future<List<CoachInsightModel>> future;
+
+  const _CoachBackendTreinoCard({required this.future});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<CoachInsightModel>>(
+      future: future,
+      builder: (context, snapshot) {
+        final insights = snapshot.data ?? const <CoachInsightModel>[];
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0D1218),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFF7C4DFF).withAlpha(70)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.psychology_alt_rounded, color: Color(0xFFB388FF)),
+                  SizedBox(width: 8),
+                  Text(
+                    'Insights do Coach',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (snapshot.connectionState == ConnectionState.waiting &&
+                  !snapshot.hasData)
+                const LinearProgressIndicator(minHeight: 3)
+              else if (insights.isEmpty)
+                Text(
+                  'Sem novos insights no momento.',
+                  style: TextStyle(
+                    color: Colors.white.withAlpha(170),
+                    fontWeight: FontWeight.w700,
+                    height: 1.35,
+                  ),
+                )
+              else
+                ...insights.map((insight) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _CoachMetric(
+                      label: insight.titulo,
+                      value: insight.acao.trim().isEmpty
+                          ? insight.descricao
+                          : '${insight.descricao}\n${insight.acao}',
+                      highlighted:
+                          insight.prioridade == CoachInsightPrioridade.alta,
+                    ),
+                  );
+                }),
+            ],
+          ),
+        );
+      },
     );
   }
 }

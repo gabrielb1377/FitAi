@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../models/coach_insight_model.dart';
 import '../../models/fitai_meta_model.dart';
+import '../../services/coach_insight_service.dart';
 import '../../services/metas_service.dart';
 import '../../theme/app_theme.dart';
+import 'widgets/coach_insights_card.dart';
 import 'widgets/meta_category_section.dart';
 import 'widgets/metas_coach_card.dart';
 import 'widgets/metas_summary_card.dart';
@@ -16,16 +19,22 @@ class MetasPage extends StatefulWidget {
 
 class _MetasPageState extends State<MetasPage> {
   late Future<FitaiMetasResumo> _future;
+  late Future<List<CoachInsightModel>> _coachFuture;
 
   @override
   void initState() {
     super.initState();
     _future = const MetasService().carregarMetas();
+    _coachFuture = const CoachInsightService().gerarInsightsPorTipo('metas');
   }
 
   Future<void> _recarregar() async {
     final future = const MetasService().carregarMetas();
+    final coachFuture = const CoachInsightService().gerarInsightsPorTipo(
+      'metas',
+    );
     setState(() => _future = future);
+    setState(() => _coachFuture = coachFuture);
     await future;
   }
 
@@ -60,6 +69,25 @@ class _MetasPageState extends State<MetasPage> {
                 MetasSummaryCard(resumo: resumo),
                 const SizedBox(height: 16),
                 MetasCoachCard(dicas: resumo.dicasCoach),
+                const SizedBox(height: 16),
+                FutureBuilder<List<CoachInsightModel>>(
+                  future: _coachFuture,
+                  builder: (context, snapshot) {
+                    final insights =
+                        snapshot.data ?? const <CoachInsightModel>[];
+
+                    if (snapshot.connectionState == ConnectionState.waiting &&
+                        !snapshot.hasData) {
+                      return const AppGradientCard(
+                        child: LinearProgressIndicator(minHeight: 3),
+                      );
+                    }
+
+                    return CoachInsightsCard(
+                      insights: insights.take(3).toList(),
+                    );
+                  },
+                ),
                 const SizedBox(height: 20),
                 for (final entry in resumo.porCategoria.entries) ...[
                   MetaCategorySection(categoria: entry.key, metas: entry.value),

@@ -82,6 +82,17 @@ class _CoachInsightRow extends StatelessWidget {
                     height: 1.4,
                   ),
                 ),
+                if (insight.acao.trim().isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    insight.acao,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: color,
+                      fontWeight: FontWeight.w700,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

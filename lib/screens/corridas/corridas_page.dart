@@ -2,10 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../models/coach_insight_model.dart';
 import '../../models/corrida_model.dart';
+import '../../services/coach_insight_service.dart';
 import '../../services/storage_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_components.dart';
+import '../perfil/widgets/coach_insights_card.dart';
 import 'historico_corridas_page.dart';
 
 class CorridaAtivaController extends ChangeNotifier {
@@ -164,6 +167,7 @@ class CorridasPage extends StatefulWidget {
 
 class _CorridasPageState extends State<CorridasPage> {
   final corridaController = CorridaAtivaController.instance;
+  late Future<List<CoachInsightModel>> _coachFuture;
 
   bool get _corridaIniciada => corridaController.inicializado
       ? corridaController.corridaIniciada
@@ -184,6 +188,7 @@ class _CorridasPageState extends State<CorridasPage> {
   @override
   void initState() {
     super.initState();
+    _coachFuture = const CoachInsightService().gerarInsightsPorTipo('corrida');
     corridaController.addListener(_onCorridaAtualizada);
     _inicializarCorrida();
   }
@@ -214,6 +219,12 @@ class _CorridasPageState extends State<CorridasPage> {
     final corrida = await corridaController.parar();
 
     if (!mounted || corrida == null) return;
+
+    setState(() {
+      _coachFuture = const CoachInsightService().gerarInsightsPorTipo(
+        'corrida',
+      );
+    });
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Corrida salva no historico.')),
@@ -251,6 +262,9 @@ class _CorridasPageState extends State<CorridasPage> {
 
                 // Stats secundÃ¡rios â€” tempo e velocidade
                 _buildSecondaryStats(context),
+                const SizedBox(height: 16),
+
+                _buildCoachCard(),
                 const SizedBox(height: 32),
 
                 // BotÃ£o principal
@@ -264,6 +278,26 @@ class _CorridasPageState extends State<CorridasPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCoachCard() {
+    return FutureBuilder<List<CoachInsightModel>>(
+      future: _coachFuture,
+      builder: (context, snapshot) {
+        final insights = (snapshot.data ?? const <CoachInsightModel>[])
+            .take(3)
+            .toList();
+
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
+          return const AppGradientCard(
+            child: LinearProgressIndicator(minHeight: 3),
+          );
+        }
+
+        return CoachInsightsCard(insights: insights);
+      },
     );
   }
 

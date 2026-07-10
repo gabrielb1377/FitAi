@@ -25,10 +25,8 @@ class EvolucaoDashboardService {
     final musculos = _musculosTreinados(historico, registros);
     final carga = _cargaResumo(registros);
     final recordes = _recordes(registros);
-    final coachInsights = const CoachInsightService().analisarHistorico(
-      historicoTreinos: historico,
-      historicoSeries: historicoSeries,
-    );
+    final coachInsights = await const CoachInsightService()
+        .gerarInsightsGerais();
 
     return EvolucaoDashboardData(
       historico: historico,

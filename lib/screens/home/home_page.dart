@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../core/xp/xp_config.dart';
+import '../../models/coach_insight_model.dart';
 import '../../models/fitai_notification_model.dart';
 import '../../models/historico_treino_model.dart';
 import '../../models/treino_model.dart';
+import '../../services/coach_insight_service.dart';
 import '../../services/ia_evolutiva_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/storage_service.dart';
@@ -16,6 +18,7 @@ import '../ai_workout_page.dart';
 import '../perfil/agenda_treinos_page.dart';
 import '../perfil/evolucao_page.dart';
 import '../perfil/notificacoes_page.dart';
+import '../perfil/widgets/coach_insights_card.dart';
 import '../treinos/criar_treino_page.dart';
 import '../treinos/treino_profissional_page.dart';
 import 'widgets/fitia_recomendacao_card.dart';
@@ -58,10 +61,12 @@ class _HomePageState extends State<HomePage> {
   int notificacoesNaoLidas = 0;
   List<HistoricoTreinoModel> historicoTreinos = [];
   IaEvolutivaRecomendacao? recomendacao;
+  late Future<List<CoachInsightModel>> _coachInsightsFuture;
 
   @override
   void initState() {
     super.initState();
+    _coachInsightsFuture = const CoachInsightService().gerarInsightsGerais();
     treinoService.addListener(_onTreinosAtualizados);
     _carregarDadosHoje();
     _carregarNotificacoes();
@@ -95,6 +100,7 @@ class _HomePageState extends State<HomePage> {
       final concluiuHoje = treinoDoDiaService.existeTreinoConcluidoHoje(
         historico,
       );
+      final coachFuture = const CoachInsightService().gerarInsightsGerais();
 
       if (!mounted) return;
 
@@ -102,6 +108,7 @@ class _HomePageState extends State<HomePage> {
         treinoConcluidoHoje = concluiuHoje;
         historicoTreinos = historico;
         recomendacao = recomendacaoAtual;
+        _coachInsightsFuture = coachFuture;
         carregandoTreinos = false;
       });
       await _carregarNotificacoes();
@@ -298,6 +305,11 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(height: cardGap),
                 AppAnimatedEntrance(
                   index: 4,
+                  child: _HomeCoachInsightsPanel(future: _coachInsightsFuture),
+                ),
+                const SizedBox(height: cardGap),
+                AppAnimatedEntrance(
+                  index: 5,
                   child: HomeStatsRow(
                     distancia: widget.distancia,
                     passos: widget.passos,
@@ -305,7 +317,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const SizedBox(height: cardGap),
                 AppAnimatedEntrance(
-                  index: 5,
+                  index: 6,
                   child: MissoesHojeCard(
                     treinoConcluidoHoje: treinoConcluidoHoje,
                     passos: widget.passos,
@@ -384,6 +396,33 @@ class _HomePageState extends State<HomePage> {
       progresso: 1,
       icon: Icons.self_improvement_rounded,
       color: AppColors.accent3,
+    );
+  }
+}
+
+class _HomeCoachInsightsPanel extends StatelessWidget {
+  final Future<List<CoachInsightModel>> future;
+
+  const _HomeCoachInsightsPanel({required this.future});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<CoachInsightModel>>(
+      future: future,
+      builder: (context, snapshot) {
+        final insights = (snapshot.data ?? const <CoachInsightModel>[])
+            .take(3)
+            .toList();
+
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
+          return const AppGradientCard(
+            child: LinearProgressIndicator(minHeight: 3),
+          );
+        }
+
+        return CoachInsightsCard(insights: insights);
+      },
     );
   }
 }

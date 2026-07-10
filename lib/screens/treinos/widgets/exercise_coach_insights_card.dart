@@ -93,6 +93,17 @@ class _InsightTile extends StatelessWidget {
                     height: 1.35,
                   ),
                 ),
+                if (insight.acao.trim().isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    insight.acao,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: color,
+                      fontWeight: FontWeight.w700,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

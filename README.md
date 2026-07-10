@@ -21,6 +21,18 @@ O formulario permite escolher de 6 a 10 exercicios minimos por dia. Esse valor e
 
 Se o backend estiver desligado, indisponivel ou retornar uma resposta invalida, o app continua funcionando e usa a geracao local atual como fallback. A chave OpenAI fica somente no backend; ela nao deve ser colocada no Flutter.
 
+## Coach FitIA
+
+Os insights personalizados tentam chamar:
+
+```text
+POST http://localhost:3001/coach/insights
+```
+
+Quando houver token no futuro, o servico aceita `Authorization: Bearer <token>`. Sem login, o Flutter envia `contextoLocal` com perfil, planos, historico de treino, series, metas, recordes e corridas salvos no aparelho.
+
+Se o backend estiver offline ou retornar erro, as telas continuam usando os insights locais do app.
+
 ## Sincronizacao offline-first
 
 O app continua salvando primeiro no SharedPreferences. Depois tenta enviar perfil, metas, recordes, planos, historico de treino e corridas para `C:\fitai-backend`.
