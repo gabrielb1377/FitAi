@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
@@ -7,6 +7,7 @@ import '../models/corrida_model.dart';
 import '../models/passos_diarios_model.dart';
 import '../services/achievement_service.dart';
 import '../services/fitai_coach_service.dart';
+import '../services/running_session_service.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_components.dart';
@@ -39,7 +40,7 @@ class AtividadesPage extends StatefulWidget {
 }
 
 class _AtividadesPageState extends State<AtividadesPage> {
-  static const double _kmPorSegundoEstimado = 0.0024;
+  final runningSession = RunningSessionService.instance;
 
   int _metaPassosDiaria = 10000;
   int _metaPassosSemanal = 70000;
@@ -49,42 +50,35 @@ class _AtividadesPageState extends State<AtividadesPage> {
 
   late Future<List<CorridaModel>> _corridasFuture;
   late Future<List<FitAICoachInsight>> _coachInsightsFuture;
-  Timer? _corridaTimer;
-  Timer? _contagemTimer;
 
-  _EstadoCorrida _estadoCorrida = _EstadoCorrida.naoIniciada;
-  int _contagemRegressiva = 3;
-  int _segundosCorrida = 0;
-  double _distanciaCorrida = 0;
   bool _salvandoCorrida = false;
+
+  _EstadoCorrida get _estadoCorrida {
+    if (runningSession.countdownActive) return _EstadoCorrida.contagem;
+    if (runningSession.isPaused) return _EstadoCorrida.pausada;
+    if (runningSession.isRunning) return _EstadoCorrida.emAndamento;
+    return _EstadoCorrida.naoIniciada;
+  }
+
+  int get _contagemRegressiva => runningSession.countdownSeconds;
+
+  int get _segundosCorrida => runningSession.elapsedSeconds;
+
+  double get _distanciaCorrida => runningSession.distanceKm;
 
   @override
   void initState() {
     super.initState();
     _corridasFuture = StorageService.carregarCorridas();
     _coachInsightsFuture = _gerarInsightsCoach();
+    runningSession.addListener(_onRunningSessionChanged);
+    unawaited(runningSession.initialize());
     unawaited(_carregarSistemaPassos());
-    _segundosCorrida = widget.segundos;
-    _distanciaCorrida = widget.distancia;
-
-    if (widget.corridaIniciada) {
-      _estadoCorrida = _EstadoCorrida.emAndamento;
-      _iniciarTimerCorrida();
-    }
   }
 
   @override
   void didUpdateWidget(covariant AtividadesPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-
-    if (widget.corridaIniciada &&
-        !oldWidget.corridaIniciada &&
-        !_corridaEmAndamento) {
-      _segundosCorrida = widget.segundos;
-      _distanciaCorrida = widget.distancia;
-      _estadoCorrida = _EstadoCorrida.emAndamento;
-      _iniciarTimerCorrida();
-    }
 
     if (oldWidget.passos != widget.passos) {
       unawaited(_sincronizarPassosDoDia());
@@ -93,9 +87,13 @@ class _AtividadesPageState extends State<AtividadesPage> {
 
   @override
   void dispose() {
-    _corridaTimer?.cancel();
-    _contagemTimer?.cancel();
+    runningSession.removeListener(_onRunningSessionChanged);
     super.dispose();
+  }
+
+  void _onRunningSessionChanged() {
+    if (!mounted) return;
+    setState(() {});
   }
 
   double get _progressoPassos =>
@@ -133,8 +131,7 @@ class _AtividadesPageState extends State<AtividadesPage> {
       _estadoCorrida == _EstadoCorrida.pausada;
 
   double get _velocidadeMediaCorrida {
-    if (_segundosCorrida <= 0) return 0;
-    return _distanciaCorrida / (_segundosCorrida / 3600);
+    return runningSession.averageSpeed;
   }
 
   String get _tempoFormatado => _formatarTempo(_segundosCorrida);
@@ -153,7 +150,8 @@ class _AtividadesPageState extends State<AtividadesPage> {
     return switch (_estadoCorrida) {
       _EstadoCorrida.naoIniciada => 'Pronto para iniciar',
       _EstadoCorrida.contagem => 'Prepare-se',
-      _EstadoCorrida.emAndamento => 'Sessao em andamento',
+      _EstadoCorrida.emAndamento =>
+        runningSession.gpsConnected ? 'GPS conectado' : 'Buscando GPS',
       _EstadoCorrida.pausada => 'Corrida pausada',
       _EstadoCorrida.finalizada => 'Corrida finalizada',
     };
@@ -397,123 +395,39 @@ class _AtividadesPageState extends State<AtividadesPage> {
   }
 
   void _iniciarContagemCorrida() {
-    _corridaTimer?.cancel();
-    _contagemTimer?.cancel();
-
-    setState(() {
-      _estadoCorrida = _EstadoCorrida.contagem;
-      _contagemRegressiva = 3;
-      _segundosCorrida = 0;
-      _distanciaCorrida = 0;
-    });
-
-    _contagemTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-
-      if (_contagemRegressiva <= 1) {
-        timer.cancel();
-        _iniciarCorridaAgora();
-        return;
-      }
-
-      setState(() {
-        _contagemRegressiva--;
-      });
-    });
-  }
-
-  void _iniciarCorridaAgora() {
-    if (!mounted) return;
-
-    setState(() {
-      _estadoCorrida = _EstadoCorrida.emAndamento;
-    });
-
-    _iniciarTimerCorrida();
-  }
-
-  void _iniciarTimerCorrida() {
-    _corridaTimer?.cancel();
-    _corridaTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-
-      setState(() {
-        _segundosCorrida++;
-        _distanciaCorrida += _kmPorSegundoEstimado;
-      });
-    });
+    unawaited(runningSession.startWithCountdown());
   }
 
   void _pausarCorrida() {
-    _corridaTimer?.cancel();
-
-    setState(() {
-      _estadoCorrida = _EstadoCorrida.pausada;
-    });
+    unawaited(runningSession.pause());
   }
 
   void _continuarCorrida() {
-    setState(() {
-      _estadoCorrida = _EstadoCorrida.emAndamento;
-    });
-
-    _iniciarTimerCorrida();
+    unawaited(runningSession.resume());
   }
 
   Future<void> _finalizarCorrida() async {
     if (_salvandoCorrida) return;
 
-    _corridaTimer?.cancel();
-    _contagemTimer?.cancel();
-
-    if (_segundosCorrida <= 0 && _distanciaCorrida <= 0) {
-      setState(() {
-        _estadoCorrida = _EstadoCorrida.finalizada;
-      });
-      return;
-    }
-
     setState(() {
       _salvandoCorrida = true;
     });
 
-    final corrida = CorridaModel(
-      distancia: _distanciaCorrida,
-      segundos: _segundosCorrida,
-      data: DateTime.now().toString(),
-    );
-
-    final distanciaTotal = await StorageService.carregarDistanciaTotal();
-    final tempoTotal = await StorageService.carregarTempoTotal();
-    final totalCorridas = await StorageService.carregarTotalCorridas();
-
-    await StorageService.salvarCorrida(corrida);
-    await StorageService.salvarDistanciaTotal(
-      distanciaTotal + _distanciaCorrida,
-    );
-    await StorageService.salvarTempoTotal(tempoTotal + _segundosCorrida);
-    await StorageService.salvarTotalCorridas(totalCorridas + 1);
-    await StorageService.salvarDistancia(0);
-    await StorageService.salvarSegundos(0);
+    final corrida = await runningSession.finish();
 
     if (!mounted) return;
 
     setState(() {
-      _estadoCorrida = _EstadoCorrida.finalizada;
       _salvandoCorrida = false;
       _corridasFuture = StorageService.carregarCorridas();
       _coachInsightsFuture = _gerarInsightsCoach();
     });
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Corrida salva no historico')));
+    if (corrida != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Corrida salva no historico')),
+      );
+    }
 
     await _avaliarConquistasAtividades();
   }
@@ -1140,6 +1054,10 @@ class _AtividadesPageState extends State<AtividadesPage> {
       _CompactStat(
         label: 'Vel. media',
         value: '${_velocidadeMediaCorrida.toStringAsFixed(1)} km/h',
+      ),
+      _CompactStat(
+        label: 'Vel. atual',
+        value: '${runningSession.currentSpeed.toStringAsFixed(1)} km/h',
       ),
       _CompactStat(label: 'Ritmo', value: _ritmoFormatado),
       _CompactStat(

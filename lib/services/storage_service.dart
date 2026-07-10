@@ -14,6 +14,7 @@ import '../models/historico_serie_treino_model.dart';
 import '../models/historico_treino_model.dart';
 import '../models/passos_diarios_model.dart';
 import '../models/progresso_exercicio_model.dart';
+import '../models/running_session_model.dart';
 import '../models/treino_model.dart';
 import 'sync_service.dart';
 
@@ -35,6 +36,7 @@ class XpNivelResultado {
 
 class StorageService {
   static const int xpPorNivel = 100;
+  static const String _runningSessionKey = 'runningSessionActive';
 
   static int xpNecessarioParaNivel(int nivelAtual) {
     return XpConfig.xpParaProximoNivel(nivelAtual);
@@ -531,6 +533,69 @@ class StorageService {
     await salvarInicioCorridaIso(inicioCorrida?.toIso8601String());
   }
 
+  static Future<void> salvarRunningSessionAtiva(
+    RunningSessionModel session,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString(_runningSessionKey, jsonEncode(session.toJson()));
+    await salvarCorridaAtiva(
+      corridaIniciada: !session.finished,
+      inicioCorrida: session.startTime,
+      segundos: session.elapsedSeconds,
+      distancia: session.distanceKm,
+      velocidadeMedia: session.averageSpeed,
+    );
+  }
+
+  static Future<RunningSessionModel?> carregarRunningSessionAtiva() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_runningSessionKey);
+
+    if (raw != null && raw.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+
+        if (decoded is Map<String, dynamic>) {
+          return RunningSessionModel.fromJson(decoded);
+        }
+
+        if (decoded is Map) {
+          return RunningSessionModel.fromJson(
+            Map<String, dynamic>.from(decoded),
+          );
+        }
+      } catch (erro) {
+        debugPrint("Erro ao restaurar sessao de corrida: $erro");
+      }
+    }
+
+    final legado = await carregarCorridaAtiva();
+    if (legado['corridaIniciada'] != true) return null;
+
+    final inicio =
+        DateTime.tryParse(legado['inicioCorrida']?.toString() ?? '') ??
+        DateTime.now();
+    final elapsed = _intFromStorage(legado['segundos']);
+    final distance = _doubleFromStorage(legado['distancia']);
+    final averageSpeed = _doubleFromStorage(legado['velocidadeMedia']);
+
+    return RunningSessionModel(
+      id: 'run_${inicio.microsecondsSinceEpoch}',
+      startTime: inicio,
+      elapsedSeconds: elapsed,
+      distanceKm: distance,
+      averageSpeed: averageSpeed,
+      currentSpeed: 0,
+      pace: distance > 0 && elapsed > 0 ? (elapsed / 60) / distance : 0,
+      calories: distance * 60,
+      route: const [],
+      paused: false,
+      finished: false,
+      lastUpdatedAt: DateTime.now(),
+    );
+  }
+
   static Future<Map<String, dynamic>> carregarCorridaAtiva() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -546,6 +611,7 @@ class StorageService {
   static Future<void> limparCorridaAtiva() async {
     final prefs = await SharedPreferences.getInstance();
 
+    await prefs.remove(_runningSessionKey);
     await salvarCorridaIniciada(false);
     await salvarInicioCorridaIso(null);
     await prefs.remove('inicioCorrida');
@@ -1219,5 +1285,20 @@ class StorageService {
       'valorObjetivo': valorObjetivo,
       'unidade': 'passos',
     };
+  }
+
+  static int _intFromStorage(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.round();
+
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  static double _doubleFromStorage(dynamic value) {
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is num) return value.toDouble();
+
+    return double.tryParse(value?.toString().replaceAll(',', '.') ?? '') ?? 0;
   }
 }

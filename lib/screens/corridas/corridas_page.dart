@@ -1,147 +1,12 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../../models/coach_insight_model.dart';
-import '../../models/corrida_model.dart';
 import '../../services/coach_insight_service.dart';
-import '../../services/storage_service.dart';
+import '../../services/running_session_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_components.dart';
 import '../perfil/widgets/coach_insights_card.dart';
 import 'historico_corridas_page.dart';
-
-class CorridaAtivaController extends ChangeNotifier {
-  CorridaAtivaController._();
-
-  static final CorridaAtivaController instance = CorridaAtivaController._();
-  static const double _velocidadeSimuladaKmh = 8.0;
-
-  Timer? _timerUi;
-  bool _inicializado = false;
-  bool _inicializando = false;
-  bool _corridaIniciada = false;
-  DateTime? _inicioCorrida;
-
-  bool get inicializado => _inicializado;
-  bool get corridaIniciada => _corridaIniciada;
-  DateTime? get inicioCorrida => _inicioCorrida;
-
-  int get segundos {
-    if (!_corridaIniciada || _inicioCorrida == null) return 0;
-
-    final valor = DateTime.now().difference(_inicioCorrida!).inSeconds;
-    return valor < 0 ? 0 : valor;
-  }
-
-  double get distancia {
-    if (!_corridaIniciada) return 0;
-
-    return (segundos / 3600) * _velocidadeSimuladaKmh;
-  }
-
-  double get velocidadeMedia {
-    if (!_corridaIniciada || segundos <= 0) return 0;
-
-    return distancia / (segundos / 3600);
-  }
-
-  Future<void> inicializar() async {
-    if (_inicializado || _inicializando) return;
-
-    _inicializando = true;
-    final ativa = await StorageService.carregarCorridaIniciada();
-    final inicioIso = await StorageService.carregarInicioCorridaIso();
-    final inicio = DateTime.tryParse(inicioIso ?? '');
-
-    if (ativa && inicio != null) {
-      _corridaIniciada = true;
-      _inicioCorrida = inicio;
-      _garantirTimerUi();
-      _persistirCorridaAtiva();
-    } else if (ativa) {
-      await StorageService.limparCorridaAtiva();
-      _corridaIniciada = false;
-      _inicioCorrida = null;
-    }
-
-    _inicializado = true;
-    _inicializando = false;
-    notifyListeners();
-  }
-
-  void iniciar() {
-    if (_corridaIniciada) return;
-
-    _inicioCorrida = DateTime.now();
-    _corridaIniciada = true;
-    _garantirTimerUi();
-    _persistirCorridaAtiva();
-    notifyListeners();
-  }
-
-  Future<CorridaModel?> parar() async {
-    if (!_corridaIniciada || _inicioCorrida == null) return null;
-
-    final segundosFinais = segundos;
-    final distanciaFinal = distancia;
-    final corrida = CorridaModel(
-      distancia: distanciaFinal,
-      segundos: segundosFinais,
-      data: DateTime.now().toIso8601String(),
-    );
-
-    _timerUi?.cancel();
-    _timerUi = null;
-    _corridaIniciada = false;
-    _inicioCorrida = null;
-
-    await StorageService.salvarCorrida(corrida);
-    await _somarEstatisticas(corrida);
-    await StorageService.limparCorridaAtiva();
-
-    notifyListeners();
-    return corrida;
-  }
-
-  void _garantirTimerUi() {
-    if (_timerUi?.isActive ?? false) return;
-
-    _timerUi = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!_corridaIniciada) return;
-
-      if (segundos % 5 == 0) {
-        _persistirCorridaAtiva();
-      }
-
-      notifyListeners();
-    });
-  }
-
-  void _persistirCorridaAtiva() {
-    unawaited(
-      StorageService.salvarCorridaAtiva(
-        corridaIniciada: _corridaIniciada,
-        inicioCorrida: _inicioCorrida,
-        segundos: segundos,
-        distancia: distancia,
-        velocidadeMedia: velocidadeMedia,
-      ),
-    );
-  }
-
-  Future<void> _somarEstatisticas(CorridaModel corrida) async {
-    final distanciaTotal = await StorageService.carregarDistanciaTotal();
-    final tempoTotal = await StorageService.carregarTempoTotal();
-    final totalCorridas = await StorageService.carregarTotalCorridas();
-
-    await StorageService.salvarDistanciaTotal(
-      distanciaTotal + corrida.distancia,
-    );
-    await StorageService.salvarTempoTotal(tempoTotal + corrida.segundos);
-    await StorageService.salvarTotalCorridas(totalCorridas + 1);
-  }
-}
 
 class CorridasPage extends StatefulWidget {
   final double distancia;
@@ -166,41 +31,33 @@ class CorridasPage extends StatefulWidget {
 }
 
 class _CorridasPageState extends State<CorridasPage> {
-  final corridaController = CorridaAtivaController.instance;
+  final runningSession = RunningSessionService.instance;
   late Future<List<CoachInsightModel>> _coachFuture;
 
-  bool get _corridaIniciada => corridaController.inicializado
-      ? corridaController.corridaIniciada
-      : widget.corridaIniciada;
+  bool get _corridaIniciada => runningSession.hasActiveSession;
 
-  int get _segundos => corridaController.inicializado
-      ? corridaController.segundos
-      : widget.segundos;
+  int get _segundos => runningSession.elapsedSeconds;
 
-  double get _distancia => corridaController.inicializado
-      ? corridaController.distancia
-      : widget.distancia;
+  double get _distancia => runningSession.distanceKm;
 
-  double get _velocidadeMedia => corridaController.inicializado
-      ? corridaController.velocidadeMedia
-      : widget.velocidadeMedia;
+  double get _velocidadeMedia => runningSession.averageSpeed;
 
   @override
   void initState() {
     super.initState();
     _coachFuture = const CoachInsightService().gerarInsightsPorTipo('corrida');
-    corridaController.addListener(_onCorridaAtualizada);
+    runningSession.addListener(_onCorridaAtualizada);
     _inicializarCorrida();
   }
 
   @override
   void dispose() {
-    corridaController.removeListener(_onCorridaAtualizada);
+    runningSession.removeListener(_onCorridaAtualizada);
     super.dispose();
   }
 
   Future<void> _inicializarCorrida() async {
-    await corridaController.inicializar();
+    await runningSession.initialize();
 
     if (!mounted) return;
     setState(() {});
@@ -212,11 +69,11 @@ class _CorridasPageState extends State<CorridasPage> {
   }
 
   void _iniciarCorrida() {
-    corridaController.iniciar();
+    runningSession.start();
   }
 
   Future<void> _pararCorrida() async {
-    final corrida = await corridaController.parar();
+    final corrida = await runningSession.finish();
 
     if (!mounted || corrida == null) return;
 
@@ -231,6 +88,14 @@ class _CorridasPageState extends State<CorridasPage> {
     );
   }
 
+  void _pausarCorrida() {
+    runningSession.pause();
+  }
+
+  void _retomarCorrida() {
+    runningSession.resume();
+  }
+
   String _formatTempo() {
     final h = _segundos ~/ 3600;
     final m = (_segundos % 3600) ~/ 60;
@@ -239,6 +104,16 @@ class _CorridasPageState extends State<CorridasPage> {
       return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
     }
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+  }
+
+  String _formatPace() {
+    if (runningSession.pace <= 0) return '--';
+
+    final totalSeconds = (runningSession.pace * 60).round();
+    final minutes = totalSeconds ~/ 60;
+    final seconds = totalSeconds % 60;
+
+    return '$minutes:${seconds.toString().padLeft(2, '0')} min/km';
   }
 
   @override
@@ -310,7 +185,11 @@ class _CorridasPageState extends State<CorridasPage> {
         24,
       ),
       child: AppPremiumHeader(
-        eyebrow: _corridaIniciada ? "Em andamento" : "Pronto para correr?",
+        eyebrow: runningSession.isPaused
+            ? "Pausada"
+            : _corridaIniciada
+            ? (runningSession.gpsConnected ? "GPS conectado" : "Buscando GPS")
+            : "Pronto para correr?",
         title: "Corridas",
         subtitle: "Controle tempo, distancia e ritmo em uma experiencia limpa.",
         icon: Icons.directions_run_rounded,
@@ -374,27 +253,59 @@ class _CorridasPageState extends State<CorridasPage> {
   }
 
   Widget _buildSecondaryStats(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildStatCard(
-            context,
-            label: 'TEMPO',
-            value: _formatTempo(),
-            icon: Icons.timer_outlined,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildStatCard(
-            context,
-            label: 'VELOCIDADE',
-            value: '${_velocidadeMedia.toStringAsFixed(1)} km/h',
-            icon: Icons.speed_outlined,
-            iconColor: AppColors.accent2,
-          ),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 620 ? 4 : 2;
+        const spacing = 12.0;
+        final itemWidth =
+            (constraints.maxWidth - spacing * (columns - 1)) / columns;
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            SizedBox(
+              width: itemWidth,
+              child: _buildStatCard(
+                context,
+                label: 'TEMPO',
+                value: _formatTempo(),
+                icon: Icons.timer_outlined,
+              ),
+            ),
+            SizedBox(
+              width: itemWidth,
+              child: _buildStatCard(
+                context,
+                label: 'VEL. MEDIA',
+                value: '${_velocidadeMedia.toStringAsFixed(1)} km/h',
+                icon: Icons.speed_outlined,
+                iconColor: AppColors.accent2,
+              ),
+            ),
+            SizedBox(
+              width: itemWidth,
+              child: _buildStatCard(
+                context,
+                label: 'VEL. ATUAL',
+                value: '${runningSession.currentSpeed.toStringAsFixed(1)} km/h',
+                icon: Icons.bolt_rounded,
+                iconColor: AppColors.primary,
+              ),
+            ),
+            SizedBox(
+              width: itemWidth,
+              child: _buildStatCard(
+                context,
+                label: 'PACE',
+                value: _formatPace(),
+                icon: Icons.route_rounded,
+                iconColor: AppColors.accent3,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -425,6 +336,8 @@ class _CorridasPageState extends State<CorridasPage> {
           const SizedBox(height: 10),
           Text(
             value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: Theme.of(
               context,
             ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
@@ -435,18 +348,55 @@ class _CorridasPageState extends State<CorridasPage> {
   }
 
   Widget _buildRunButton(BuildContext context) {
-    final isRunning = _corridaIniciada;
-    return isRunning
-        ? AppButton.danger(
-            onPressed: _pararCorrida,
-            icon: Icons.stop_rounded,
-            label: "Parar Corrida",
-          )
-        : AppButton.primary(
-            onPressed: _iniciarCorrida,
-            icon: Icons.play_arrow_rounded,
-            label: "Iniciar Corrida",
-          );
+    if (runningSession.isPaused) {
+      return Row(
+        children: [
+          Expanded(
+            child: AppButton.primary(
+              onPressed: _retomarCorrida,
+              icon: Icons.play_arrow_rounded,
+              label: "Retomar",
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: AppButton.danger(
+              onPressed: _pararCorrida,
+              icon: Icons.stop_rounded,
+              label: "Finalizar",
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (_corridaIniciada) {
+      return Row(
+        children: [
+          Expanded(
+            child: AppButton.secondary(
+              onPressed: _pausarCorrida,
+              icon: Icons.pause_rounded,
+              label: "Pausar",
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: AppButton.danger(
+              onPressed: _pararCorrida,
+              icon: Icons.stop_rounded,
+              label: "Finalizar",
+            ),
+          ),
+        ],
+      );
+    }
+
+    return AppButton.primary(
+      onPressed: _iniciarCorrida,
+      icon: Icons.play_arrow_rounded,
+      label: "Iniciar Corrida",
+    );
   }
 
   Widget _buildHistoricoButton(BuildContext context) {

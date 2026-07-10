@@ -183,11 +183,17 @@ class _CorridaCard extends StatelessWidget {
   const _CorridaCard({required this.corrida, required this.onExcluir});
 
   double get _velocidadeMedia {
+    if (corrida.averageSpeed > 0) return corrida.averageSpeed;
     if (corrida.segundos <= 0) return 0;
+
     return corrida.distancia / (corrida.segundos / 3600);
   }
 
-  double get _calorias => corrida.distancia * 60;
+  double get _calorias {
+    if (corrida.calories > 0) return corrida.calories;
+
+    return corrida.distancia * 60;
+  }
 
   String get _tempo {
     final h = corrida.segundos ~/ 3600;
@@ -205,6 +211,14 @@ class _CorridaCard extends StatelessWidget {
   }
 
   String get _ritmo {
+    if (corrida.pace > 0) {
+      final totalSeconds = (corrida.pace * 60).round();
+      final minutos = totalSeconds ~/ 60;
+      final segundos = totalSeconds % 60;
+
+      return '$minutos:${segundos.toString().padLeft(2, '0')} min/km';
+    }
+
     if (corrida.distancia <= 0 || corrida.segundos <= 0) return '--';
 
     final segundosPorKm = (corrida.segundos / corrida.distancia).round();

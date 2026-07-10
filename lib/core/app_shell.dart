@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../models/corrida_model.dart';
+import '../services/running_session_service.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
 import 'app_router.dart';
@@ -17,6 +17,8 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
+  final runningSession = RunningSessionService.instance;
+
   int currentIndex = 0;
 
   String nome = "Gabriel";
@@ -33,25 +35,21 @@ class _AppShellState extends State<AppShell> {
   int xp = 0;
   int nivel = 1;
 
-  double distanciaTotal = 0;
-  int tempoTotal = 0;
-  int totalCorridas = 0;
-
   bool conquistaPrimeiraCorrida = false;
   bool conquista10Km = false;
-
-  Timer? timer;
   bool corridaIniciada = false;
 
   @override
   void initState() {
     super.initState();
-    carregarDados();
+    runningSession.addListener(_onRunningSessionChanged);
+    unawaited(runningSession.initialize());
+    unawaited(carregarDados());
   }
 
   @override
   void dispose() {
-    timer?.cancel();
+    runningSession.removeListener(_onRunningSessionChanged);
     super.dispose();
   }
 
@@ -66,155 +64,37 @@ class _AppShellState extends State<AppShell> {
     altura = perfil['altura'] ?? altura;
     idade = perfil['idade'] ?? idade;
 
-    distanciaTotal = await StorageService.carregarDistanciaTotal();
-    tempoTotal = await StorageService.carregarTempoTotal();
-    totalCorridas = await StorageService.carregarTotalCorridas();
-
-    distancia = await StorageService.carregarDistancia();
-    segundos = await StorageService.carregarSegundos();
     passos = await StorageService.carregarPassos();
-
-    debugPrint("Distancia carregada: $distancia");
-    debugPrint("Segundos carregados: $segundos");
-    debugPrint("Passos carregados: $passos");
-
     conquistaPrimeiraCorrida = await StorageService.carregarPrimeiraCorrida();
     conquista10Km = await StorageService.carregar10Km();
 
-    if (segundos > 0) {
-      velocidadeMedia = distancia / (segundos / 3600);
-    }
-
-    debugPrint("Primeira corrida: $conquistaPrimeiraCorrida");
-    debugPrint("Conquista 10km: $conquista10Km");
-    debugPrint("Dashboard carregou XP: $xp");
-    debugPrint("Dashboard carregou Nivel: $nivel");
+    await runningSession.initialize();
+    _syncRunningState();
 
     if (!mounted) return;
     setState(() {});
   }
 
+  void _onRunningSessionChanged() {
+    if (!mounted) return;
+
+    setState(_syncRunningState);
+  }
+
+  void _syncRunningState() {
+    distancia = runningSession.distanceKm;
+    segundos = runningSession.elapsedSeconds;
+    velocidadeMedia = runningSession.averageSpeed;
+    corridaIniciada = runningSession.hasActiveSession;
+  }
+
   void iniciarCorrida() {
-    if (corridaIniciada) return;
-
-    corridaIniciada = true;
-
-    if (!conquistaPrimeiraCorrida) {
-      conquistaPrimeiraCorrida = true;
-      StorageService.salvarPrimeiraCorrida(true);
-
-      debugPrint("SALVOU PRIMEIRA CORRIDA");
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("ðŸ† Conquista desbloqueada: Primeira Corrida"),
-        ),
-      );
-
-      xp += 20;
-      StorageService.salvarXp(xp);
-    }
-
-    setState(() {
-      xp += 10;
-    });
-
-    StorageService.salvarXp(xp);
-    verificarNivel();
-
-    timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) return;
-
-      setState(() {
-        segundos++;
-
-        StorageService.salvarSegundos(segundos);
-
-        if (segundos % 60 == 0) {
-          xp += 5;
-          StorageService.salvarXp(xp);
-          verificarNivel();
-        }
-
-        distancia += 0.01;
-
-        StorageService.salvarPassos(passos);
-        StorageService.salvarDistancia(distancia);
-
-        if (distancia >= 10 && !conquista10Km) {
-          conquista10Km = true;
-          StorageService.salvar10Km(true);
-
-          xp += 100;
-          StorageService.salvarXp(xp);
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("ðŸ† Conquista desbloqueada: 10 KM Percorridos"),
-            ),
-          );
-
-          verificarNivel();
-        }
-
-        if (segundos > 0) {
-          velocidadeMedia = distancia / (segundos / 3600);
-        }
-      });
-    });
+    unawaited(runningSession.startWithCountdown());
   }
 
   Future<void> pararCorrida() async {
-    timer?.cancel();
-
-    corridaIniciada = false;
-
-    distanciaTotal += distancia;
-    tempoTotal += segundos;
-    totalCorridas++;
-
-    await StorageService.salvarDistanciaTotal(distanciaTotal);
-    await StorageService.salvarTempoTotal(tempoTotal);
-    await StorageService.salvarTotalCorridas(totalCorridas);
-
-    if (distancia > 0) {
-      await StorageService.salvarCorrida(
-        CorridaModel(
-          distancia: distancia,
-          segundos: segundos,
-          data: DateTime.now().toString(),
-        ),
-      );
-    }
-
-    if (!mounted) return;
-
-    setState(() {
-      distancia = 0;
-      segundos = 0;
-      velocidadeMedia = 0;
-    });
-
-    await StorageService.salvarDistancia(0);
-    await StorageService.salvarSegundos(0);
-  }
-
-  Future<void> verificarNivel() async {
-    if (xp >= 100) {
-      nivel++;
-      xp -= 100;
-
-      await StorageService.salvarNivel(nivel);
-      await StorageService.salvarXp(xp);
-
-      if (!mounted) return;
-
-      setState(() {});
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("ðŸŽ‰ VocÃª subiu para o nÃ­vel $nivel!")),
-      );
-    }
+    await runningSession.finish();
+    await carregarDados();
   }
 
   @override
@@ -300,7 +180,7 @@ class _AppNavigationFrameState extends State<AppNavigationFrame> {
               children: [
                 AppSideNavigation(
                   selectedIndex: index,
-                  destinations: widget.destinations,
+                  destinations: AppRouter.destinations,
                   onDestinationSelected: widget.onDestinationSelected,
                 ),
                 const VerticalDivider(width: 1),

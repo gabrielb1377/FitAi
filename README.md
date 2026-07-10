@@ -39,6 +39,13 @@ O app continua salvando primeiro no SharedPreferences. Depois tenta enviar perfi
 
 Se o backend estiver offline, o item fica em uma fila local pendente e o app tenta reenviar automaticamente quando abrir ou a cada nova tentativa de sync. O header `X-FitIA-Client-Id` identifica o dispositivo enquanto o login nao for obrigatorio.
 
+## Corridas com GPS
+
+As corridas sao controladas por `lib/services/running_session_service.dart`.
+Home, Atividades e Corridas apenas observam esse servico, entao a sessao continua ativa ao trocar de tela.
+
+O servico usa `geolocator`, persiste a sessao ativa em SharedPreferences, registra rota por coordenadas e finaliza salvando no historico local. Ao salvar a corrida, o sync existente tenta enviar para `POST /sync/running`; se o backend estiver offline, a fila local de sincronizacao assume.
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.
