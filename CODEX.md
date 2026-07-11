@@ -1,28 +1,16 @@
-# Regras do Codex para o FITAI
+# Codex - FitIA Flutter
 
-Este arquivo define regras para o Codex trabalhar no projeto FITAI sem quebrar funcionalidades existentes.
+Leia primeiro o guia completo em [..\docs\CODEX_RULES.md](..\docs\CODEX_RULES.md).
 
-## Regras gerais
-
-- Nao alterar logica quando o pedido for apenas UI.
-- Nao alterar `StorageService` sem necessidade.
-- Nao alterar IA sem pedido explicito.
-- Nao criar dependencias novas.
-- Nao sobrescrever telas inteiras sem pedido explicito.
-- Rodar `flutter analyze` obrigatoriamente apos alteracoes.
-
-## Organizacao de codigo
-
-- Pages devem ter no maximo 250 linhas.
-- Widgets devem ter no maximo 150 linhas.
-- Separar UI em widgets pequenos.
-- Manter a logica principal nas pages ou services adequados.
-- Widgets devem receber parametros e conter apenas UI sempre que possivel.
-
-## Design e UI
-
-- Usar `AppTheme`, `AppColors` e componentes existentes.
-- Manter o tema escuro FITAI.
-- Preferir abordagem mobile-first.
-- Evitar layouts em duas colunas para treino em andamento.
-- Preservar a identidade visual premium do FITAI.
+- Preserve Android, Web e Windows, alem de navegacao, scroll e estados atuais.
+- Nao altere logica quando o pedido for somente UI, nem altere `StorageService` ou IA sem pedido explicito.
+- Nao crie dependencias novas e nao sobrescreva telas inteiras sem necessidade comprovada.
+- O app e offline-first: SharedPreferences e cache local permanecem como fallback; backend indisponivel nao bloqueia fluxos basicos.
+- Servicos centrais controlam corrida, passos, sincronizacao, IA e autenticacao. Telas nao criam estado global, timers duplicados ou logica paralela.
+- Reutilize AppTheme e componentes FitIA. Priorize UI mobile-first, acessivel e sem excesso de cards, gradientes, animacoes ou pop-ups.
+- Preserve o tema escuro e a identidade visual premium do FitIA; evite layouts de duas colunas no treino em andamento.
+- Pages devem ter no maximo 250 linhas e widgets no maximo 150 linhas. Separe UI em widgets pequenos e mantenha a logica em pages ou services adequados.
+- Trate loading, vazio, erro e offline. Use serializacao segura e mantenha compatibilidade com dados antigos.
+- Nao use `BuildContext` apos `await` sem `mounted` e nunca use `async` dentro de `setState`.
+- Nunca coloque `OPENAI_API_KEY` ou outro segredo no aplicativo.
+- Execute `flutter analyze` para qualquer alteracao Flutter e relate testes que nao foram executados.
