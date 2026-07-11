@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../services/running_session_service.dart';
+import '../services/steps_service.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
 import 'app_router.dart';
@@ -18,6 +19,7 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   final runningSession = RunningSessionService.instance;
+  final stepsService = StepsService.instance;
 
   int currentIndex = 0;
 
@@ -43,13 +45,16 @@ class _AppShellState extends State<AppShell> {
   void initState() {
     super.initState();
     runningSession.addListener(_onRunningSessionChanged);
+    stepsService.addListener(_onStepsChanged);
     unawaited(runningSession.initialize());
+    unawaited(stepsService.initialize());
     unawaited(carregarDados());
   }
 
   @override
   void dispose() {
     runningSession.removeListener(_onRunningSessionChanged);
+    stepsService.removeListener(_onStepsChanged);
     super.dispose();
   }
 
@@ -64,7 +69,8 @@ class _AppShellState extends State<AppShell> {
     altura = perfil['altura'] ?? altura;
     idade = perfil['idade'] ?? idade;
 
-    passos = await StorageService.carregarPassos();
+    await stepsService.initialize();
+    passos = stepsService.stepsToday;
     conquistaPrimeiraCorrida = await StorageService.carregarPrimeiraCorrida();
     conquista10Km = await StorageService.carregar10Km();
 
@@ -79,6 +85,25 @@ class _AppShellState extends State<AppShell> {
     if (!mounted) return;
 
     setState(_syncRunningState);
+  }
+
+  void _onStepsChanged() {
+    if (!mounted) return;
+
+    unawaited(_refreshStepsAndProgress());
+  }
+
+  Future<void> _refreshStepsAndProgress() async {
+    final novoXp = await StorageService.carregarXp();
+    final novoNivel = await StorageService.carregarNivel();
+
+    if (!mounted) return;
+
+    setState(() {
+      passos = stepsService.stepsToday;
+      xp = novoXp;
+      nivel = novoNivel;
+    });
   }
 
   void _syncRunningState() {

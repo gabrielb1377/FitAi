@@ -36,7 +36,7 @@ dependencies:
   shared_preferences: ^2.5.3
   uuid: ^4.5.3
   geolocator: ^14.0.3
-
+  health_connector: ^3.9.3
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -46,6 +46,24 @@ Home, Atividades e Corridas apenas observam esse servico, entao a sessao continu
 
 O servico usa `geolocator`, persiste a sessao ativa em SharedPreferences, registra rota por coordenadas e finaliza salvando no historico local. Ao salvar a corrida, o sync existente tenta enviar para `POST /sync/running`; se o backend estiver offline, a fila local de sincronizacao assume.
 
+## Passos com Health Connect
+
+Os passos sao controlados por `lib/services/steps_service.dart`. Home, Atividades e PassosPage consomem esse servico para mostrar passos de hoje, meta diaria, progresso, media semanal, melhor dia da semana, passos restantes, distancia estimada e calorias.
+
+No Android, o app usa `health_connector` para ler `Steps` do Health Connect. Toque em "Sincronizar agora" para solicitar permissao e carregar passos reais. Se Health Connect nao estiver instalado, indisponivel ou a permissao for negada, o app continua usando o cache local em SharedPreferences.
+
+No Windows/Web, o servico nao chama o plugin e usa apenas fallback local, mantendo o app testavel no Edge/Windows.
+
+Para testar em Android real:
+
+1. Instale ou abra o Health Connect no aparelho.
+2. Garanta que algum app/dispositivo esteja escrevendo passos no Health Connect.
+3. Rode o FitIA no Android.
+4. Abra Home, Atividades ou Passos e toque em "Sincronizar agora".
+5. Conceda a permissao de passos.
+
+Ao sincronizar, o app salva localmente, tenta enviar `POST /steps/sync` para o backend e usa a fila offline se o backend estiver indisponivel. XP de meta diaria usa `XpConfig.passosMetaDiaria` e so e concedido uma vez por dia.
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.

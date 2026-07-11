@@ -95,6 +95,7 @@ class AppRouter {
         passos: state.passos,
         xp: state.xp,
         nivel: state.nivel,
+        onXpAtualizado: state.carregarDados,
       ),
       TreinosPage(onXpAtualizado: state.carregarDados),
       AtividadesPage(

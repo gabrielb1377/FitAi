@@ -81,6 +81,14 @@ class SyncService {
     );
   }
 
+  Future<void> syncSteps(List<Map<String, dynamic>> steps) {
+    return _sendOrQueue(
+      type: 'steps',
+      path: '/steps/sync',
+      payload: {'items': steps},
+    );
+  }
+
   Future<void> flushPending() async {
     if (_flushing) return;
 

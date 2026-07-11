@@ -1,25 +1,55 @@
+import 'dart:async';
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+
+import '../services/steps_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_components.dart';
 
-class PassosPage extends StatelessWidget {
+class PassosPage extends StatefulWidget {
   final int passos;
 
   const PassosPage({super.key, required this.passos});
 
-  static const int metaPassos = 10000;
+  @override
+  State<PassosPage> createState() => _PassosPageState();
+}
 
-  double get progresso => (passos / metaPassos).clamp(0.0, 1.0);
+class _PassosPageState extends State<PassosPage> {
+  final stepsService = StepsService.instance;
 
-  double get caloriasEstimadas => passos * 0.04;
+  @override
+  void initState() {
+    super.initState();
+    stepsService.addListener(_onStepsChanged);
+    unawaited(stepsService.initialize());
+  }
 
-  double get distanciaEstimada => passos * 0.000762;
+  @override
+  void dispose() {
+    stepsService.removeListener(_onStepsChanged);
+    super.dispose();
+  }
 
-  String get statusMeta {
-    if (passos >= metaPassos) return 'ðŸŽ‰ Meta atingida!';
-    final restantes = metaPassos - passos;
-    return '$restantes passos para a meta';
+  void _onStepsChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  int get _passos => stepsService.initialized
+      ? stepsService.stepsToday
+      : widget.passos.clamp(0, 1000000);
+
+  int get _meta => stepsService.dailyGoal;
+
+  double get _progresso => stepsService.initialized
+      ? stepsService.progressToday
+      : (_passos / _meta).clamp(0.0, 1.0);
+
+  String get _statusMeta {
+    if (_passos >= _meta) return 'Meta atingida!';
+    return '${(_meta - _passos).clamp(0, _meta)} passos para a meta';
   }
 
   @override
@@ -34,15 +64,10 @@ class PassosPage extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
             sliver: SliverList(
               delegate: SliverChildListDelegate.fixed([
-                // Anel de progresso
                 _buildProgressRing(context),
                 const SizedBox(height: 24),
-
-                // Stats
-                _buildStatsRow(context),
+                _buildStatsWrap(context),
                 const SizedBox(height: 24),
-
-                // Meta
                 _buildMetaCard(context),
               ]),
             ),
@@ -61,9 +86,9 @@ class PassosPage extends StatelessWidget {
         24,
       ),
       child: AppPremiumHeader(
-        eyebrow: "Hoje",
-        title: "Passos",
-        subtitle: statusMeta,
+        eyebrow: stepsService.usingHealthConnect ? 'Health Connect' : 'Hoje',
+        title: 'Passos',
+        subtitle: _statusMeta,
         icon: Icons.directions_walk_rounded,
         gradient: AppColors.gradientSteps,
       ),
@@ -78,18 +103,17 @@ class PassosPage extends StatelessWidget {
             width: 200,
             height: 200,
             child: CustomPaint(
-              painter: _RingPainter(progress: progresso),
+              painter: _RingPainter(progress: _progresso),
               child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      '$passos',
+                      '$_passos',
                       style: const TextStyle(
                         fontSize: 42,
                         fontWeight: FontWeight.w800,
                         color: AppColors.textPrimary,
-                        letterSpacing: -1,
                         height: 1,
                       ),
                     ),
@@ -105,39 +129,83 @@ class PassosPage extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           Text(
-            statusMeta,
+            _statusMeta,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: passos >= metaPassos
+              color: _passos >= _meta
                   ? AppColors.primary
                   : AppColors.textSecondary,
             ),
+          ),
+          const SizedBox(height: 16),
+          AppButton.primary(
+            label: 'Sincronizar agora',
+            icon: Icons.sync_rounded,
+            loading: stepsService.syncing,
+            onPressed: stepsService.syncing
+                ? null
+                : () =>
+                      unawaited(stepsService.syncNow(requestPermission: true)),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            stepsService.statusMessage,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStatsRow(BuildContext context) {
-    return Row(
+  Widget _buildStatsWrap(BuildContext context) {
+    final best = stepsService.bestDayThisWeek;
+
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
       children: [
-        Expanded(
-          child: AppStatChip(
-            label: 'Calorias',
-            value: '${caloriasEstimadas.toStringAsFixed(0)} kcal',
-            icon: Icons.local_fire_department_outlined,
-            iconColor: AppColors.accent2,
-          ),
+        _statChip(
+          label: 'Calorias',
+          value: '${stepsService.estimatedCalories.toStringAsFixed(0)} kcal',
+          icon: Icons.local_fire_department_outlined,
+          color: AppColors.accent2,
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: AppStatChip(
-            label: 'DistÃ¢ncia',
-            value: '${distanciaEstimada.toStringAsFixed(2)} km',
-            icon: Icons.route_outlined,
-            iconColor: AppColors.accent1,
-          ),
+        _statChip(
+          label: 'Distancia',
+          value: '${stepsService.estimatedDistanceKm.toStringAsFixed(2)} km',
+          icon: Icons.route_outlined,
+          color: AppColors.accent1,
+        ),
+        _statChip(
+          label: 'Media semanal',
+          value: '${stepsService.weeklyAverage}',
+          icon: Icons.query_stats_rounded,
+          color: AppColors.primary,
+        ),
+        _statChip(
+          label: 'Melhor semana',
+          value: best == null ? '--' : '${best.steps}',
+          icon: Icons.emoji_events_outlined,
+          color: AppColors.rankOuro,
         ),
       ],
+    );
+  }
+
+  Widget _statChip({
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    return SizedBox(
+      width: 155,
+      child: AppStatChip(
+        label: label,
+        value: value,
+        icon: icon,
+        iconColor: color,
+      ),
     );
   }
 
@@ -162,12 +230,12 @@ class PassosPage extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Text(
-                'Meta DiÃ¡ria',
+                'Meta diaria',
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const Spacer(),
               Text(
-                '${(progresso * 100).toStringAsFixed(0)}%',
+                '${(_progresso * 100).toStringAsFixed(0)}%',
                 style: Theme.of(
                   context,
                 ).textTheme.headlineSmall?.copyWith(color: AppColors.primary),
@@ -181,7 +249,7 @@ class PassosPage extends StatelessWidget {
               height: 10,
               color: const Color(0xFF2A2A2A),
               child: FractionallySizedBox(
-                widthFactor: progresso,
+                widthFactor: _progresso,
                 alignment: Alignment.centerLeft,
                 child: Container(
                   decoration: const BoxDecoration(
@@ -196,11 +264,11 @@ class PassosPage extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '$passos passos',
+                '$_passos passos',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               Text(
-                '$metaPassos passos',
+                '$_meta passos',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ],
@@ -211,7 +279,6 @@ class PassosPage extends StatelessWidget {
   }
 }
 
-// â”€â”€ Painter do anel de progresso â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class _RingPainter extends CustomPainter {
   final double progress;
 
@@ -223,7 +290,6 @@ class _RingPainter extends CustomPainter {
     final radius = size.width / 2 - 16;
     const strokeWidth = 14.0;
 
-    // Trilha
     final trackPaint = Paint()
       ..color = const Color(0xFF2A2A2A)
       ..style = PaintingStyle.stroke
@@ -232,7 +298,6 @@ class _RingPainter extends CustomPainter {
 
     canvas.drawCircle(center, radius, trackPaint);
 
-    // Progresso
     final progressPaint = Paint()
       ..shader = const LinearGradient(
         colors: [AppColors.accent1, Color(0xFF7C4DFF)],

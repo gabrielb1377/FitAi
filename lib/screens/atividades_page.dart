@@ -8,6 +8,7 @@ import '../models/passos_diarios_model.dart';
 import '../services/achievement_service.dart';
 import '../services/fitai_coach_service.dart';
 import '../services/running_session_service.dart';
+import '../services/steps_service.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_components.dart';
@@ -41,6 +42,7 @@ class AtividadesPage extends StatefulWidget {
 
 class _AtividadesPageState extends State<AtividadesPage> {
   final runningSession = RunningSessionService.instance;
+  final stepsService = StepsService.instance;
 
   int _metaPassosDiaria = 10000;
   int _metaPassosSemanal = 70000;
@@ -72,7 +74,9 @@ class _AtividadesPageState extends State<AtividadesPage> {
     _corridasFuture = StorageService.carregarCorridas();
     _coachInsightsFuture = _gerarInsightsCoach();
     runningSession.addListener(_onRunningSessionChanged);
+    stepsService.addListener(_onStepsChanged);
     unawaited(runningSession.initialize());
+    unawaited(stepsService.initialize());
     unawaited(_carregarSistemaPassos());
   }
 
@@ -80,14 +84,15 @@ class _AtividadesPageState extends State<AtividadesPage> {
   void didUpdateWidget(covariant AtividadesPage oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (oldWidget.passos != widget.passos) {
-      unawaited(_sincronizarPassosDoDia());
+    if (oldWidget.passos != widget.passos && !stepsService.initialized) {
+      unawaited(_carregarSistemaPassos());
     }
   }
 
   @override
   void dispose() {
     runningSession.removeListener(_onRunningSessionChanged);
+    stepsService.removeListener(_onStepsChanged);
     super.dispose();
   }
 
@@ -96,14 +101,29 @@ class _AtividadesPageState extends State<AtividadesPage> {
     setState(() {});
   }
 
+  void _onStepsChanged() {
+    if (!mounted) return;
+
+    setState(() {
+      _metaPassosDiaria = stepsService.dailyGoal;
+      _metaPassosSemanal = stepsService.weeklyGoal;
+      _metaPassosMensal = stepsService.monthlyGoal;
+      _historicoPassos = stepsService.legacyHistory;
+      _passosCarregados = true;
+      _coachInsightsFuture = _gerarInsightsCoach();
+    });
+  }
+
+  int get _passosHoje => stepsService.stepsToday;
+
   double get _progressoPassos =>
-      (widget.passos / _metaPassosDiaria).clamp(0.0, 1.0);
+      (_passosHoje / _metaPassosDiaria).clamp(0.0, 1.0);
 
-  double get _distanciaPassosKm => widget.passos * 0.000762;
+  double get _distanciaPassosKm => stepsService.estimatedDistanceKm;
 
-  double get _caloriasPassos => widget.passos * 0.04;
+  double get _caloriasPassos => stepsService.estimatedCalories;
 
-  int get _tempoAtivoPassosMinutos => (widget.passos / 100).round();
+  int get _tempoAtivoPassosMinutos => stepsService.estimatedActiveMinutes;
 
   String get _tempoAtivoPassosFormatado {
     final minutos = _tempoAtivoPassosMinutos;
@@ -173,27 +193,25 @@ class _AtividadesPageState extends State<AtividadesPage> {
   }
 
   Future<void> _carregarSistemaPassos() async {
-    final metas = await StorageService.carregarMetasPassos();
-    final historico = await StorageService.carregarHistoricoPassos();
+    await stepsService.initialize();
+    final historico = stepsService.legacyHistory;
 
     if (!mounted) return;
 
     setState(() {
-      _metaPassosDiaria = metas['diaria'] ?? _metaPassosDiaria;
-      _metaPassosSemanal = metas['semanal'] ?? _metaPassosSemanal;
-      _metaPassosMensal = metas['mensal'] ?? _metaPassosMensal;
+      _metaPassosDiaria = stepsService.dailyGoal;
+      _metaPassosSemanal = stepsService.weeklyGoal;
+      _metaPassosMensal = stepsService.monthlyGoal;
       _historicoPassos = historico;
       _passosCarregados = true;
     });
 
-    await _sincronizarPassosDoDia();
+    await _sincronizarPassosDoDia(requestPermission: false);
   }
 
-  Future<void> _sincronizarPassosDoDia() async {
-    await StorageService.salvarPassos(widget.passos);
-    await StorageService.salvarHistoricoPassos(_registroPassosDoDia());
-
-    final historico = await StorageService.carregarHistoricoPassos();
+  Future<void> _sincronizarPassosDoDia({bool requestPermission = true}) async {
+    await stepsService.syncNow(requestPermission: requestPermission);
+    final historico = stepsService.legacyHistory;
 
     if (!mounted) return;
 
@@ -210,7 +228,7 @@ class _AtividadesPageState extends State<AtividadesPage> {
     List<PassosDiariosModel>? historicoPassos,
   }) {
     return const FitAICoachService().gerarInsights(
-      passosHoje: widget.passos,
+      passosHoje: _passosHoje,
       metaDiaria: _metaPassosDiaria,
       metaSemanal: _metaPassosSemanal,
       metaMensal: _metaPassosMensal,
@@ -247,19 +265,6 @@ class _AtividadesPageState extends State<AtividadesPage> {
           ),
         ),
       );
-  }
-
-  PassosDiariosModel _registroPassosDoDia() {
-    // Origem isolada para uma futura leitura por sensor real sem mudar a UI.
-    return PassosDiariosModel(
-      data: _formatarDataChave(DateTime.now()),
-      passos: widget.passos,
-      metaDiaria: _metaPassosDiaria,
-      distanciaKm: _distanciaPassosKm,
-      calorias: _caloriasPassos,
-      tempoAtivoMinutos: _tempoAtivoPassosMinutos,
-      origem: 'estimado',
-    );
   }
 
   String _formatarDataChave(DateTime data) {
@@ -303,7 +308,7 @@ class _AtividadesPageState extends State<AtividadesPage> {
         .where(_semanaAtual)
         .fold<int>(0, (soma, item) => soma + item.passos);
 
-    return total > 0 ? total : widget.passos;
+    return total > 0 ? total : _passosHoje;
   }
 
   int get _passosMes {
@@ -311,12 +316,12 @@ class _AtividadesPageState extends State<AtividadesPage> {
         .where(_mesAtual)
         .fold<int>(0, (soma, item) => soma + item.passos);
 
-    return total > 0 ? total : widget.passos;
+    return total > 0 ? total : _passosHoje;
   }
 
   int get _recordePassos {
     final valores = [
-      widget.passos,
+      _passosHoje,
       ..._historicoPassos.map((registro) => registro.passos),
     ];
 
@@ -392,6 +397,18 @@ class _AtividadesPageState extends State<AtividadesPage> {
     final mes = parsed.month.toString().padLeft(2, '0');
 
     return '$dia/$mes';
+  }
+
+  String _labelFontePassos() {
+    if (stepsService.usingHealthConnect) {
+      return 'Health Connect ativo - meta diaria: $_metaPassosDiaria';
+    }
+
+    if (stepsService.platformSupported && !stepsService.permissionGranted) {
+      return 'Toque em sincronizar para permitir passos reais';
+    }
+
+    return 'Fallback local - meta diaria: $_metaPassosDiaria';
   }
 
   void _iniciarContagemCorrida() {
@@ -509,7 +526,7 @@ class _AtividadesPageState extends State<AtividadesPage> {
             children: [
               _MetricBox(
                 label: 'Passos',
-                value: '${widget.passos}',
+                value: '$_passosHoje',
                 icon: Icons.directions_walk_rounded,
                 color: AppColors.accent1,
               ),
@@ -641,10 +658,11 @@ class _AtividadesPageState extends State<AtividadesPage> {
   }
 
   Widget _buildPassosCard(BuildContext context) {
-    final faltam = (_metaPassosDiaria - widget.passos).clamp(
+    final faltam = (_metaPassosDiaria - _passosHoje).clamp(
       0,
       _metaPassosDiaria,
     );
+    final melhorDiaSemana = stepsService.bestDayThisWeek;
 
     return AppGradientCard(
       gradient: AppColors.gradientSteps,
@@ -654,11 +672,34 @@ class _AtividadesPageState extends State<AtividadesPage> {
           _CardTitle(
             icon: Icons.directions_walk_rounded,
             title: 'Passos',
-            subtitle: 'Meta diaria: $_metaPassosDiaria passos',
-            action: IconButton(
-              tooltip: 'Editar metas',
-              onPressed: _abrirEditorMetas,
-              icon: const Icon(Icons.tune_rounded, color: Colors.white),
+            subtitle: _labelFontePassos(),
+            action: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: 'Sincronizar agora',
+                  onPressed: stepsService.syncing
+                      ? null
+                      : () => unawaited(
+                          _sincronizarPassosDoDia(requestPermission: true),
+                        ),
+                  icon: stepsService.syncing
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.sync_rounded, color: Colors.white),
+                ),
+                IconButton(
+                  tooltip: 'Editar metas',
+                  onPressed: _abrirEditorMetas,
+                  icon: const Icon(Icons.tune_rounded, color: Colors.white),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 20),
@@ -666,7 +707,7 @@ class _AtividadesPageState extends State<AtividadesPage> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '${widget.passos}',
+                '$_passosHoje',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 44,
@@ -713,6 +754,23 @@ class _AtividadesPageState extends State<AtividadesPage> {
                 value: _tempoAtivoPassosFormatado,
                 icon: Icons.timer_rounded,
               ),
+              _PassosMetric(
+                label: 'Media semanal',
+                value: '${stepsService.weeklyAverage}',
+                icon: Icons.query_stats_rounded,
+              ),
+              _PassosMetric(
+                label: 'Melhor semana',
+                value: melhorDiaSemana == null
+                    ? '--'
+                    : '${melhorDiaSemana.steps}',
+                icon: Icons.emoji_events_rounded,
+              ),
+              _PassosMetric(
+                label: 'Restantes',
+                value: '$faltam',
+                icon: Icons.flag_rounded,
+              ),
             ],
           ),
           const SizedBox(height: 18),
@@ -723,7 +781,7 @@ class _AtividadesPageState extends State<AtividadesPage> {
           ),
           const SizedBox(height: 12),
           Text(
-            widget.passos >= _metaPassosDiaria
+            _passosHoje >= _metaPassosDiaria
                 ? 'Meta atingida. Excelente consistencia!'
                 : '$faltam passos para bater a meta de hoje.',
             style: const TextStyle(
@@ -737,7 +795,7 @@ class _AtividadesPageState extends State<AtividadesPage> {
   }
 
   Widget _buildMetasCard(BuildContext context) {
-    final progressoDiario = (widget.passos / _metaPassosDiaria).clamp(0.0, 1.0);
+    final progressoDiario = (_passosHoje / _metaPassosDiaria).clamp(0.0, 1.0);
     final passosSemana = _passosSemana;
     final passosMes = _passosMes;
     final progressoSemanal = (passosSemana / _metaPassosSemanal).clamp(
@@ -764,7 +822,7 @@ class _AtividadesPageState extends State<AtividadesPage> {
           const SizedBox(height: 16),
           _GoalProgressTile(
             title: 'Hoje',
-            value: '${widget.passos} / $_metaPassosDiaria',
+            value: '$_passosHoje / $_metaPassosDiaria',
             progress: progressoDiario,
             icon: Icons.today_rounded,
           ),
@@ -954,12 +1012,12 @@ class _AtividadesPageState extends State<AtividadesPage> {
                       _metaPassosMensal = mensal.clamp(20000, 3000000);
                     });
 
-                    await StorageService.salvarMetasPassos(
-                      diaria: _metaPassosDiaria,
-                      semanal: _metaPassosSemanal,
-                      mensal: _metaPassosMensal,
+                    await stepsService.updateGoals(
+                      daily: _metaPassosDiaria,
+                      weekly: _metaPassosSemanal,
+                      monthly: _metaPassosMensal,
                     );
-                    await _sincronizarPassosDoDia();
+                    await _sincronizarPassosDoDia(requestPermission: false);
 
                     if (!mounted) return;
                     navigator.pop();

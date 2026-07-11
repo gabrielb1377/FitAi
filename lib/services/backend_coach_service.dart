@@ -76,6 +76,7 @@ class BackendCoachService {
     final recordes = await StorageService.carregarRecordes();
     final metas = await const MetasService().carregarMetas();
     final corridas = await StorageService.carregarCorridas();
+    final passos = await StorageService.carregarDailyStepsHistory();
 
     return {
       'perfil': perfil,
@@ -89,6 +90,7 @@ class BackendCoachService {
       'recordes': recordes.map((recorde) => recorde.toJson()).toList(),
       'metas': metas.metas.map((meta) => meta.toJson()).toList(),
       'corridas': corridas.map((corrida) => corrida.toJson()).toList(),
+      'passos': passos.map((registro) => registro.toJson()).toList(),
     };
   }
 

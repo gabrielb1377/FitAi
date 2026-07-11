@@ -7,6 +7,7 @@ import '../core/xp/xp_config.dart';
 import '../models/agenda_treino_override_model.dart';
 import '../models/achievement_model.dart';
 import '../models/corrida_model.dart';
+import '../models/daily_steps_model.dart';
 import '../models/fitai_recorde_model.dart';
 import '../models/fitai_memory_model.dart';
 import '../models/fitai_notification_model.dart';
@@ -37,6 +38,8 @@ class XpNivelResultado {
 class StorageService {
   static const int xpPorNivel = 100;
   static const String _runningSessionKey = 'runningSessionActive';
+  static const String _dailyStepsHistoryKey = 'dailyStepsHistory';
+  static const String _stepsXpAwardedKey = 'stepsXpAwardedDates';
 
   static int xpNecessarioParaNivel(int nivelAtual) {
     return XpConfig.xpParaProximoNivel(nivelAtual);
@@ -206,12 +209,136 @@ class StorageService {
 
   static Future<void> salvarPassos(int passos) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('passos', passos);
+    await prefs.setInt('passos', passos < 0 ? 0 : passos);
   }
 
   static Future<int> carregarPassos() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt('passos') ?? 0;
+  }
+
+  static Future<void> salvarDailySteps(DailyStepsModel registro) async {
+    final atualizados = await salvarDailyStepsHistory([registro]);
+    final hoje = _formatarDataChave(DateTime.now());
+    DailyStepsModel? registroHoje;
+
+    for (final item in atualizados) {
+      if (item.date == hoje) {
+        registroHoje = item;
+        break;
+      }
+    }
+
+    if (registroHoje != null) {
+      await salvarPassos(registroHoje.steps);
+    }
+  }
+
+  static Future<List<DailyStepsModel>> salvarDailyStepsHistory(
+    List<DailyStepsModel> registros,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final porData = {
+      for (final registro in await carregarDailyStepsHistory())
+        if (registro.date.trim().isNotEmpty) registro.date: registro,
+    };
+
+    for (final registro in registros) {
+      if (registro.date.trim().isEmpty) continue;
+
+      final existente = porData[registro.date];
+      porData[registro.date] = _reconciliarDailySteps(existente, registro);
+    }
+
+    final atualizados = porData.values.toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+    final limitados = atualizados.take(180).toList();
+
+    await prefs.setStringList(
+      _dailyStepsHistoryKey,
+      limitados.map((item) => jsonEncode(item.toJson())).toList(),
+    );
+
+    for (final registro in limitados) {
+      await salvarHistoricoPassos(_dailyStepsToPassosDiarios(registro));
+    }
+
+    final hoje = _formatarDataChave(DateTime.now());
+    for (final registro in limitados) {
+      if (registro.date == hoje) {
+        await salvarPassos(registro.steps);
+        break;
+      }
+    }
+
+    return limitados;
+  }
+
+  static Future<List<DailyStepsModel>> carregarDailyStepsHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lista = prefs.getStringList(_dailyStepsHistoryKey) ?? [];
+    final historico = <DailyStepsModel>[];
+
+    for (final item in lista) {
+      try {
+        final decoded = jsonDecode(item);
+
+        if (decoded is Map<String, dynamic>) {
+          historico.add(DailyStepsModel.fromJson(decoded));
+        } else if (decoded is Map) {
+          historico.add(
+            DailyStepsModel.fromJson(Map<String, dynamic>.from(decoded)),
+          );
+        }
+      } catch (erro) {
+        debugPrint("Erro ao carregar passos diarios: $erro");
+      }
+    }
+
+    if (historico.isEmpty) {
+      final legado = await carregarHistoricoPassos();
+      historico.addAll(
+        legado.map((registro) {
+          return DailyStepsModel(
+            date: registro.data,
+            steps: registro.passos,
+            goal: registro.metaDiaria,
+            source: _normalizarFontePassos(registro.origem),
+            updatedAt: DateTime.now(),
+          );
+        }),
+      );
+    }
+
+    historico.sort((a, b) => b.date.compareTo(a.date));
+    return historico;
+  }
+
+  static Future<void> marcarDailyStepsSincronizado(String date) async {
+    final historico = await carregarDailyStepsHistory();
+    final agora = DateTime.now();
+    await salvarDailyStepsHistory(
+      historico.map((registro) {
+        if (registro.date != date) return registro;
+        return registro.copyWith(syncedAt: agora);
+      }).toList(),
+    );
+  }
+
+  static Future<bool> passosMetaDiariaXpConcedido(String date) async {
+    final prefs = await SharedPreferences.getInstance();
+    final datas = prefs.getStringList(_stepsXpAwardedKey) ?? const <String>[];
+
+    return datas.contains(date);
+  }
+
+  static Future<void> marcarPassosMetaDiariaXpConcedido(String date) async {
+    final prefs = await SharedPreferences.getInstance();
+    final datas = (prefs.getStringList(_stepsXpAwardedKey) ?? const <String>[])
+        .toSet();
+
+    datas.add(date);
+    await prefs.setStringList(_stepsXpAwardedKey, datas.toList()..sort());
   }
 
   static Future<void> salvarMetasPassos({
@@ -1268,6 +1395,81 @@ class StorageService {
     final atualizadas = notificacoes.where((item) => item.id != id).toList();
 
     await salvarNotificacoes(atualizadas);
+  }
+
+  static DailyStepsModel _reconciliarDailySteps(
+    DailyStepsModel? existente,
+    DailyStepsModel recebido,
+  ) {
+    if (existente == null) return recebido;
+
+    final recebidoConfiavel =
+        _prioridadeFontePassos(recebido.source) >=
+        _prioridadeFontePassos(existente.source);
+    final deveSubstituir =
+        recebido.steps > existente.steps ||
+        (recebido.steps == existente.steps && recebidoConfiavel);
+
+    if (!deveSubstituir) {
+      return existente.copyWith(
+        goal: recebido.goal > 0 ? recebido.goal : existente.goal,
+        updatedAt: recebido.updatedAt.isAfter(existente.updatedAt)
+            ? recebido.updatedAt
+            : existente.updatedAt,
+      );
+    }
+
+    return recebido.copyWith(
+      goal: recebido.goal > 0 ? recebido.goal : existente.goal,
+      syncedAt: recebido.syncedAt ?? existente.syncedAt,
+      updatedAt: recebido.updatedAt.isAfter(existente.updatedAt)
+          ? recebido.updatedAt
+          : DateTime.now(),
+    );
+  }
+
+  static PassosDiariosModel _dailyStepsToPassosDiarios(
+    DailyStepsModel registro,
+  ) {
+    return PassosDiariosModel(
+      data: registro.date,
+      passos: registro.steps,
+      metaDiaria: registro.goal,
+      distanciaKm: registro.estimatedDistanceKm,
+      calorias: registro.estimatedCalories,
+      tempoAtivoMinutos: registro.estimatedActiveMinutes,
+      origem: registro.source,
+    );
+  }
+
+  static int _prioridadeFontePassos(String source) {
+    return switch (_normalizarFontePassos(source)) {
+      DailyStepsModel.sourceHealthConnect => 3,
+      DailyStepsModel.sourceManual => 2,
+      _ => 1,
+    };
+  }
+
+  static String _normalizarFontePassos(String source) {
+    final normalized = source.trim().toLowerCase();
+    if (normalized == DailyStepsModel.sourceHealthConnect ||
+        normalized == 'healthconnect' ||
+        normalized == 'health') {
+      return DailyStepsModel.sourceHealthConnect;
+    }
+    if (normalized == DailyStepsModel.sourceManual) {
+      return DailyStepsModel.sourceManual;
+    }
+
+    return DailyStepsModel.sourceLocal;
+  }
+
+  static String _formatarDataChave(DateTime data) {
+    final local = data.toLocal();
+    final mes = local.month.toString().padLeft(2, '0');
+    final dia = local.day.toString().padLeft(2, '0');
+
+    return '${local.year}-$mes-$dia';
   }
 
   static Map<String, dynamic> _metaPassosToJson(
