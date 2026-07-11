@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fitai/models/ready_plan_model.dart';
+import 'package:fitai/services/ready_plan_mapper.dart';
 
 void main() {
   test('parses the current backend ready plan contract', () {
@@ -42,5 +43,15 @@ void main() {
     expect(plan.days.single.exercises.single.sets, 3);
     expect(plan.days.single.exercises.single.reps, '10-12');
     expect(plan.days.single.exercises.single.restSeconds, 75);
+
+    final treino = ReadyPlanMapper.toTreino(
+      plan,
+      workoutId: 'workout-1',
+      source: 'ready_plan_offline',
+    );
+    expect(treino.readyPlanId, 'plan-1');
+    expect(treino.planoDias.single.exercicioIds, hasLength(1));
+    expect(treino.exercicios.single.repeticoes, '10-12');
+    expect(treino.origem, 'ready_plan_offline');
   });
 }

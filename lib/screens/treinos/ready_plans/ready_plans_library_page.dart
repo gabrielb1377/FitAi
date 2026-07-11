@@ -177,11 +177,15 @@ class _ReadyPlansLibraryPageState extends State<ReadyPlansLibraryPage> {
     }).toList();
   }
 
-  void _openPlan(ReadyPlanModel plan) {
-    Navigator.push(
+  Future<void> _openPlan(ReadyPlanModel plan) async {
+    final added = await Navigator.push<bool>(
       context,
       MaterialPageRoute(builder: (_) => ReadyPlanPreviewPage(plan: plan)),
     );
+
+    if (added == true && mounted) {
+      Navigator.pop(context, true);
+    }
   }
 
   @override

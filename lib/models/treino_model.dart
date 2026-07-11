@@ -45,6 +45,10 @@ class TreinoModel {
 
   final String dataCriacao;
 
+  final String origem;
+
+  final String? readyPlanId;
+
   TreinoModel({
     required this.id,
     required this.nome,
@@ -68,6 +72,8 @@ class TreinoModel {
     required this.criadoPorIA,
     required this.exercicios,
     required this.dataCriacao,
+    this.origem = "manual",
+    this.readyPlanId,
   });
 
   bool get isPlanoPrincipal => diaPlano.trim().isEmpty || planoDias.isNotEmpty;
@@ -95,6 +101,8 @@ class TreinoModel {
       "planoDias": planoDias.map((dia) => dia.toJson()).toList(),
       "criadoPorIA": criadoPorIA,
       "dataCriacao": dataCriacao,
+      "origem": origem,
+      "readyPlanId": readyPlanId,
       "exercicios": exercicios.map((e) => e.toJson()).toList(),
     };
   }
@@ -122,6 +130,9 @@ class TreinoModel {
       planoDias: _diasFromJson(json["planoDias"]),
       criadoPorIA: _boolFromJson(json["criadoPorIA"]),
       dataCriacao: json["dataCriacao"]?.toString() ?? "",
+      origem:
+          json["origem"]?.toString() ?? json["source"]?.toString() ?? "manual",
+      readyPlanId: json["readyPlanId"]?.toString(),
       exercicios: ((json["exercicios"] as List?) ?? [])
           .map((e) => ExercicioModel.fromJson(e))
           .toList(),
@@ -160,6 +171,8 @@ class TreinoModel {
       criadoPorIA: criadoPorIA,
       exercicios: exerciciosDoDia,
       dataCriacao: dataCriacao,
+      origem: origem,
+      readyPlanId: readyPlanId,
     );
   }
 

@@ -164,7 +164,7 @@ class _TreinosPageState extends State<TreinosPage> {
   }
 
   Future<void> _abrirTreinoPronto() async {
-    await Navigator.push(
+    final added = await Navigator.push<bool>(
       context,
       MaterialPageRoute(builder: (_) => const ReadyPlansLibraryPage()),
     );
@@ -172,6 +172,12 @@ class _TreinosPageState extends State<TreinosPage> {
     if (!mounted) return;
 
     await _carregarTreinos();
+
+    if (added == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Plano adicionado aos seus planos.')),
+      );
+    }
   }
 
   Future<void> _abrirHistoricoTreinos() async {

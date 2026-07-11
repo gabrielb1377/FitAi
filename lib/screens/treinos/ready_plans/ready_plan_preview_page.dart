@@ -5,7 +5,10 @@ import 'package:flutter/material.dart';
 import '../../../models/ready_plan_day_model.dart';
 import '../../../models/ready_plan_exercise_model.dart';
 import '../../../models/ready_plan_model.dart';
+import '../../../services/ready_plan_mapper.dart';
 import '../../../services/ready_plans_service.dart';
+import '../../../services/sync_service.dart';
+import '../../../services/treino_service.dart';
 import '../../../theme/app_theme.dart';
 import 'widgets/ready_plans_empty_state.dart';
 import 'widgets/ready_plans_header.dart';
@@ -25,6 +28,8 @@ class _ReadyPlanPreviewPageState extends State<ReadyPlanPreviewPage> {
   ReadyPlanModel? _plan;
   bool _loading = true;
   bool _hasError = false;
+  bool _adding = false;
+  bool _added = false;
 
   @override
   void initState() {
@@ -42,10 +47,14 @@ class _ReadyPlanPreviewPageState extends State<ReadyPlanPreviewPage> {
 
     try {
       final plan = await _service.getPlanDetails(widget.plan.id);
+      final alreadyAdded = await TreinoService.instance.contemPlanoPronto(
+        plan.id,
+      );
       if (!mounted) return;
       setState(() {
         _plan = plan;
         _loading = false;
+        _added = alreadyAdded;
       });
     } on ReadyPlansException {
       if (!mounted) return;
@@ -64,10 +73,20 @@ class _ReadyPlanPreviewPageState extends State<ReadyPlanPreviewPage> {
         top: false,
         minimum: const EdgeInsets.fromLTRB(20, 12, 20, 16),
         child: FilledButton(
-          onPressed: null,
-          child: const SizedBox(
+          onPressed: _canAdd ? _addPlan : null,
+          child: SizedBox(
             height: 48,
-            child: Center(child: Text('Adicionar aos meus planos')),
+            child: Center(
+              child: _adding
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(
+                      _added ? 'Já adicionado' : 'Adicionar aos meus planos',
+                    ),
+            ),
           ),
         ),
       ),
@@ -84,6 +103,78 @@ class _ReadyPlanPreviewPageState extends State<ReadyPlanPreviewPage> {
         ),
       ),
     );
+  }
+
+  bool get _canAdd =>
+      !_loading && !_hasError && _plan != null && !_adding && !_added;
+
+  Future<void> _addPlan() async {
+    final plan = _plan;
+    if (plan == null || _adding || _added) return;
+
+    setState(() => _adding = true);
+
+    try {
+      final clientId = await SyncService.instance.getClientId();
+      final copied = await _service.copyReadyPlan(plan.id, clientId: clientId);
+      final treino = ReadyPlanMapper.toTreino(
+        plan,
+        workoutId: copied.workoutId,
+        source: 'ready_plan',
+      );
+      await TreinoService.instance.adicionarTreinoComPersistencia(treino);
+
+      if (!mounted) return;
+      setState(() {
+        _adding = false;
+        _added = true;
+      });
+      Navigator.pop(context, true);
+    } on ReadyPlansException catch (error) {
+      if (error.isNetworkUnavailable) {
+        await _saveOffline(plan);
+        return;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _adding = false;
+        _added = error.statusCode == 409;
+      });
+      _showMessage(error.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _adding = false);
+      _showMessage('Não foi possível adicionar o plano agora.');
+    }
+  }
+
+  Future<void> _saveOffline(ReadyPlanModel plan) async {
+    try {
+      final treino = ReadyPlanMapper.toTreino(
+        plan,
+        workoutId: 'ready_plan_${plan.id}',
+        source: 'ready_plan_offline',
+      );
+      await TreinoService.instance.adicionarTreinoComPersistencia(treino);
+
+      if (!mounted) return;
+      setState(() {
+        _adding = false;
+        _added = true;
+      });
+      Navigator.pop(context, true);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _adding = false);
+      _showMessage('Não foi possível salvar o plano localmente.');
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Widget _buildBody() {

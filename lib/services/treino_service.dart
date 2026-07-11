@@ -14,6 +14,10 @@ class TreinoService extends ChangeNotifier {
   List<TreinoModel> get treinos => List.unmodifiable(_treinos);
 
   void adicionarTreino(TreinoModel treino) {
+    unawaited(adicionarTreinoComPersistencia(treino));
+  }
+
+  Future<void> adicionarTreinoComPersistencia(TreinoModel treino) async {
     final index = _treinos.indexWhere((item) => item.id == treino.id);
 
     if (index >= 0) {
@@ -22,8 +26,17 @@ class TreinoService extends ChangeNotifier {
       _treinos.add(treino);
     }
 
-    unawaited(StorageService.salvarTreino(treino));
     notifyListeners();
+    await StorageService.salvarTreino(treino);
+  }
+
+  Future<bool> contemPlanoPronto(String readyPlanId) async {
+    if (_treinos.any((item) => item.readyPlanId == readyPlanId)) {
+      return true;
+    }
+
+    final salvos = await StorageService.carregarTreinos();
+    return salvos.any((item) => item.readyPlanId == readyPlanId);
   }
 
   void removerTreino(String id) {

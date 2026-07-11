@@ -9,6 +9,9 @@ class ReadyPlanExerciseModel {
   final String rir;
   final String cadence;
   final String notes;
+  final String category;
+  final List<String> muscles;
+  final List<String> equipment;
 
   const ReadyPlanExerciseModel({
     required this.id,
@@ -21,6 +24,9 @@ class ReadyPlanExerciseModel {
     this.rir = '',
     this.cadence = '',
     this.notes = '',
+    this.category = '',
+    this.muscles = const [],
+    this.equipment = const [],
   });
 
   factory ReadyPlanExerciseModel.fromJson(Map<String, dynamic> json) {
@@ -41,6 +47,9 @@ class ReadyPlanExerciseModel {
       rir: _string(json['rir']),
       cadence: _string(json['cadence'], fallback: _string(json['cadencia'])),
       notes: _string(json['notes'], fallback: _string(json['observacoes'])),
+      category: _string(json['category'], fallback: _string(json['categoria'])),
+      muscles: _stringList(json['muscles'] ?? json['musculos']),
+      equipment: _stringList(json['equipment'] ?? json['equipamentos']),
     );
   }
 
@@ -55,6 +64,9 @@ class ReadyPlanExerciseModel {
     'rir': rir,
     'cadence': cadence,
     'notes': notes,
+    'category': category,
+    'muscles': muscles,
+    'equipment': equipment,
   };
 
   static String _string(dynamic value, {String fallback = ''}) {
@@ -65,5 +77,13 @@ class ReadyPlanExerciseModel {
   static int _int(dynamic value, {int fallback = 0}) {
     if (value is num) return value.round();
     return int.tryParse(value?.toString() ?? '') ?? fallback;
+  }
+
+  static List<String> _stringList(dynamic value) {
+    if (value is! List) return const [];
+    return value
+        .map((item) => item.toString().trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
   }
 }

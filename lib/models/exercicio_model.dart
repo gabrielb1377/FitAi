@@ -21,6 +21,13 @@ class ExercicioModel {
   final String gifPath;
   final String video;
 
+  final int series;
+  final String repeticoes;
+  final int descansoSegundos;
+  final String rir;
+  final String cadencia;
+  final String observacoesTreino;
+
   bool favorito;
 
   ExercicioModel({
@@ -41,6 +48,12 @@ class ExercicioModel {
     required this.video,
     required this.tags,
     required this.caloriasHora,
+    this.series = 0,
+    this.repeticoes = "",
+    this.descansoSegundos = 0,
+    this.rir = "",
+    this.cadencia = "",
+    this.observacoesTreino = "",
     this.favorito = false,
   });
 
@@ -64,6 +77,12 @@ class ExercicioModel {
       "favorito": favorito,
       "tags": tags,
       "caloriasHora": caloriasHora,
+      "series": series,
+      "repeticoes": repeticoes,
+      "descansoSegundos": descansoSegundos,
+      "rir": rir,
+      "cadencia": cadencia,
+      "observacoesTreino": observacoesTreino,
     };
   }
 
@@ -89,6 +108,20 @@ class ExercicioModel {
       favorito: json["favorito"] ?? false,
       tags: List<String>.from(json["tags"] ?? const []),
       caloriasHora: json["caloriasHora"] ?? 0,
+      series: _int(json["series"]),
+      repeticoes: json["repeticoes"]?.toString() ?? "",
+      descansoSegundos: _int(
+        json["descansoSegundos"],
+        fallback: _int(json["descanso"]),
+      ),
+      rir: json["rir"]?.toString() ?? "",
+      cadencia: json["cadencia"]?.toString() ?? "",
+      observacoesTreino: json["observacoesTreino"]?.toString() ?? "",
     );
+  }
+
+  static int _int(dynamic value, {int fallback = 0}) {
+    if (value is num) return value.round();
+    return int.tryParse(value?.toString() ?? '') ?? fallback;
   }
 }

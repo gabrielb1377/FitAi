@@ -135,6 +135,8 @@ class SyncService {
     return (await _loadQueue()).length;
   }
 
+  Future<String> getClientId() => _clientId();
+
   Future<void> _sendOrQueue({
     required String type,
     required String path,
