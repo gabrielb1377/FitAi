@@ -7,6 +7,7 @@ import '../ai_workout_page.dart';
 import '../../services/treino_service.dart';
 import 'criar_treino_page.dart';
 import 'historico_treinos_page.dart';
+import 'ready_plans/ready_plans_library_page.dart';
 import 'widgets/create_plan_bottomsheet.dart';
 import 'widgets/plan_card.dart';
 import 'treino_detalhes_page.dart';
@@ -165,7 +166,7 @@ class _TreinosPageState extends State<TreinosPage> {
   Future<void> _abrirTreinoPronto() async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const AIWorkoutPage()),
+      MaterialPageRoute(builder: (_) => const ReadyPlansLibraryPage()),
     );
 
     if (!mounted) return;
