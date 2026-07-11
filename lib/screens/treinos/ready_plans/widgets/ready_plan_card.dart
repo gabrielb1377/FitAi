@@ -6,8 +6,16 @@ import '../../../../theme/app_theme.dart';
 class ReadyPlanCard extends StatelessWidget {
   final ReadyPlanModel plan;
   final VoidCallback onTap;
+  final bool isFavorite;
+  final VoidCallback? onFavoriteToggle;
 
-  const ReadyPlanCard({super.key, required this.plan, required this.onTap});
+  const ReadyPlanCard({
+    super.key,
+    required this.plan,
+    required this.onTap,
+    this.isFavorite = false,
+    this.onFavoriteToggle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -83,10 +91,27 @@ class ReadyPlanCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 4),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: AppColors.textHint,
+              Column(
+                children: [
+                  IconButton(
+                    tooltip: isFavorite
+                        ? 'Remover dos favoritos'
+                        : 'Favoritar plano',
+                    onPressed: onFavoriteToggle,
+                    icon: Icon(
+                      isFavorite
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_border_rounded,
+                      color: isFavorite
+                          ? const Color(0xFFE57373)
+                          : AppColors.textHint,
+                    ),
+                  ),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.textHint,
+                  ),
+                ],
               ),
             ],
           ),

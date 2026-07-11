@@ -5,6 +5,11 @@ import '../../../../theme/app_theme.dart';
 class ReadyPlansFilters extends StatelessWidget {
   static const filters = [
     'Todos',
+    'Recomendados',
+    'Em destaque',
+    'Favoritos',
+    'Mais populares',
+    'Novos',
     'Hipertrofia',
     'Emagrecimento',
     'Força',

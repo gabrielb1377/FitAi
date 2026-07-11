@@ -7,12 +7,16 @@ class RecommendedPlanCard extends StatelessWidget {
   final ReadyPlanModel plan;
   final String reason;
   final VoidCallback onTap;
+  final bool isFavorite;
+  final VoidCallback? onFavoriteToggle;
 
   const RecommendedPlanCard({
     super.key,
     required this.plan,
     required this.reason,
     required this.onTap,
+    this.isFavorite = false,
+    this.onFavoriteToggle,
   });
 
   @override
@@ -46,6 +50,22 @@ class RecommendedPlanCard extends StatelessWidget {
                       'Para você',
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
                         color: AppColors.primary,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      tooltip: isFavorite
+                          ? 'Remover dos favoritos'
+                          : 'Favoritar plano',
+                      onPressed: onFavoriteToggle,
+                      icon: Icon(
+                        isFavorite
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
+                        color: isFavorite
+                            ? const Color(0xFFE57373)
+                            : AppColors.textHint,
+                        size: 20,
                       ),
                     ),
                   ],

@@ -17,6 +17,8 @@ class ReadyPlanModel {
   final bool active;
   final String cover;
   final String category;
+  final int popularityCount;
+  final DateTime? createdAt;
   final List<ReadyPlanDayModel> days;
 
   const ReadyPlanModel({
@@ -36,6 +38,8 @@ class ReadyPlanModel {
     this.active = true,
     this.cover = '',
     this.category = '',
+    this.popularityCount = 0,
+    this.createdAt,
     this.days = const [],
   });
 
@@ -87,6 +91,11 @@ class ReadyPlanModel {
       ),
       cover: _string(json['cover'], fallback: _string(json['capa'])),
       category: category,
+      popularityCount: _int(
+        json['popularityCount'],
+        fallback: _int(json['copiesCount']),
+      ),
+      createdAt: _date(json['createdAt']),
       days: _maps(
         json['days'] ?? json['dias'],
       ).map(ReadyPlanDayModel.fromJson).toList(),
@@ -110,8 +119,53 @@ class ReadyPlanModel {
     'active': active,
     'cover': cover,
     'category': category,
+    'popularityCount': popularityCount,
+    'createdAt': createdAt?.toIso8601String(),
     'days': days.map((day) => day.toJson()).toList(),
   };
+
+  int get totalExercises =>
+      days.fold(0, (total, day) => total + day.exercises.length);
+
+  double get averageExercisesPerDay =>
+      days.isEmpty ? 0 : totalExercises / days.length;
+
+  List<String> get allEquipment => {
+    ...equipment,
+    for (final day in days) ...[
+      for (final exercise in day.exercises) ...exercise.equipment,
+    ],
+  }.where((item) => item.trim().isNotEmpty).toList();
+
+  List<String> get primaryMuscleGroups => {
+    for (final day in days) ..._splitGroups(day.muscleGroup),
+    for (final day in days)
+      for (final exercise in day.exercises) ...exercise.muscles,
+  }.where((item) => item.trim().isNotEmpty).toList();
+
+  ReadyPlanModel copyWith({List<ReadyPlanDayModel>? days}) {
+    return ReadyPlanModel(
+      id: id,
+      name: name,
+      description: description,
+      goal: goal,
+      level: level,
+      split: split,
+      daysPerWeek: daysPerWeek,
+      durationWeeks: durationWeeks,
+      estimatedMinutes: estimatedMinutes,
+      location: location,
+      equipment: equipment,
+      tags: tags,
+      featured: featured,
+      active: active,
+      cover: cover,
+      category: category,
+      popularityCount: popularityCount,
+      createdAt: createdAt,
+      days: days ?? this.days,
+    );
+  }
 
   static List<Map<String, dynamic>> _maps(dynamic value) {
     if (value is! List) return const [];
@@ -145,6 +199,19 @@ class ReadyPlanModel {
     if (text == 'true' || text == '1') return true;
     if (text == 'false' || text == '0') return false;
     return fallback;
+  }
+
+  static DateTime? _date(dynamic value) {
+    if (value is DateTime) return value;
+    return DateTime.tryParse(value?.toString() ?? '');
+  }
+
+  static List<String> _splitGroups(String value) {
+    return value
+        .split(RegExp(r'\+|/|,'))
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
   }
 
   static String _locationForCategory(String category) {

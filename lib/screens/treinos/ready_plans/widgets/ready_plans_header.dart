@@ -6,12 +6,14 @@ class ReadyPlansHeader extends StatelessWidget {
   final String title;
   final String subtitle;
   final bool showBack;
+  final Widget? trailing;
 
   const ReadyPlansHeader({
     super.key,
     required this.title,
     required this.subtitle,
     this.showBack = true,
+    this.trailing,
   });
 
   @override
@@ -43,6 +45,7 @@ class ReadyPlansHeader extends StatelessWidget {
               ],
             ),
           ),
+          if (trailing != null) ...[const SizedBox(width: 8), trailing!],
         ],
       ),
     );

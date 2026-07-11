@@ -235,6 +235,18 @@ class ReadyPlansService {
     }
   }
 
+  Future<List<ReadyPlanModel>> mergeCachedDetails(
+    List<ReadyPlanModel> plans,
+  ) async {
+    final enriched = await Future.wait(
+      plans.map((plan) async {
+        final detail = await loadPlanDetailCache(plan.id);
+        return detail ?? plan;
+      }),
+    );
+    return enriched;
+  }
+
   Future<void> clearInvalidReadyPlansCache() async {
     final prefs = await SharedPreferences.getInstance();
     final keys = prefs
@@ -296,12 +308,42 @@ class ReadyPlansService {
     );
   }
 
-  Future<Map<String, dynamic>> _getObject(String path) async {
+  Future<Set<String>> fetchFavoriteIds(String bearerToken) async {
+    final json = await _getObject(
+      '/ready-plans/favorites',
+      headers: _authorizationHeaders(bearerToken),
+    );
+    final ids = json['favoriteIds'];
+    if (ids is! List) return <String>{};
+    return ids
+        .map((item) => item.toString().trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+  }
+
+  Future<void> addFavorite(String id, String bearerToken) async {
+    await _postObject(
+      '/ready-plans/${Uri.encodeComponent(id)}/favorite',
+      _authorizationHeaders(bearerToken),
+    );
+  }
+
+  Future<void> removeFavorite(String id, String bearerToken) async {
+    await _deleteObject(
+      '/ready-plans/${Uri.encodeComponent(id)}/favorite',
+      _authorizationHeaders(bearerToken),
+    );
+  }
+
+  Future<Map<String, dynamic>> _getObject(
+    String path, {
+    Map<String, String> headers = const {},
+  }) async {
     try {
       final response = await _client
           .get(
             ApiConfig.endpoint(path),
-            headers: const {'Accept': 'application/json'},
+            headers: {'Accept': 'application/json', ...headers},
           )
           .timeout(ApiConfig.timeout);
 
@@ -410,6 +452,44 @@ class ReadyPlansService {
     }
   }
 
+  Future<Map<String, dynamic>> _deleteObject(
+    String path,
+    Map<String, String> headers,
+  ) async {
+    try {
+      final response = await _client
+          .delete(ApiConfig.endpoint(path), headers: headers)
+          .timeout(ApiConfig.timeout);
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw _favoriteException(response.statusCode);
+      }
+
+      if (response.body.trim().isEmpty) return <String, dynamic>{};
+      final decoded = jsonDecode(response.body);
+      final object = _map(decoded);
+      if (object == null) {
+        throw const ReadyPlansException(
+          'Resposta inválida ao sincronizar favoritos.',
+        );
+      }
+      return object;
+    } on TimeoutException {
+      throw const ReadyPlansException(
+        'Backend indisponível para sincronizar favoritos.',
+        isNetworkUnavailable: true,
+      );
+    } on ReadyPlansException {
+      rethrow;
+    } catch (error) {
+      _debugLog('Falha ao remover favorito: $error');
+      throw const ReadyPlansException(
+        'Backend indisponível para sincronizar favoritos.',
+        isNetworkUnavailable: true,
+      );
+    }
+  }
+
   ReadyPlansException _exceptionForStatus(
     int statusCode, {
     required bool loading,
@@ -445,6 +525,36 @@ class ReadyPlansService {
           statusCode: statusCode,
         );
     }
+  }
+
+  ReadyPlansException _favoriteException(int statusCode) {
+    if (statusCode == 401) {
+      return const ReadyPlansException(
+        'Autenticação necessária para sincronizar favoritos.',
+        statusCode: 401,
+      );
+    }
+    if (statusCode == 404) {
+      return const ReadyPlansException(
+        'Plano pronto não encontrado.',
+        statusCode: 404,
+      );
+    }
+    return ReadyPlansException(
+      'Não foi possível sincronizar favoritos.',
+      statusCode: statusCode,
+    );
+  }
+
+  Map<String, String> _authorizationHeaders(String bearerToken) {
+    final token = bearerToken.trim();
+    if (token.isEmpty) {
+      throw const ReadyPlansException(
+        'Autenticação necessária para sincronizar favoritos.',
+        statusCode: 401,
+      );
+    }
+    return {'Accept': 'application/json', 'Authorization': 'Bearer $token'};
   }
 
   String _newIdempotencyKey() {
