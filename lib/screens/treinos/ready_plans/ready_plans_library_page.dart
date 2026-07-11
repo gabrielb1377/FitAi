@@ -33,6 +33,8 @@ class _ReadyPlansLibraryPageState extends State<ReadyPlansLibraryPage> {
   String _selectedFilter = 'Todos';
   bool _loading = true;
   bool _hasError = false;
+  bool _usingCache = false;
+  DateTime? _cacheUpdatedAt;
 
   @override
   void initState() {
@@ -55,7 +57,7 @@ class _ReadyPlansLibraryPageState extends State<ReadyPlansLibraryPage> {
     }
 
     try {
-      final plans = await _readyPlansService.listPlans();
+      final result = await _readyPlansService.listPlans();
       FitAIMemoryModel memory = const FitAIMemoryModel();
 
       try {
@@ -66,8 +68,10 @@ class _ReadyPlansLibraryPageState extends State<ReadyPlansLibraryPage> {
 
       if (!mounted) return;
       setState(() {
-        _plans = plans;
-        _recommendations = _recommend(plans, memory);
+        _plans = result.plans;
+        _recommendations = _recommend(result.plans, memory);
+        _usingCache = result.isFromCache;
+        _cacheUpdatedAt = result.updatedAt;
         _loading = false;
       });
     } on ReadyPlansException {
@@ -75,6 +79,7 @@ class _ReadyPlansLibraryPageState extends State<ReadyPlansLibraryPage> {
       setState(() {
         _loading = false;
         _hasError = true;
+        _usingCache = false;
       });
     }
   }
@@ -205,10 +210,41 @@ class _ReadyPlansLibraryPageState extends State<ReadyPlansLibraryPage> {
               selected: _selectedFilter,
               onSelected: (filter) => setState(() => _selectedFilter = filter),
             ),
-            const SizedBox(height: 8),
+            _buildCacheStatus(context),
             Expanded(child: _buildContent()),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildCacheStatus(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 2, 14, 2),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              _usingCache
+                  ? 'Mostrando planos salvos no dispositivo.'
+                  : _cacheUpdatedAt == null
+                  ? 'Planos prontos FitIA'
+                  : 'Biblioteca atualizada agora',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: _usingCache
+                    ? AppColors.textSecondary
+                    : AppColors.textHint,
+              ),
+            ),
+          ),
+          TextButton.icon(
+            onPressed: _loading ? null : _loadPlans,
+            icon: const Icon(Icons.refresh_rounded, size: 17),
+            label: const Text('Atualizar'),
+          ),
+        ],
       ),
     );
   }
