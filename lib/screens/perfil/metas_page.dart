@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../design_system/fit_design_system.dart';
 import '../../models/coach_insight_model.dart';
 import '../../models/fitai_meta_model.dart';
 import '../../services/coach_insight_service.dart';
@@ -48,7 +49,7 @@ class _MetasPageState extends State<MetasPage> {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting &&
               !snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
+            return const FitLoading.fullScreen(label: 'Carregando metas');
           }
 
           final resumo = snapshot.data ?? const FitaiMetasResumo(metas: []);

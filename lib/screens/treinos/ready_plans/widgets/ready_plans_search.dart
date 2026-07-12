@@ -1,30 +1,44 @@
 import 'package:flutter/material.dart';
 
-import '../../../../theme/app_theme.dart';
+import '../../../../design_system/fit_design_system.dart';
 
-class ReadyPlansSearch extends StatelessWidget {
+class ReadyPlansSearch extends StatefulWidget {
   final ValueChanged<String> onChanged;
 
   const ReadyPlansSearch({super.key, required this.onChanged});
 
   @override
+  State<ReadyPlansSearch> createState() => _ReadyPlansSearchState();
+}
+
+class _ReadyPlansSearchState extends State<ReadyPlansSearch> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-      child: TextField(
-        onChanged: onChanged,
-        textInputAction: TextInputAction.search,
-        decoration: InputDecoration(
-          hintText: 'Buscar plano',
-          prefixIcon: const Icon(Icons.search_rounded),
-          filled: true,
-          fillColor: AppColors.surfaceElevated,
-          contentPadding: const EdgeInsets.symmetric(vertical: 14),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppRadii.md),
-            borderSide: const BorderSide(color: AppColors.outlineSoft),
-          ),
-        ),
+      padding: const EdgeInsets.fromLTRB(
+        FitSpacing.s20,
+        0,
+        FitSpacing.s20,
+        FitSpacing.s12,
+      ),
+      child: FitSearchField(
+        controller: _controller,
+        hintText: 'Buscar plano',
+        onChanged: widget.onChanged,
       ),
     );
   }

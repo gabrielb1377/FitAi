@@ -116,10 +116,20 @@ class FitCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title!, style: textTheme.titleLarge),
+              Text(
+                title!,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.titleLarge,
+              ),
               if (subtitle != null) ...[
                 const SizedBox(height: FitSpacing.s4),
-                Text(subtitle!, style: textTheme.bodyMedium),
+                Text(
+                  subtitle!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.bodyMedium,
+                ),
               ],
             ],
           ),

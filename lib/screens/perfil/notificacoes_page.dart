@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../design_system/fit_design_system.dart';
 import '../../models/fitai_notification_model.dart';
 import '../../services/notification_service.dart';
 import '../../theme/app_theme.dart';
@@ -102,7 +103,9 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting &&
               !snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
+            return const FitLoading.fullScreen(
+              label: 'Carregando notificacoes',
+            );
           }
 
           final notificacoes =

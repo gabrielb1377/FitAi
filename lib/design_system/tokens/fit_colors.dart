@@ -24,6 +24,9 @@ abstract final class FitColors {
   static const warning = Color(0xFFFFC857);
   static const danger = Color(0xFFFF5C7A);
   static const success = primary;
+  static const running = Color(0xFFFF8A50);
+  static const steps = info;
+  static const achievement = warning;
 
   static const colorScheme = ColorScheme.dark(
     primary: primary,

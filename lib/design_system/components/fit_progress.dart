@@ -43,9 +43,14 @@ class FitProgress extends StatelessWidget {
                     ),
                   ),
                 if (trailing != null)
-                  Text(
-                    trailing!,
-                    style: Theme.of(context).textTheme.labelSmall,
+                  Flexible(
+                    child: Text(
+                      trailing!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
                   ),
               ],
             ),

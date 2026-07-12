@@ -42,13 +42,25 @@ class FitSection extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(child: Text(title, style: textTheme.titleLarge)),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.titleLarge,
+                ),
+              ),
               ?trailing,
             ],
           ),
           if (subtitle != null) ...[
             const SizedBox(height: FitSpacing.s4),
-            Text(subtitle!, style: textTheme.bodyMedium),
+            Text(
+              subtitle!,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: textTheme.bodyMedium,
+            ),
           ],
           SizedBox(height: contentSpacing),
           child,

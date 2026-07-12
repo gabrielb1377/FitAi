@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../design_system/fit_design_system.dart';
 import '../../models/fitai_recorde_model.dart';
 import '../../services/recorde_service.dart';
 import '../../theme/app_theme.dart';
@@ -40,9 +41,7 @@ class _RecordesPageState extends State<RecordesPage> {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting &&
               !snapshot.hasData) {
-            return const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
-            );
+            return const FitLoading.fullScreen(label: 'Carregando recordes');
           }
 
           final recordes = snapshot.data ?? const <FitaiRecordeModel>[];
