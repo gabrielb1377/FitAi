@@ -54,13 +54,22 @@ class ProfileRecords extends StatelessWidget {
     ];
     return FitSection(
       title: 'Recordes',
+      subtitle: 'Suas melhores marcas',
       onViewAll: onViewAll,
       padding: EdgeInsets.zero,
       child: FitCard(
         variant: FitCardVariant.outlined,
+        elevation: 1,
         padding: const EdgeInsets.all(FitSpacing.s16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const FitBadge(
+              label: 'Marcas pessoais',
+              tone: FitBadgeTone.success,
+              icon: Icons.workspace_premium_outlined,
+            ),
+            const SizedBox(height: FitSpacing.s12),
             for (var index = 0; index < highlights.length; index++) ...[
               _RecordRow(
                 label: highlights[index].label,
@@ -108,9 +117,15 @@ class _RecordRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final icon = switch (label) {
+      'Maior carga' => Icons.fitness_center_rounded,
+      'Maior sequencia' => Icons.local_fire_department_outlined,
+      'Maior distancia' => Icons.route_outlined,
+      _ => Icons.speed_rounded,
+    };
     return Row(
       children: [
-        const Icon(Icons.emoji_events_outlined),
+        Icon(icon, color: Theme.of(context).colorScheme.primary),
         const SizedBox(width: FitSpacing.s12),
         Expanded(
           child: Text(label, style: Theme.of(context).textTheme.titleMedium),

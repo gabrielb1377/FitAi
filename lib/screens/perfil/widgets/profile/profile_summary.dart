@@ -45,21 +45,28 @@ class ProfileSummary extends StatelessWidget {
     ];
     return FitSection(
       title: 'Resumo de evolucao',
+      subtitle: 'O essencial da sua jornada',
       padding: EdgeInsets.zero,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final columns = constraints.maxWidth >= 800 ? 5 : 2;
-          final width =
-              (constraints.maxWidth - FitSpacing.s16 * (columns - 1)) / columns;
-          return Wrap(
-            spacing: FitSpacing.s16,
-            runSpacing: FitSpacing.s20,
-            children: [
-              for (final metric in metrics)
-                SizedBox(width: width, child: metric),
-            ],
-          );
-        },
+      child: FitCard(
+        variant: FitCardVariant.filled,
+        elevation: 1,
+        semanticLabel: 'Resumo de evolucao',
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = constraints.maxWidth >= 800 ? 5 : 2;
+            final width =
+                (constraints.maxWidth - FitSpacing.s16 * (columns - 1)) /
+                columns;
+            return Wrap(
+              spacing: FitSpacing.s16,
+              runSpacing: FitSpacing.s20,
+              children: [
+                for (final metric in metrics)
+                  SizedBox(width: width, child: metric),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

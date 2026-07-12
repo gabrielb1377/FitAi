@@ -23,11 +23,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Gabriel'), findsOneWidget);
+    expect(
+      find.text('Dados salvos tambem ficam disponiveis offline.'),
+      findsOneWidget,
+    );
     expect(find.text('Resumo de evolucao'), findsOneWidget);
     expect(find.text('Seus recordes aparecerao aqui.'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Metas'), 250);
     expect(find.text('Metas'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Configuracoes'), 250);
-    expect(find.text('Configuracoes'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Conta'), 250);
+    expect(find.text('Dados pessoais'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Planejamento'), 250);
+    expect(find.text('Calendario de treinos'), findsOneWidget);
   });
 }

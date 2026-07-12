@@ -26,6 +26,7 @@ class ProfileGoals extends StatelessWidget {
     }
     return FitSection(
       title: 'Metas',
+      subtitle: 'Seu foco atual',
       action: FitButton(
         label: 'Editar',
         icon: Icons.edit_outlined,
@@ -35,7 +36,8 @@ class ProfileGoals extends StatelessWidget {
       ),
       padding: EdgeInsets.zero,
       child: FitCard(
-        variant: FitCardVariant.outlined,
+        variant: FitCardVariant.filled,
+        elevation: 1,
         title: goal!.titulo,
         subtitle: goal!.categoriaLabel,
         trailing: FitStatusChip(label: goal!.statusLabel),
@@ -46,6 +48,7 @@ class ProfileGoals extends StatelessWidget {
               value: goal!.progresso,
               label: 'Progresso',
               trailing: goal!.progressoPercentual,
+              height: 8,
             ),
             const SizedBox(height: FitSpacing.s12),
             Text(

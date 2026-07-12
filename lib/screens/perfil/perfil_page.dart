@@ -15,6 +15,8 @@ import 'recordes_page.dart';
 import 'widgets/profile/profile_goals.dart';
 import 'widgets/profile/profile_header.dart';
 import 'widgets/profile/profile_hub_data.dart';
+import 'widgets/profile/profile_content_reveal.dart';
+import 'widgets/profile/profile_local_data_notice.dart';
 import 'widgets/profile/profile_records.dart';
 import 'widgets/profile/profile_settings.dart';
 import 'widgets/profile/profile_summary.dart';
@@ -124,19 +126,24 @@ class _PerfilPageState extends State<PerfilPage> {
 
   Widget _state(Widget content) {
     return Scaffold(
+      backgroundColor: FitColors.background,
       body: SafeArea(
         bottom: false,
-        child: Column(
-          children: [
-            ProfileHeader(
-              name: widget.nome,
-              level: widget.nivel,
-              xp: 0,
-              xpTarget: StorageService.xpNecessarioParaNivel(widget.nivel),
-              onEdit: _editProfile,
-            ),
-            Expanded(child: content),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: FitSpacing.s20),
+          child: Column(
+            children: [
+              ProfileHeader(
+                name: widget.nome,
+                level: widget.nivel,
+                xp: 0,
+                xpTarget: StorageService.xpNecessarioParaNivel(widget.nivel),
+                onEdit: _editProfile,
+              ),
+              const SizedBox(height: FitSpacing.s20),
+              Expanded(child: content),
+            ],
+          ),
         ),
       ),
     );
@@ -144,6 +151,7 @@ class _PerfilPageState extends State<PerfilPage> {
 
   Widget _content(ProfileHubData data) {
     return Scaffold(
+      backgroundColor: FitColors.background,
       body: SafeArea(
         bottom: false,
         child: RefreshIndicator(
@@ -163,79 +171,109 @@ class _PerfilPageState extends State<PerfilPage> {
                 onEdit: _editProfile,
               ),
               const SizedBox(height: FitSpacing.s32),
-              ProfileSummary(
-                weight: widget.peso,
-                height: widget.altura,
-                bmi: data.bmi(widget.peso, widget.altura),
-                activeDays: '${data.activeDays}',
-                completedWorkouts: '${data.completedWorkouts}',
-              ),
+              const ProfileLocalDataNotice(),
               const SizedBox(height: FitSpacing.s32),
-              ProfileRecords(
-                records: data.records,
-                onViewAll: () => _open(const RecordesPage()),
-              ),
-              const SizedBox(height: FitSpacing.s32),
-              ProfileGoals(
-                goal: data.currentGoal,
-                onEdit: () => _open(const MetasPage()),
-              ),
-              const SizedBox(height: FitSpacing.s32),
-              ProfileSettings(
-                groups: [
-                  ProfileSettingsGroup(
-                    title: 'Configuracoes',
-                    items: [
-                      ProfileSettingsItem(
-                        label: 'Conta',
-                        icon: Icons.person_outline_rounded,
-                        onTap: _editProfile,
-                      ),
-                      ProfileSettingsItem(
-                        label: 'Notificacoes',
-                        icon: Icons.notifications_outlined,
-                        onTap: () => _open(const NotificacoesPage()),
-                      ),
-                      ProfileSettingsItem(
-                        label: 'Saude e perfil IA',
-                        icon: Icons.health_and_safety_outlined,
-                        onTap: () => _open(
-                          PerfilIAPage(
-                            nome: widget.nome,
-                            idade: widget.idade,
-                            peso: widget.peso,
-                            altura: widget.altura,
-                          ),
+              ProfileContentReveal(
+                child: Column(
+                  children: [
+                    ProfileSummary(
+                      weight: widget.peso,
+                      height: widget.altura,
+                      bmi: data.bmi(widget.peso, widget.altura),
+                      activeDays: '${data.activeDays}',
+                      completedWorkouts: '${data.completedWorkouts}',
+                    ),
+                    const SizedBox(height: FitSpacing.s32),
+                    ProfileRecords(
+                      records: data.records,
+                      onViewAll: () => _open(const RecordesPage()),
+                    ),
+                    const SizedBox(height: FitSpacing.s32),
+                    ProfileGoals(
+                      goal: data.currentGoal,
+                      onEdit: () => _open(const MetasPage()),
+                    ),
+                    const SizedBox(height: FitSpacing.s32),
+                    ProfileSettings(
+                      groups: [
+                        ProfileSettingsGroup(
+                          title: 'Conta',
+                          items: [
+                            ProfileSettingsItem(
+                              label: 'Dados pessoais',
+                              description: 'Nome, peso, altura e idade',
+                              icon: Icons.person_outline_rounded,
+                              onTap: _editProfile,
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
-                  ),
-                  ProfileSettingsGroup(
-                    title: 'Informacoes e planejamento',
-                    items: [
-                      ProfileSettingsItem(
-                        label: 'Evolucao',
-                        icon: Icons.auto_graph_rounded,
-                        onTap: () => _open(const EvolucaoPage()),
-                      ),
-                      ProfileSettingsItem(
-                        label: 'Conquistas',
-                        icon: Icons.emoji_events_outlined,
-                        onTap: () => _open(const ConquistasPage()),
-                      ),
-                      ProfileSettingsItem(
-                        label: 'Agenda de treinos',
-                        icon: Icons.calendar_month_rounded,
-                        onTap: () => _open(const AgendaTreinosPage()),
-                      ),
-                      ProfileSettingsItem(
-                        label: 'Calendario de treinos',
-                        icon: Icons.event_available_rounded,
-                        onTap: () => _open(const CalendarioTreinosPage()),
-                      ),
-                    ],
-                  ),
-                ],
+                        ProfileSettingsGroup(
+                          title: 'Aplicativo',
+                          items: [
+                            ProfileSettingsItem(
+                              label: 'Notificacoes',
+                              description: 'Lembretes e avisos do FitIA',
+                              icon: Icons.notifications_outlined,
+                              onTap: () => _open(const NotificacoesPage()),
+                            ),
+                          ],
+                        ),
+                        ProfileSettingsGroup(
+                          title: 'Saude',
+                          items: [
+                            ProfileSettingsItem(
+                              label: 'Perfil de saude',
+                              description: 'Dados usados nas recomendacoes',
+                              icon: Icons.health_and_safety_outlined,
+                              onTap: () => _open(
+                                PerfilIAPage(
+                                  nome: widget.nome,
+                                  idade: widget.idade,
+                                  peso: widget.peso,
+                                  altura: widget.altura,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        ProfileSettingsGroup(
+                          title: 'Acompanhamento',
+                          items: [
+                            ProfileSettingsItem(
+                              label: 'Evolucao',
+                              description: 'Historico e progresso',
+                              icon: Icons.auto_graph_rounded,
+                              onTap: () => _open(const EvolucaoPage()),
+                            ),
+                            ProfileSettingsItem(
+                              label: 'Conquistas',
+                              description: 'Marcos ja alcancados',
+                              icon: Icons.emoji_events_outlined,
+                              onTap: () => _open(const ConquistasPage()),
+                            ),
+                          ],
+                        ),
+                        ProfileSettingsGroup(
+                          title: 'Planejamento',
+                          items: [
+                            ProfileSettingsItem(
+                              label: 'Agenda de treinos',
+                              description: 'Organize suas proximas sessoes',
+                              icon: Icons.calendar_month_rounded,
+                              onTap: () => _open(const AgendaTreinosPage()),
+                            ),
+                            ProfileSettingsItem(
+                              label: 'Calendario de treinos',
+                              description: 'Visualize sua rotina',
+                              icon: Icons.event_available_rounded,
+                              onTap: () => _open(const CalendarioTreinosPage()),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

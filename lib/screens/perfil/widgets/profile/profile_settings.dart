@@ -4,11 +4,13 @@ import '../../../../design_system/fit_design_system.dart';
 
 class ProfileSettingsItem {
   final String label;
+  final String description;
   final IconData icon;
   final VoidCallback onTap;
 
   const ProfileSettingsItem({
     required this.label,
+    required this.description,
     required this.icon,
     required this.onTap,
   });
@@ -62,11 +64,38 @@ class _SettingsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      onTap: item.onTap,
-      leading: Icon(item.icon),
-      title: Text(item.label),
-      trailing: const Icon(Icons.chevron_right_rounded),
+    final colors = Theme.of(context).colorScheme;
+    return Semantics(
+      button: true,
+      label: '${item.label}. ${item.description}',
+      child: ListTile(
+        minVerticalPadding: FitSpacing.s8,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: FitSpacing.s16,
+          vertical: FitSpacing.s4,
+        ),
+        onTap: item.onTap,
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: colors.secondaryContainer,
+            borderRadius: FitRadius.mediumBorder,
+          ),
+          alignment: Alignment.center,
+          child: Icon(item.icon, color: colors.secondary),
+        ),
+        title: Text(item.label),
+        subtitle: Text(
+          item.description,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: const Tooltip(
+          message: 'Abrir',
+          child: Icon(Icons.chevron_right_rounded),
+        ),
+      ),
     );
   }
 }
