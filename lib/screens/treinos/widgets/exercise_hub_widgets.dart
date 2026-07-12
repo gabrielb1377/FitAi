@@ -187,9 +187,9 @@ class ExerciseHistoryCard extends StatelessWidget {
       title: 'Historico',
       child: recentes.isEmpty
           ? const _EmptyHubState(
-              title: 'Sem execucoes recentes',
+              title: 'Nenhuma serie registrada para este exercicio.',
               text:
-                  'As cargas, repeticoes e volumes aparecem aqui depois do treino.',
+                  'Conclua series para acompanhar cargas, repeticoes e volume.',
             )
           : Column(
               children: [
@@ -226,6 +226,11 @@ class ExerciseStatsCard extends StatelessWidget {
           _MetricData('Maior volume', _formatarPeso(melhorVolume?.volume ?? 0)),
           _MetricData('Mais reps', maiorReps > 0 ? '$maiorReps reps' : '-'),
           _MetricData('Execucoes totais', '${resumo?.execucoes.length ?? 0}'),
+          _MetricData('Sessoes', '${resumo?.totalSessoes ?? 0}'),
+          _MetricData(
+            '1RM estimado',
+            _formatarPeso(resumo?.oneRepMaxEstimado ?? 0),
+          ),
           const _MetricData('Descanso medio', 'Sem registro'),
         ],
       ),

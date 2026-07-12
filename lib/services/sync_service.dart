@@ -73,6 +73,14 @@ class SyncService {
     );
   }
 
+  Future<void> syncExerciseHistory(List<Map<String, dynamic>> history) {
+    return _sendOrQueue(
+      type: 'exercise-history',
+      path: '/sync/exercise-history',
+      payload: {'items': history},
+    );
+  }
+
   Future<void> syncRunning(List<Map<String, dynamic>> runs) {
     return _sendOrQueue(
       type: 'running',

@@ -1791,7 +1791,7 @@ class _TreinoProfissionalPageState extends State<TreinoProfissionalPage> {
 
     await StorageService.salvarHistoricoTreino(
       HistoricoTreinoModel(
-        id: "historico_${agora.microsecondsSinceEpoch}",
+        id: sessaoTreinoId,
         nomeTreino: widget.treino.nome,
         dataHora: agora,
         tempoSegundos: segundos,

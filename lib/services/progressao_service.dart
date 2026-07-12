@@ -1,7 +1,7 @@
 import '../models/exercicio_model.dart';
+import '../models/exercise_history_model.dart';
 import '../models/historico_serie_treino_model.dart';
-import '../models/progresso_exercicio_model.dart';
-import 'storage_service.dart';
+import 'exercise_history_service.dart';
 
 enum TipoProgressao { inicial, progressao, manutencao, deload }
 
@@ -83,10 +83,14 @@ class SerieCargaExercicio {
 class ResumoCargaExercicio {
   final String nomeExercicio;
   final List<SerieCargaExercicio> execucoes;
+  final List<ExerciseExecution> sessoes;
+  final ExerciseHistoryStats estatisticas;
 
   const ResumoCargaExercicio({
     required this.nomeExercicio,
     required this.execucoes,
+    required this.sessoes,
+    required this.estatisticas,
   });
 
   bool get temHistorico => execucoes.isNotEmpty;
@@ -127,6 +131,10 @@ class ResumoCargaExercicio {
   List<SerieCargaExercicio> get recentes {
     return execucoes.take(6).toList();
   }
+
+  int get totalSessoes => estatisticas.totalSessions;
+
+  double get oneRepMaxEstimado => estatisticas.estimatedOneRepMax;
 
   double get evolucaoCargaPercentual {
     return _evolucaoPercentual((item) => item.peso);
@@ -274,7 +282,11 @@ class ProgressaoInteligenteResumo {
 }
 
 class ProgressaoService {
-  const ProgressaoService();
+  const ProgressaoService({
+    this._historyService = const ExerciseHistoryService(),
+  });
+
+  final ExerciseHistoryService _historyService;
 
   Future<ProgressaoInteligenteResumo> carregarProgressaoInteligente({
     required ExercicioModel exercicio,
@@ -301,38 +313,31 @@ class ProgressaoService {
     required ExercicioModel exercicio,
     int limite = 30,
   }) async {
-    final historicoSeries =
-        await StorageService.carregarHistoricoSeriesTreino();
-    final progressos = await StorageService.carregarHistoricoExercicio(
-      exercicio.nome,
-    );
-    final registros = <SerieCargaExercicio>[];
-
-    for (final serie in historicoSeries) {
-      if (!_seriePertenceAoExercicio(serie, exercicio)) continue;
-
-      registros.add(
-        SerieCargaExercicio(
-          id: serie.id,
-          nomeExercicio: serie.nomeExercicio,
-          peso: serie.peso,
-          series: 1,
-          repeticoes: serie.repeticoes,
-          data: serie.dataHora,
-        ),
-      );
-    }
-
-    for (final progresso in progressos) {
-      registros.add(_registroDeProgresso(progresso));
-    }
-
-    final unicos = _removerDuplicados(registros)
-      ..sort((a, b) => b.data.compareTo(a.data));
+    final history = await _historyService.loadExerciseHistory(exercicio);
+    final nomeExercicio = _normalizar(exercicio.nome).isEmpty
+        ? 'Exercicio'
+        : exercicio.nome;
+    final registros =
+        history.executions
+            .expand((execution) => execution.sets)
+            .map(
+              (serie) => SerieCargaExercicio(
+                id: serie.id,
+                nomeExercicio: serie.nomeExercicio,
+                peso: serie.peso,
+                series: 1,
+                repeticoes: serie.repeticoes,
+                data: serie.dataHora,
+              ),
+            )
+            .toList()
+          ..sort((a, b) => b.data.compareTo(a.data));
 
     return ResumoCargaExercicio(
-      nomeExercicio: exercicio.nome,
-      execucoes: unicos.take(limite).toList(),
+      nomeExercicio: nomeExercicio,
+      execucoes: registros.take(limite).toList(),
+      sessoes: history.executions,
+      estatisticas: history.stats,
     );
   }
 
@@ -340,15 +345,7 @@ class ProgressaoService {
     required ExercicioModel exercicio,
     int metaRepeticoes = 10,
   }) async {
-    final historico = await StorageService.carregarHistoricoSeriesTreino();
-    final seriesExercicio = historico.where((serie) {
-      if (exercicio.id.trim().isNotEmpty &&
-          serie.exercicioId.trim() == exercicio.id.trim()) {
-        return true;
-      }
-
-      return _normalizar(serie.nomeExercicio) == _normalizar(exercicio.nome);
-    }).toList();
+    final seriesExercicio = await _historyService.loadExerciseSeries(exercicio);
 
     if (seriesExercicio.isEmpty) {
       return _semHistorico(metaRepeticoes);
@@ -469,52 +466,6 @@ class ProgressaoService {
   double _arredondarCarga(double valor) {
     if (valor <= 0) return 0;
     return (valor * 2).round() / 2;
-  }
-
-  bool _seriePertenceAoExercicio(
-    HistoricoSerieTreinoModel serie,
-    ExercicioModel exercicio,
-  ) {
-    if (exercicio.id.trim().isNotEmpty &&
-        serie.exercicioId.trim() == exercicio.id.trim()) {
-      return true;
-    }
-
-    return _normalizar(serie.nomeExercicio) == _normalizar(exercicio.nome);
-  }
-
-  SerieCargaExercicio _registroDeProgresso(ProgressoExercicioModel progresso) {
-    return SerieCargaExercicio(
-      id: progresso.id,
-      nomeExercicio: progresso.nomeExercicio,
-      peso: progresso.peso,
-      series: progresso.series <= 0 ? 1 : progresso.series,
-      repeticoes: progresso.repeticoes,
-      data: progresso.data,
-    );
-  }
-
-  List<SerieCargaExercicio> _removerDuplicados(
-    List<SerieCargaExercicio> registros,
-  ) {
-    final chaves = <String>{};
-    final unicos = <SerieCargaExercicio>[];
-
-    for (final registro in registros) {
-      final chave = [
-        _normalizar(registro.nomeExercicio),
-        registro.data.toIso8601String(),
-        registro.peso.toStringAsFixed(2),
-        registro.series,
-        registro.repeticoes,
-      ].join("|");
-
-      if (chaves.add(chave)) {
-        unicos.add(registro);
-      }
-    }
-
-    return unicos;
   }
 
   IndicadorProgressao _calcularIndicador(List<SerieCargaExercicio> execucoes) {

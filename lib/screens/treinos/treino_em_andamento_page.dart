@@ -45,6 +45,8 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   final Map<int, String> _comentarios = {};
   final Set<int> _exerciciosPulados = {};
   final List<_XpVisualHistoryEntry> _xpVisualHistorico = [];
+  final String _sessaoTreinoId =
+      'sessao_${DateTime.now().microsecondsSinceEpoch}';
 
   final _pesoController = TextEditingController(text: '0');
   final _repeticoesController = TextEditingController(text: '12');
@@ -883,7 +885,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     );
     final agora = DateTime.now();
     final historicoBase = HistoricoTreinoModel(
-      id: '${agora.microsecondsSinceEpoch}_${widget.treino.nome.hashCode}',
+      id: _sessaoTreinoId,
       nomeTreino: widget.treino.nome,
       dataHora: agora,
       tempoSegundos: _segundosTreino,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../design_system/fit_design_system.dart';
 import '../../models/coach_insight_model.dart';
 import '../../models/exercicio_model.dart';
 import '../../models/treino_model.dart';
@@ -69,6 +70,14 @@ class _ExercicioDetalhePageState extends State<ExercicioDetalhePage> {
     );
   }
 
+  void _recarregarDadosExercicio() {
+    setState(() {
+      _resumoCargaFuture = _carregarResumoCarga();
+      _progressaoFuture = _carregarProgressao();
+      _coachInsightsFuture = _carregarCoachInsights();
+    });
+  }
+
   Future<List<CoachInsightModel>> _carregarCoachInsights() {
     return const CoachInsightService().gerarInsightsExercicio(exercicio);
   }
@@ -126,6 +135,24 @@ class _ExercicioDetalhePageState extends State<ExercicioDetalhePage> {
                       FutureBuilder<ResumoCargaExercicio>(
                         future: _resumoCargaFuture,
                         builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                                  ConnectionState.waiting &&
+                              !snapshot.hasData) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 48),
+                              child: FitLoading.inline(
+                                label: 'Carregando historico',
+                              ),
+                            );
+                          }
+                          if (snapshot.hasError) {
+                            return FitErrorState(
+                              title: 'Historico indisponivel',
+                              error:
+                                  'Nao foi possivel carregar suas execucoes salvas.',
+                              onRetry: _recarregarDadosExercicio,
+                            );
+                          }
                           final resumo = snapshot.data;
 
                           return AnimatedSwitcher(

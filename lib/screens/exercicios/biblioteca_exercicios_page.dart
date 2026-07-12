@@ -5,9 +5,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/exercicios/exercicios.dart';
 import '../../models/exercicio_model.dart';
+import '../../models/exercise_history_model.dart';
 import '../../models/progresso_exercicio_model.dart';
 import '../../models/treino_model.dart';
 import '../../services/storage_service.dart';
+import '../../services/exercise_history_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_components.dart';
 import '../../widgets/exercicio_gif_viewer.dart';
@@ -2310,6 +2312,7 @@ class _BibliotecaExercicioDetalhePageState
     extends State<BibliotecaExercicioDetalhePage> {
   bool favorito = false;
   bool carregandoFavorito = true;
+  late final Future<ExerciseHistorySnapshot> historicoExercicioFuture;
   late final Future<List<ProgressoExercicioModel>> progressoFuture;
 
   ExercicioModel get exercicio => widget.exercicio;
@@ -2317,8 +2320,31 @@ class _BibliotecaExercicioDetalhePageState
   @override
   void initState() {
     super.initState();
-    progressoFuture = StorageService.carregarHistoricoExercicio(exercicio.nome);
+    historicoExercicioFuture = const ExerciseHistoryService()
+        .loadExerciseHistory(exercicio);
+    progressoFuture = _carregarProgresso(historicoExercicioFuture);
     _carregarFavorito();
+  }
+
+  Future<List<ProgressoExercicioModel>> _carregarProgresso(
+    Future<ExerciseHistorySnapshot> historyFuture,
+  ) async {
+    final history = await historyFuture;
+    return history.executions
+        .expand((execution) => execution.sets)
+        .map(
+          (set) => ProgressoExercicioModel(
+            id: set.id,
+            nomeExercicio: set.nomeExercicio,
+            peso: set.peso,
+            series: set.serieNumero,
+            repeticoes: set.repeticoes,
+            tempoDescanso: set.descansoSegundos,
+            observacao: set.nomeTreino,
+            data: set.dataHora,
+          ),
+        )
+        .toList(growable: false);
   }
 
   Future<void> _carregarFavorito() async {
@@ -2401,6 +2427,8 @@ class _BibliotecaExercicioDetalhePageState
           _acoes(),
           const SizedBox(height: 16),
           _progressoCard(),
+          const SizedBox(height: 16),
+          _historicoDetalhadoCard(),
           const SizedBox(height: 16),
           _secaoTexto(
             titulo: "Descrição",
@@ -2750,6 +2778,61 @@ class _BibliotecaExercicioDetalhePageState
           ),
         ),
       ),
+    );
+  }
+
+  Widget _historicoDetalhadoCard() {
+    return FutureBuilder<ExerciseHistorySnapshot>(
+      future: historicoExercicioFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const AppLoading(message: 'Carregando historico...');
+        }
+
+        if (snapshot.hasError) {
+          return AppGradientCard(
+            child: const AppInfoRow(
+              icon: Icons.error_outline_rounded,
+              label: 'Historico indisponivel',
+              value: 'Nao foi possivel carregar as execucoes salvas.',
+              color: AppColors.accent2,
+            ),
+          );
+        }
+
+        final history = snapshot.data ?? const ExerciseHistorySnapshot.empty();
+        if (history.executions.isEmpty) {
+          return AppGradientCard(
+            child: const AppInfoRow(
+              icon: Icons.history_rounded,
+              label: 'Nenhuma serie registrada para este exercicio.',
+              value: 'Conclua series para acompanhar sua evolucao.',
+              color: AppColors.accent1,
+            ),
+          );
+        }
+
+        return AppGradientCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _secaoTitulo('Historico', Icons.history_rounded),
+              const SizedBox(height: 12),
+              for (final execution in history.executions.take(5)) ...[
+                AppInfoRow(
+                  icon: Icons.fitness_center_rounded,
+                  label:
+                      '${_formatarDataCurta(execution.date)} - ${execution.workoutName}',
+                  value:
+                      '${execution.sets.length} series | ${_formatarPeso(execution.volume)} kg | melhor ${_formatarPeso(execution.bestSet?.peso ?? 0)} kg x ${execution.bestSet?.repeticoes ?? 0}',
+                  color: AppColors.primary,
+                ),
+                const SizedBox(height: 10),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/exercises/exercise_identity.dart';
 import '../core/xp/xp_config.dart';
 import '../models/agenda_treino_override_model.dart';
 import '../models/achievement_model.dart';
@@ -40,6 +41,9 @@ class StorageService {
   static const String _runningSessionKey = 'runningSessionActive';
   static const String _dailyStepsHistoryKey = 'dailyStepsHistory';
   static const String _stepsXpAwardedKey = 'stepsXpAwardedDates';
+  static const String _exerciseHistorySchemaVersionKey =
+      'exerciseHistorySchemaVersion';
+  static const int _exerciseHistorySchemaVersion = 1;
 
   static int xpNecessarioParaNivel(int nivelAtual) {
     return XpConfig.xpParaProximoNivel(nivelAtual);
@@ -794,11 +798,48 @@ class StorageService {
 
     final lista = prefs.getStringList("historicoTreinos") ?? [];
 
-    lista.add(jsonEncode(historico.toJson()));
+    final atualizados = lista.where((item) {
+      try {
+        final json = jsonDecode(item);
+        if (json is Map) return json['id']?.toString() != historico.id;
+      } catch (erro) {
+        if (kDebugMode) {
+          debugPrint('Erro ao comparar historico de treino: $erro');
+        }
+      }
+      return true;
+    }).toList();
+    atualizados.add(jsonEncode(historico.toJson()));
 
-    await prefs.setStringList("historicoTreinos", lista);
+    await prefs.setStringList("historicoTreinos", atualizados);
 
     unawaited(SyncService.instance.syncWorkoutHistory([historico.toJson()]));
+    unawaited(_sincronizarSeriesDoHistorico(historico));
+  }
+
+  static Future<void> _sincronizarSeriesDoHistorico(
+    HistoricoTreinoModel historico,
+  ) async {
+    try {
+      final series = await carregarHistoricoSeriesTreino();
+      final itens = series
+          .where((serie) => serie.sessaoTreinoId == historico.id)
+          .map(
+            (serie) => {
+              ...serie.toJson(),
+              'workoutHistoryId': historico.id,
+              'workoutSessionId': historico.id,
+              'performedAt': serie.dataHora.toIso8601String(),
+            },
+          )
+          .toList(growable: false);
+      if (itens.isEmpty) return;
+      await SyncService.instance.syncExerciseHistory(itens);
+    } catch (erro) {
+      if (kDebugMode) {
+        debugPrint('[ExerciseHistory] Sincronizacao pendente: $erro');
+      }
+    }
   }
 
   static Future<List<HistoricoTreinoModel>> carregarHistoricoTreinos() async {
@@ -924,11 +965,21 @@ class StorageService {
     final atualizados = lista.where((item) {
       try {
         final json = jsonDecode(item);
-        if (json is Map<String, dynamic>) {
-          return json["id"]?.toString() != historico.id;
-        }
         if (json is Map) {
-          return json["id"]?.toString() != historico.id;
+          final atual = HistoricoSerieTreinoModel.fromJson(
+            Map<String, dynamic>.from(json),
+          );
+          final mesmoId = atual.id.isNotEmpty && atual.id == historico.id;
+          final mesmaSerie =
+              atual.deduplicationKey == historico.deduplicationKey;
+          if (mesmoId || mesmaSerie) {
+            if (kDebugMode) {
+              debugPrint(
+                '[ExerciseHistory] Duplicacao de serie evitada: ${historico.chaveExercicio}.',
+              );
+            }
+            return false;
+          }
         }
       } catch (erro) {
         debugPrint("Erro ao comparar historico de serie: $erro");
@@ -950,6 +1001,7 @@ class StorageService {
 
   static Future<List<HistoricoSerieTreinoModel>>
   carregarHistoricoSeriesTreino() async {
+    await migrateExerciseHistorySchema();
     final prefs = await SharedPreferences.getInstance();
     final lista = prefs.getStringList("historicoSeriesTreino") ?? [];
     final historico = <HistoricoSerieTreinoModel>[];
@@ -973,6 +1025,56 @@ class StorageService {
     historico.sort((a, b) => b.dataHora.compareTo(a.dataHora));
 
     return historico;
+  }
+
+  /// Atualiza apenas a chave derivada de registros antigos, sem apagar dados.
+  static Future<void> migrateExerciseHistorySchema() async {
+    final prefs = await SharedPreferences.getInstance();
+    final version = prefs.getInt(_exerciseHistorySchemaVersionKey) ?? 0;
+    if (version >= _exerciseHistorySchemaVersion) return;
+
+    final raw = prefs.getStringList('historicoSeriesTreino') ?? [];
+    var changed = false;
+    final updated = <String>[];
+
+    for (final item in raw) {
+      try {
+        final decoded = jsonDecode(item);
+        if (decoded is! Map) {
+          updated.add(item);
+          continue;
+        }
+        final json = Map<String, dynamic>.from(decoded);
+        final key = json['exerciseKey']?.toString().trim() ?? '';
+        final name = json['nomeExercicio']?.toString() ?? '';
+        if (key.isEmpty && name.trim().isNotEmpty) {
+          json['exerciseKey'] = ExerciseIdentity.buildExerciseKey(
+            exerciseId: json['exercicioId']?.toString(),
+            exerciseName: name,
+          );
+          changed = true;
+          updated.add(jsonEncode(json));
+        } else {
+          updated.add(item);
+        }
+      } catch (erro) {
+        if (kDebugMode) {
+          debugPrint('[ExerciseHistory] Registro legado preservado: $erro');
+        }
+        updated.add(item);
+      }
+    }
+
+    if (changed) {
+      await prefs.setStringList('historicoSeriesTreino', updated);
+      if (kDebugMode) {
+        debugPrint('[ExerciseHistory] Migracao local executada.');
+      }
+    }
+    await prefs.setInt(
+      _exerciseHistorySchemaVersionKey,
+      _exerciseHistorySchemaVersion,
+    );
   }
 
   static Future<List<HistoricoSerieTreinoModel>>
