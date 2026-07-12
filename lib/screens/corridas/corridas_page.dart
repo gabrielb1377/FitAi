@@ -1,11 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../design_system/fit_design_system.dart';
 import '../../models/coach_insight_model.dart';
 import '../../services/coach_insight_service.dart';
 import '../../services/running_session_service.dart';
-import '../../theme/app_theme.dart';
-import '../../widgets/app_components.dart';
 import '../perfil/widgets/coach_insights_card.dart';
+import '../widgets/activities/activities_navigation_header.dart';
+import '../widgets/activities/activity_page_entrance.dart';
+import '../widgets/activities/activity_stats_grid.dart';
+import '../widgets/activities/running_session_overview.dart';
 import 'historico_corridas_page.dart';
 
 class CorridasPage extends StatefulWidget {
@@ -31,422 +36,211 @@ class CorridasPage extends StatefulWidget {
 }
 
 class _CorridasPageState extends State<CorridasPage> {
-  final runningSession = RunningSessionService.instance;
+  final _running = RunningSessionService.instance;
   late Future<List<CoachInsightModel>> _coachFuture;
-
-  bool get _corridaIniciada => runningSession.hasActiveSession;
-
-  int get _segundos => runningSession.elapsedSeconds;
-
-  double get _distancia => runningSession.distanceKm;
-
-  double get _velocidadeMedia => runningSession.averageSpeed;
+  var _loading = true;
+  var _hasError = false;
 
   @override
   void initState() {
     super.initState();
     _coachFuture = const CoachInsightService().gerarInsightsPorTipo('corrida');
-    runningSession.addListener(_onCorridaAtualizada);
-    _inicializarCorrida();
+    _running.addListener(_onSessionChanged);
+    unawaited(_initialize());
   }
 
   @override
   void dispose() {
-    runningSession.removeListener(_onCorridaAtualizada);
+    _running.removeListener(_onSessionChanged);
     super.dispose();
   }
 
-  Future<void> _inicializarCorrida() async {
-    await runningSession.initialize();
-
-    if (!mounted) return;
-    setState(() {});
+  Future<void> _initialize() async {
+    try {
+      await _running.initialize();
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _hasError = true;
+        });
+      }
+    }
   }
 
-  void _onCorridaAtualizada() {
-    if (!mounted) return;
-    setState(() {});
+  void _onSessionChanged() {
+    if (mounted) setState(() {});
   }
 
-  void _iniciarCorrida() {
-    runningSession.start();
-  }
+  void _start() => unawaited(_running.start());
+  void _pause() => unawaited(_running.pause());
+  void _resume() => unawaited(_running.resume());
 
-  Future<void> _pararCorrida() async {
-    final corrida = await runningSession.finish();
-
-    if (!mounted || corrida == null) return;
-
+  Future<void> _finish() async {
+    final run = await _running.finish();
+    if (!mounted || run == null) return;
     setState(() {
       _coachFuture = const CoachInsightService().gerarInsightsPorTipo(
         'corrida',
       );
     });
-
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Corrida salva no historico.')),
     );
   }
 
-  void _pausarCorrida() {
-    runningSession.pause();
-  }
-
-  void _retomarCorrida() {
-    runningSession.resume();
-  }
-
-  String _formatTempo() {
-    final h = _segundos ~/ 3600;
-    final m = (_segundos % 3600) ~/ 60;
-    final s = _segundos % 60;
-    if (h > 0) {
-      return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-    }
-    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-  }
-
-  String _formatPace() {
-    if (runningSession.pace <= 0) return '--';
-
-    final totalSeconds = (runningSession.pace * 60).round();
-    final minutes = totalSeconds ~/ 60;
-    final seconds = totalSeconds % 60;
-
-    return '$minutes:${seconds.toString().padLeft(2, '0')} min/km';
+  Future<void> _openHistory() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const HistoricoCorridasPage()),
+    );
+    if (mounted) setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) return _state(const FitListSkeleton(itemCount: 4));
+    if (_hasError) {
+      return _state(
+        FitErrorState(
+          title: 'Corridas indisponiveis',
+          error: 'Nao foi possivel restaurar sua sessao de corrida.',
+          onRetry: _initialize,
+        ),
+      );
+    }
     return Scaffold(
-      backgroundColor: AppColors.background,
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          // â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-          SliverToBoxAdapter(child: _buildHeader(context)),
-
-          // â”€â”€ ConteÃºdo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate.fixed([
-                // Metric principal â€” distÃ¢ncia
-                _buildMainMetric(context),
-                const SizedBox(height: 16),
-
-                // Stats secundÃ¡rios â€” tempo e velocidade
-                _buildSecondaryStats(context),
-                const SizedBox(height: 16),
-
-                _buildCoachCard(),
-                const SizedBox(height: 32),
-
-                // BotÃ£o principal
-                _buildRunButton(context),
-                const SizedBox(height: 14),
-
-                // HistÃ³rico
-                _buildHistoricoButton(context),
-              ]),
-            ),
+      body: SafeArea(
+        bottom: false,
+        child: ActivityPageEntrance(
+          child: ListView(
+            key: const PageStorageKey('corridas-scroll'),
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
+            physics: const BouncingScrollPhysics(),
+            children: [
+              ActivitiesNavigationHeader(
+                title: 'Corridas',
+                subtitle: _headerSubtitle,
+                trailing: _running.hasActiveSession
+                    ? const FitBadge(
+                        label: 'Ao vivo',
+                        tone: FitBadgeTone.danger,
+                        icon: Icons.fiber_manual_record_rounded,
+                      )
+                    : null,
+              ),
+              const SizedBox(height: FitSpacing.s24),
+              RunningSessionOverview(
+                distanceKm: _running.distanceKm,
+                elapsedSeconds: _running.elapsedSeconds,
+                averageSpeed: _running.averageSpeed,
+                currentSpeed: _running.currentSpeed,
+                pace: _running.pace,
+                isActive: _running.hasActiveSession,
+                isPaused: _running.isPaused,
+                gpsConnected: _running.gpsConnected,
+                onStart: _start,
+                onPause: _pause,
+                onResume: _resume,
+                onFinish: _finish,
+              ),
+              const SizedBox(height: FitSpacing.s24),
+              ActivityStatsGrid(
+                items: [
+                  ActivityStat(
+                    label: 'Tempo',
+                    value: _formatTime(_running.elapsedSeconds),
+                    icon: Icons.timer_outlined,
+                  ),
+                  ActivityStat(
+                    label: 'Vel. media',
+                    value: '${_running.averageSpeed.toStringAsFixed(1)} km/h',
+                    icon: Icons.speed_outlined,
+                  ),
+                  ActivityStat(
+                    label: 'Vel. atual',
+                    value: '${_running.currentSpeed.toStringAsFixed(1)} km/h',
+                    icon: Icons.bolt_rounded,
+                  ),
+                  ActivityStat(
+                    label: 'Pace',
+                    value: _formatPace(_running.pace),
+                    icon: Icons.route_outlined,
+                  ),
+                ],
+              ),
+              const SizedBox(height: FitSpacing.s24),
+              _buildCoach(),
+              const SizedBox(height: FitSpacing.s24),
+              FitButton(
+                label: 'Ver historico',
+                icon: Icons.history_rounded,
+                onPressed: _openHistory,
+                variant: FitButtonVariant.outlined,
+                expand: true,
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildCoachCard() {
+  Widget _state(Widget content) {
+    return Scaffold(
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            const ActivitiesNavigationHeader(
+              title: 'Corridas',
+              subtitle: 'Inicie, acompanhe ou retome sua corrida.',
+            ),
+            Expanded(child: content),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCoach() {
     return FutureBuilder<List<CoachInsightModel>>(
       future: _coachFuture,
       builder: (context, snapshot) {
-        final insights = (snapshot.data ?? const <CoachInsightModel>[])
-            .take(3)
-            .toList();
-
         if (snapshot.connectionState == ConnectionState.waiting &&
             !snapshot.hasData) {
-          return const AppGradientCard(
-            child: LinearProgressIndicator(minHeight: 3),
-          );
+          return const FitListSkeleton(itemCount: 1, itemHeight: 96);
         }
-
-        return CoachInsightsCard(insights: insights);
-      },
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        MediaQuery.of(context).padding.top + 20,
-        20,
-        24,
-      ),
-      child: AppPremiumHeader(
-        eyebrow: runningSession.isPaused
-            ? "Pausada"
-            : _corridaIniciada
-            ? (runningSession.gpsConnected ? "GPS conectado" : "Buscando GPS")
-            : "Pronto para correr?",
-        title: "Corridas",
-        subtitle: "Controle tempo, distancia e ritmo em uma experiencia limpa.",
-        icon: Icons.directions_run_rounded,
-        gradient: _corridaIniciada
-            ? AppColors.gradientRun
-            : AppColors.gradientPrimary,
-        trailing: _corridaIniciada ? const _LiveBadge() : null,
-      ),
-    );
-  }
-
-  Widget _buildMainMetric(BuildContext context) {
-    return AppGradientCard(
-      gradient: _corridaIniciada
-          ? AppColors.gradientRun
-          : AppColors.gradientCard,
-      child: Column(
-        children: [
-          Text(
-            'DISTÃ‚NCIA',
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: _corridaIniciada ? Colors.white60 : null,
-              letterSpacing: 1.5,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                _distancia.toStringAsFixed(2),
-                style: TextStyle(
-                  fontSize: 64,
-                  fontWeight: FontWeight.w800,
-                  color: _corridaIniciada
-                      ? Colors.white
-                      : AppColors.textPrimary,
-                  letterSpacing: -2,
-                  height: 1,
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10, left: 6),
-                child: Text(
-                  'km',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    color: _corridaIniciada
-                        ? Colors.white60
-                        : AppColors.textSecondary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSecondaryStats(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 620 ? 4 : 2;
-        const spacing = 12.0;
-        final itemWidth =
-            (constraints.maxWidth - spacing * (columns - 1)) / columns;
-
-        return Wrap(
-          spacing: spacing,
-          runSpacing: spacing,
-          children: [
-            SizedBox(
-              width: itemWidth,
-              child: _buildStatCard(
-                context,
-                label: 'TEMPO',
-                value: _formatTempo(),
-                icon: Icons.timer_outlined,
-              ),
-            ),
-            SizedBox(
-              width: itemWidth,
-              child: _buildStatCard(
-                context,
-                label: 'VEL. MEDIA',
-                value: '${_velocidadeMedia.toStringAsFixed(1)} km/h',
-                icon: Icons.speed_outlined,
-                iconColor: AppColors.accent2,
-              ),
-            ),
-            SizedBox(
-              width: itemWidth,
-              child: _buildStatCard(
-                context,
-                label: 'VEL. ATUAL',
-                value: '${runningSession.currentSpeed.toStringAsFixed(1)} km/h',
-                icon: Icons.bolt_rounded,
-                iconColor: AppColors.primary,
-              ),
-            ),
-            SizedBox(
-              width: itemWidth,
-              child: _buildStatCard(
-                context,
-                label: 'PACE',
-                value: _formatPace(),
-                icon: Icons.route_rounded,
-                iconColor: AppColors.accent3,
-              ),
-            ),
-          ],
+        return CoachInsightsCard(
+          insights: (snapshot.data ?? const <CoachInsightModel>[])
+              .take(3)
+              .toList(),
         );
       },
     );
   }
 
-  Widget _buildStatCard(
-    BuildContext context, {
-    required String label,
-    required String value,
-    required IconData icon,
-    Color? iconColor,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF2A2A2A)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: iconColor ?? AppColors.primary, size: 18),
-              const SizedBox(width: 6),
-              Text(label, style: Theme.of(context).textTheme.labelLarge),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRunButton(BuildContext context) {
-    if (runningSession.isPaused) {
-      return Row(
-        children: [
-          Expanded(
-            child: AppButton.primary(
-              onPressed: _retomarCorrida,
-              icon: Icons.play_arrow_rounded,
-              label: "Retomar",
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: AppButton.danger(
-              onPressed: _pararCorrida,
-              icon: Icons.stop_rounded,
-              label: "Finalizar",
-            ),
-          ),
-        ],
-      );
+  String get _headerSubtitle {
+    if (_running.isPaused) return 'Corrida pausada. Retome quando quiser.';
+    if (_running.hasActiveSession) {
+      return _running.gpsConnected
+          ? 'GPS conectado.'
+          : 'Buscando sinal de GPS.';
     }
-
-    if (_corridaIniciada) {
-      return Row(
-        children: [
-          Expanded(
-            child: AppButton.secondary(
-              onPressed: _pausarCorrida,
-              icon: Icons.pause_rounded,
-              label: "Pausar",
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: AppButton.danger(
-              onPressed: _pararCorrida,
-              icon: Icons.stop_rounded,
-              label: "Finalizar",
-            ),
-          ),
-        ],
-      );
-    }
-
-    return AppButton.primary(
-      onPressed: _iniciarCorrida,
-      icon: Icons.play_arrow_rounded,
-      label: "Iniciar Corrida",
-    );
+    return 'Inicie, acompanhe ou retome sua corrida.';
   }
 
-  Widget _buildHistoricoButton(BuildContext context) {
-    return AppButton.secondary(
-      onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const HistoricoCorridasPage()),
-        );
-      },
-      icon: Icons.history_rounded,
-      label: 'Ver Historico',
-    );
+  static String _formatTime(int seconds) {
+    final minutes = seconds ~/ 60;
+    return '${minutes.toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}';
   }
-}
 
-class _LiveBadge extends StatelessWidget {
-  const _LiveBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(
-        color: Colors.black.withAlpha(24),
-        borderRadius: BorderRadius.circular(AppRadii.pill),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: const BoxDecoration(
-              color: Color(0xFFFF1744),
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 6),
-          const Text(
-            "AO VIVO",
-            style: TextStyle(
-              color: Colors.black,
-              fontSize: 11,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1,
-            ),
-          ),
-        ],
-      ),
-    );
+  static String _formatPace(double pace) {
+    if (pace <= 0) return '--';
+    final seconds = (pace * 60).round();
+    return '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')} min/km';
   }
 }
