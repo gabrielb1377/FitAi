@@ -12,6 +12,8 @@ export 'components/fit_error_state.dart';
 export 'components/fit_header.dart';
 export 'components/fit_loading.dart';
 export 'components/fit_list_skeleton.dart';
+export 'components/fit_metric.dart';
+export 'components/fit_progress.dart';
 export 'components/fit_search_field.dart';
 export 'components/fit_section.dart';
 export 'components/fit_status_chip.dart';
