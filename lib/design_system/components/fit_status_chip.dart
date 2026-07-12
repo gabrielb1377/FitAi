@@ -32,7 +32,15 @@ class FitTagChip extends StatelessWidget {
               Icon(icon, size: 14, color: colors.onSecondaryContainer),
               const SizedBox(width: FitSpacing.s4),
             ],
-            Text(label, style: Theme.of(context).textTheme.labelSmall),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 160),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
+            ),
           ],
         ),
       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../design_system/fit_design_system.dart';
+import 'home_entrance.dart';
 import 'home_notification_bell.dart';
 
 /// Cabecalho sem card para orientar o usuario antes do conteudo da Home.
@@ -24,47 +25,57 @@ class HomeGreetingHeader extends StatelessWidget {
         ? 'Atleta'
         : name.trim().split(' ').first;
     final greeting = _greeting();
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        FitSpacing.s20,
-        MediaQuery.paddingOf(context).top + FitSpacing.s16,
-        FitSpacing.s20,
-        FitSpacing.s12,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(greeting, style: context.textTheme.bodyMedium),
-                const SizedBox(height: FitSpacing.s2),
-                Text(firstName, style: context.textTheme.headlineLarge),
-              ],
-            ),
-          ),
-          HomeNotificationBell(
-            count: unreadNotifications,
-            onTap: onOpenNotifications,
-          ),
-          const SizedBox(width: FitSpacing.s8),
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: context.colors.surfaceContainerHighest,
-            child: Text(
-              firstName[0].toUpperCase(),
-              style: context.textTheme.titleLarge?.copyWith(
-                color: context.colors.primary,
+    return HomeEntrance(
+      useScale: true,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          FitSpacing.s20,
+          MediaQuery.paddingOf(context).top + FitSpacing.s16,
+          FitSpacing.s20,
+          FitSpacing.s12,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(greeting, style: context.textTheme.bodyMedium),
+                  const SizedBox(height: FitSpacing.s2),
+                  Text(
+                    firstName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.textTheme.headlineLarge,
+                  ),
+                  const SizedBox(height: FitSpacing.s2),
+                  Text(_formattedDate(), style: context.textTheme.labelSmall),
+                ],
               ),
             ),
-          ),
-          const SizedBox(width: FitSpacing.s8),
-          FitBadge(
-            label: 'Nv. $level',
-            icon: Icons.bolt_rounded,
-            tone: FitBadgeTone.success,
-          ),
-        ],
+            HomeNotificationBell(
+              count: unreadNotifications,
+              onTap: onOpenNotifications,
+            ),
+            const SizedBox(width: FitSpacing.s8),
+            CircleAvatar(
+              radius: 22,
+              backgroundColor: context.colors.surfaceContainerHighest,
+              child: Text(
+                firstName[0].toUpperCase(),
+                style: context.textTheme.titleLarge?.copyWith(
+                  color: context.colors.primary,
+                ),
+              ),
+            ),
+            const SizedBox(width: FitSpacing.s8),
+            FitBadge(
+              label: 'Nv. $level',
+              icon: Icons.bolt_rounded,
+              tone: FitBadgeTone.success,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -74,5 +85,24 @@ class HomeGreetingHeader extends StatelessWidget {
     if (hour < 12) return 'Bom dia,';
     if (hour < 18) return 'Boa tarde,';
     return 'Boa noite,';
+  }
+
+  String _formattedDate() {
+    const months = [
+      'jan',
+      'fev',
+      'mar',
+      'abr',
+      'mai',
+      'jun',
+      'jul',
+      'ago',
+      'set',
+      'out',
+      'nov',
+      'dez',
+    ];
+    final now = DateTime.now();
+    return '${now.day} ${months[now.month - 1]}';
   }
 }

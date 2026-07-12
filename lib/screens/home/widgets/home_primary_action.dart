@@ -3,8 +3,9 @@ import '../../../design_system/fit_design_system.dart';
 import '../../../models/treino_model.dart';
 import '../../../services/running_session_service.dart';
 import '../../../services/treino_do_dia_service.dart';
+import 'home_entrance.dart';
+import 'home_primary_loading.dart';
 
-/// Acao principal do dia, preservando os callbacks existentes de treino.
 class HomePrimaryAction extends StatelessWidget {
   final TreinoDoDiaSelecao selection;
   final bool isLoading;
@@ -23,9 +24,11 @@ class HomePrimaryAction extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: RunningSessionService.instance,
-      builder: (context, _) => FitSection(
-        title: 'Seu foco agora',
-        child: _buildCard(context, RunningSessionService.instance),
+      builder: (context, _) => HomeEntrance(
+        child: FitSection(
+          title: 'Seu foco agora',
+          child: _buildCard(context, RunningSessionService.instance),
+        ),
       ),
     );
   }
@@ -33,14 +36,12 @@ class HomePrimaryAction extends StatelessWidget {
   Widget _buildCard(BuildContext context, RunningSessionService running) {
     final workout = selection.treino;
     if (isLoading && workout == null) {
-      return const FitCard(
-        variant: FitCardVariant.filled,
-        child: FitLoading.inline(label: 'Preparando seu treino de hoje...'),
-      );
+      return const HomePrimaryLoading();
     }
     if (workout == null) {
       return FitCard(
         variant: FitCardVariant.filled,
+        elevation: 1,
         leading: const Icon(Icons.fitness_center_rounded),
         title: selection.titulo,
         subtitle: selection.descricao,
@@ -78,6 +79,7 @@ class HomePrimaryAction extends StatelessWidget {
         : 'Iniciar treino';
     return FitCard(
       variant: FitCardVariant.filled,
+      elevation: 1,
       leading: const Icon(Icons.fitness_center_rounded),
       title: title,
       subtitle: running.hasActiveSession

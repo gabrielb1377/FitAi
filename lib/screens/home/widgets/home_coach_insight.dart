@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../design_system/fit_design_system.dart';
 import '../../../models/coach_insight_model.dart';
+import 'home_entrance.dart';
 
 /// Mostra somente o insight principal na Home e abre detalhes ja carregados.
 class HomeCoachInsight extends StatelessWidget {
@@ -11,73 +12,82 @@ class HomeCoachInsight extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<CoachInsightModel>>(
-      future: insightsFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting &&
-            !snapshot.hasData) {
-          return const FitSection(
-            title: 'Coach FitIA',
-            child: FitCard(
-              variant: FitCardVariant.outlined,
-              child: FitLoading.inline(label: 'Organizando seu insight...'),
-            ),
-          );
-        }
-        if (snapshot.hasError) {
+    return HomeEntrance(
+      child: FutureBuilder<List<CoachInsightModel>>(
+        future: insightsFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting &&
+              !snapshot.hasData) {
+            return const FitSection(
+              title: 'Coach FitIA',
+              child: FitCard(
+                variant: FitCardVariant.outlined,
+                child: FitListSkeleton(
+                  itemCount: 2,
+                  itemHeight: 32,
+                  padding: EdgeInsets.zero,
+                  spacing: FitSpacing.s12,
+                ),
+              ),
+            );
+          }
+          if (snapshot.hasError) {
+            return FitSection(
+              title: 'Coach FitIA',
+              child: FitCard(
+                variant: FitCardVariant.outlined,
+                trailing: const FitBadge.offline(),
+                child: const FitErrorState(
+                  title: 'Coach offline',
+                  error: 'Os insights nao estao disponiveis agora.',
+                  details: 'A Home continua usando seus dados locais.',
+                ),
+              ),
+            );
+          }
+          final insights = snapshot.data ?? const <CoachInsightModel>[];
+          if (insights.isEmpty) {
+            return FitSection(
+              title: 'Coach FitIA',
+              child: const FitEmptyState(
+                icon: Icons.auto_awesome_outlined,
+                title: 'Sem insight por enquanto',
+                description:
+                    'Seu proximo insight aparecera conforme voce registrar atividades.',
+              ),
+            );
+          }
+          final primary = insights.first;
           return FitSection(
             title: 'Coach FitIA',
             child: FitCard(
               variant: FitCardVariant.outlined,
-              child: Text(
-                'Insights indisponiveis agora. Seus dados locais continuam acessiveis.',
-                style: context.textTheme.bodyMedium,
+              elevation: 1,
+              leading: const Icon(Icons.auto_awesome_rounded),
+              title: primary.titulo,
+              trailing: FitBadge.ai(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    primary.descricao,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: FitSpacing.s12),
+                  FitButton(
+                    label: 'Ver Coach',
+                    variant: FitButtonVariant.ghost,
+                    icon: Icons.arrow_forward_rounded,
+                    onPressed: () => _showDetails(context, insights),
+                  ),
+                ],
               ),
             ),
           );
-        }
-        final insights = snapshot.data ?? const <CoachInsightModel>[];
-        if (insights.isEmpty) {
-          return FitSection(
-            title: 'Coach FitIA',
-            child: FitCard(
-              variant: FitCardVariant.outlined,
-              child: Text(
-                'Seu proximo insight aparecera conforme voce registrar atividades.',
-                style: context.textTheme.bodyMedium,
-              ),
-            ),
-          );
-        }
-        final primary = insights.first;
-        return FitSection(
-          title: 'Coach FitIA',
-          child: FitCard(
-            variant: FitCardVariant.outlined,
-            leading: const Icon(Icons.auto_awesome_rounded),
-            title: primary.titulo,
-            trailing: FitBadge.ai(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  primary.descricao,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.textTheme.bodyMedium,
-                ),
-                const SizedBox(height: FitSpacing.s12),
-                FitButton(
-                  label: 'Ver detalhes',
-                  variant: FitButtonVariant.ghost,
-                  icon: Icons.arrow_forward_rounded,
-                  onPressed: () => _showDetails(context, insights),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+        },
+      ),
     );
   }
 
