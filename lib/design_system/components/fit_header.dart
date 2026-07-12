@@ -2,10 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../tokens/fit_spacing.dart';
 
-/// Cabecalho de conteudo com titulo, subtitulo e acoes opcionais.
+/// Cabecalho FitIA com voltar, avatar e acoes fornecidas pelo chamador.
+///
+/// Exemplo: `FitHeader(title: 'Planos', showBackButton: true, onBack: pop)`.
 class FitHeader extends StatelessWidget {
   final String title;
   final String? subtitle;
+  final bool showBackButton;
+  final VoidCallback? onBack;
+  final String backTooltip;
+  final Widget? avatar;
   final Widget? leading;
   final List<Widget> actions;
   final EdgeInsetsGeometry padding;
@@ -14,6 +20,10 @@ class FitHeader extends StatelessWidget {
     super.key,
     required this.title,
     this.subtitle,
+    this.showBackButton = false,
+    this.onBack,
+    this.backTooltip = 'Voltar',
+    this.avatar,
     this.leading,
     this.actions = const [],
     this.padding = const EdgeInsets.fromLTRB(
@@ -22,18 +32,26 @@ class FitHeader extends StatelessWidget {
       FitSpacing.s20,
       FitSpacing.s12,
     ),
-  });
+  }) : assert(!showBackButton || onBack != null),
+       assert(avatar == null || leading == null);
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final prefix = leading ?? avatar;
     return Padding(
       padding: padding,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (leading != null) ...[
-            leading!,
+          if (showBackButton)
+            IconButton(
+              tooltip: backTooltip,
+              onPressed: onBack,
+              icon: const Icon(Icons.arrow_back_rounded),
+            ),
+          if (prefix != null) ...[
+            prefix,
             const SizedBox(width: FitSpacing.s12),
           ],
           Expanded(
