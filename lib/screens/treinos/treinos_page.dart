@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/treino_model.dart';
@@ -48,6 +49,9 @@ class _TreinosPageState extends State<TreinosPage> {
         final plans = _principalPlans;
         final activePlan = plans.isEmpty ? null : plans.first;
         final visiblePlans = _filteredPlans(plans, activePlan);
+        final itemCount = plans.isEmpty
+            ? 2
+            : 4 + (visiblePlans.isEmpty ? 1 : visiblePlans.length);
 
         return Scaffold(
           body: SafeArea(
@@ -60,7 +64,7 @@ class _TreinosPageState extends State<TreinosPage> {
                   parent: BouncingScrollPhysics(),
                 ),
                 padding: const EdgeInsets.only(bottom: 100),
-                itemCount: 5 + (visiblePlans.isEmpty ? 1 : visiblePlans.length),
+                itemCount: itemCount,
                 itemBuilder: (context, index) {
                   if (index == 0) {
                     return PlansHeader(
@@ -72,6 +76,17 @@ class _TreinosPageState extends State<TreinosPage> {
                     );
                   }
                   if (index == 1) {
+                    if (plans.isEmpty) {
+                      return Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                        child: PlansEmptyState(
+                          hasFilters: false,
+                          onCreateWithAi: _abrirCriacaoComIa,
+                          onCreateManually: _abrirCriacaoManual,
+                          onExploreReadyPlans: _abrirTreinoPronto,
+                        ),
+                      );
+                    }
                     return Padding(
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
                       child: ActivePlanSummary(
@@ -117,7 +132,11 @@ class _TreinosPageState extends State<TreinosPage> {
                     );
                   }
 
-                  final planIndex = visiblePlans.isEmpty ? 0 : index - 4;
+                  final planIndex = index - 4;
+                  if (planIndex < 0 || planIndex >= visiblePlans.length) {
+                    _debugLog('Indice de plano invalido evitado: $planIndex.');
+                    return const SizedBox.shrink();
+                  }
                   final plan = visiblePlans[planIndex];
                   return Padding(
                     padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
@@ -144,6 +163,10 @@ class _TreinosPageState extends State<TreinosPage> {
     List<TreinoModel> plans,
     TreinoModel? activePlan,
   ) {
+    if (plans.isEmpty) {
+      _debugLog('Lista vazia tratada sem aplicar filtros.');
+      return const [];
+    }
     final query = _query.trim().toLowerCase();
     return plans.where((plan) {
       final matchesQuery =
@@ -159,6 +182,10 @@ class _TreinosPageState extends State<TreinosPage> {
       };
       return matchesQuery && matchesStatus;
     }).toList();
+  }
+
+  void _debugLog(String message) {
+    if (kDebugMode) debugPrint('[TreinosPage] $message');
   }
 
   Future<void> _abrirTreinoPronto() async {

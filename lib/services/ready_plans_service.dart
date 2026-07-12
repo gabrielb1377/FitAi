@@ -78,10 +78,20 @@ class ReadyPlansService {
       );
     } catch (error) {
       _debugLog('Backend offline ou resposta invalida: $error');
-      final cachedPlans = await loadPlansCache();
+      List<ReadyPlanModel>? cachedPlans;
+      try {
+        cachedPlans = await loadPlansCache();
+      } catch (cacheError) {
+        _debugLog('Cache ausente ou indisponivel: $cacheError');
+      }
 
       if (cachedPlans != null) {
-        final updatedAt = await _loadPlansCacheUpdatedAt();
+        DateTime? updatedAt;
+        try {
+          updatedAt = await _loadPlansCacheUpdatedAt();
+        } catch (cacheError) {
+          _debugLog('Data do cache indisponivel: $cacheError');
+        }
         _debugLog('Cache loaded: ${cachedPlans.length} plano(s).');
         return ReadyPlansListResult(
           plans: cachedPlans,
@@ -120,10 +130,17 @@ class ReadyPlansService {
       return plan;
     } catch (error) {
       _debugLog('Detalhe indisponivel no backend: $error');
-      final cachedPlan = await loadPlanDetailCache(id);
+      ReadyPlanModel? cachedPlan;
+      try {
+        cachedPlan = await loadPlanDetailCache(id);
+      } catch (cacheError) {
+        _debugLog(
+          'Cache ausente ou indisponivel para detalhe $id: $cacheError',
+        );
+      }
 
       if (cachedPlan != null) {
-        _debugLog('Cache loaded: detalhe salvo para $id.');
+        _debugLog('Detalhe encontrado no cache: $id.');
         return cachedPlan;
       }
 

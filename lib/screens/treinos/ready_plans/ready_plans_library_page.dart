@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../models/fitai_memory_model.dart';
@@ -84,7 +85,16 @@ class _ReadyPlansLibraryPageState extends State<ReadyPlansLibraryPage> {
         _cacheUpdatedAt = result.updatedAt;
         _loading = false;
       });
-    } on ReadyPlansException {
+    } on ReadyPlansException catch (error) {
+      _debugLog('Biblioteca indisponivel: ${error.message}');
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _hasError = true;
+        _usingCache = false;
+      });
+    } catch (error) {
+      _debugLog('Falha inesperada ao carregar biblioteca: $error');
       if (!mounted) return;
       setState(() {
         _loading = false;
@@ -191,9 +201,35 @@ class _ReadyPlansLibraryPageState extends State<ReadyPlansLibraryPage> {
   }
 
   Future<void> _openPlan(ReadyPlanModel plan) async {
+    ReadyPlanModel previewPlan = plan;
+    if (_usingCache) {
+      ReadyPlanModel? cachedDetail;
+      try {
+        cachedDetail = await _readyPlansService.loadPlanDetailCache(plan.id);
+      } catch (error) {
+        _debugLog('Falha ao ler cache do detalhe ${plan.id}: $error');
+      }
+      if (!mounted) return;
+      if (cachedDetail == null) {
+        _debugLog('Cache ausente para detalhe ${plan.id}.');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Este plano precisa ser aberto online pela primeira vez.',
+            ),
+          ),
+        );
+        return;
+      }
+      _debugLog('Detalhe encontrado no cache: ${plan.id}.');
+      previewPlan = cachedDetail;
+    }
+
     final added = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (_) => ReadyPlanPreviewPage(plan: plan)),
+      MaterialPageRoute(
+        builder: (_) => ReadyPlanPreviewPage(plan: previewPlan),
+      ),
     );
 
     if (added == true && mounted) Navigator.pop(context, true);
@@ -357,7 +393,9 @@ class _ReadyPlansLibraryPageState extends State<ReadyPlansLibraryPage> {
               final item = _recommendations[index];
               return RecommendedPlanCard(
                 plan: item.plan,
-                reason: item.reasons.first,
+                reason: item.reasons.isEmpty
+                    ? 'Uma opcao recomendada para voce.'
+                    : item.reasons.first,
                 onTap: () => _openPlan(item.plan),
                 isFavorite: _favoritesService.isFavorite(item.plan.id),
                 onFavoriteToggle: () => _toggleFavorite(item.plan),
@@ -382,6 +420,10 @@ class _ReadyPlansLibraryPageState extends State<ReadyPlansLibraryPage> {
       result = result.replaceAll(source[index], target[index]);
     }
     return result;
+  }
+
+  void _debugLog(String message) {
+    if (kDebugMode) debugPrint('[ReadyPlansLibrary] $message');
   }
 }
 

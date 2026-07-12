@@ -35,6 +35,16 @@ void main() {
     expect(offlineResult.plans.single.id, 'plan-1');
   });
 
+  test(
+    'retorna erro amigavel quando o backend esta offline sem cache',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final offline = ReadyPlansService(client: _JsonClient({}, fail: true));
+
+      expect(() => offline.listPlans(), throwsA(isA<ReadyPlansException>()));
+    },
+  );
+
   test('salva e recupera somente detalhes completos', () async {
     SharedPreferences.setMockInitialValues({});
     final service = ReadyPlansService(client: _JsonClient({}));
@@ -57,6 +67,32 @@ void main() {
     expect(loaded?.days.single.exercises.single.exerciseName, 'Agachamento');
   });
 
+  test('abre detalhe completo salvo quando o backend esta offline', () async {
+    SharedPreferences.setMockInitialValues({});
+    final cachedPlan = _completePlan('plan-offline');
+    final online = ReadyPlansService(client: _JsonClient({}));
+    await online.savePlanDetailCache(cachedPlan);
+
+    final offline = ReadyPlansService(client: _JsonClient({}, fail: true));
+    final detail = await offline.getPlanDetails('plan-offline');
+
+    expect(detail.id, 'plan-offline');
+    expect(detail.days, isNotEmpty);
+  });
+
+  test(
+    'nao retorna detalhe incompleto quando nao existe cache offline',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final offline = ReadyPlansService(client: _JsonClient({}, fail: true));
+
+      expect(
+        () => offline.getPlanDetails('plan-missing'),
+        throwsA(isA<ReadyPlansException>()),
+      );
+    },
+  );
+
   test(
     'cache com schema inválido é limpo sem apagar outras preferências',
     () async {
@@ -72,6 +108,22 @@ void main() {
       expect(prefs.getString('perfilNome'), 'Gabriel');
     },
   );
+}
+
+ReadyPlanModel _completePlan(String id) {
+  return ReadyPlanModel.fromJson({
+    'id': id,
+    'nome': 'Plano completo',
+    'dias': [
+      {
+        'id': 'day-1',
+        'nome': 'Dia A',
+        'exercicios': [
+          {'id': 'exercise-1', 'nome': 'Agachamento', 'series': 3},
+        ],
+      },
+    ],
+  });
 }
 
 class _JsonClient extends http.BaseClient {
