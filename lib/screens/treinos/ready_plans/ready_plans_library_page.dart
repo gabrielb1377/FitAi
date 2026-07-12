@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../../design_system/fit_design_system.dart';
 import '../../../models/fitai_memory_model.dart';
 import '../../../models/ready_plan_model.dart';
 import '../../../services/fitai_memory_service.dart';
@@ -261,6 +262,40 @@ class _ReadyPlansLibraryPageState extends State<ReadyPlansLibraryPage> {
   }
 
   Widget _buildCacheStatus(BuildContext context) {
+    if (_usingCache) {
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.fromLTRB(20, 4, 20, 4),
+        padding: const EdgeInsets.symmetric(
+          horizontal: FitSpacing.s12,
+          vertical: FitSpacing.s8,
+        ),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: FitRadius.mediumBorder,
+        ),
+        child: Row(
+          children: [
+            const FitBadge.offline(),
+            const SizedBox(width: FitSpacing.s8),
+            Expanded(
+              child: Text(
+                'Mostrando planos salvos no dispositivo.',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+            IconButton(
+              tooltip: 'Atualizar biblioteca',
+              onPressed: _loading ? null : _loadPlans,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+            ),
+          ],
+        ),
+      );
+    }
+
     final status = _usingCache
         ? 'Dados salvos no dispositivo'
         : _cacheUpdatedAt == null

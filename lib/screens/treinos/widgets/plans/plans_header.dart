@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../design_system/fit_design_system.dart';
+import 'plans_entrance.dart';
 
 class PlansHeader extends StatelessWidget {
   final TextEditingController searchController;
@@ -18,34 +19,36 @@ class PlansHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-      child: Column(
-        children: [
-          FitHeader(
-            title: 'Meus Planos',
-            subtitle: 'Organize sua rotina e acompanhe sua evolucao.',
-            padding: EdgeInsets.zero,
-            actions: [
-              IconButton(
-                tooltip: 'Historico de treinos',
-                onPressed: onOpenHistory,
-                icon: const Icon(Icons.history_rounded),
-              ),
-              IconButton(
-                tooltip: 'Criar plano',
-                onPressed: onAdd,
-                icon: const Icon(Icons.add_rounded),
-              ),
-            ],
-          ),
-          const SizedBox(height: FitSpacing.s16),
-          FitSearchField(
-            controller: searchController,
-            hintText: 'Buscar por nome, objetivo ou divisao',
-            onChanged: onSearchChanged,
-          ),
-        ],
+    return PlansEntrance(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+        child: Column(
+          children: [
+            FitHeader(
+              title: 'Meus Planos',
+              subtitle: 'Sua rotina, em um so lugar.',
+              padding: EdgeInsets.zero,
+              actions: [
+                IconButton(
+                  tooltip: 'Historico de treinos',
+                  onPressed: onOpenHistory,
+                  icon: const Icon(Icons.history_rounded),
+                ),
+                IconButton.filled(
+                  tooltip: 'Criar plano',
+                  onPressed: onAdd,
+                  icon: const Icon(Icons.add_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: FitSpacing.s20),
+            FitSearchField(
+              controller: searchController,
+              hintText: 'Buscar planos, objetivos ou divisao',
+              onChanged: onSearchChanged,
+            ),
+          ],
+        ),
       ),
     );
   }

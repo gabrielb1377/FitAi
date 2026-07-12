@@ -10,10 +10,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Meus Planos'), findsOneWidget);
-    expect(find.text('Voce ainda nao criou nenhum plano.'), findsOneWidget);
+    expect(find.text('Seu proximo plano comeca aqui.'), findsOneWidget);
     expect(find.text('Criar com IA'), findsOneWidget);
     expect(find.text('Criar manualmente'), findsOneWidget);
-    expect(find.text('Explorar planos prontos'), findsOneWidget);
+    expect(find.text('Explorar biblioteca'), findsOneWidget);
     expect(find.textContaining('Meus planos ('), findsNothing);
     expect(find.text('Nenhum plano ativo'), findsNothing);
   });
