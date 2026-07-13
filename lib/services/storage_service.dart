@@ -43,6 +43,8 @@ class StorageService {
   static const String _stepsXpAwardedKey = 'stepsXpAwardedDates';
   static const String _exerciseHistorySchemaVersionKey =
       'exerciseHistorySchemaVersion';
+  static const String _exerciseProgressionDecisionsKey =
+      'exerciseProgressionDecisions';
   static const int _exerciseHistorySchemaVersion = 1;
 
   static int xpNecessarioParaNivel(int nivelAtual) {
@@ -1025,6 +1027,62 @@ class StorageService {
     historico.sort((a, b) => b.dataHora.compareTo(a.dataHora));
 
     return historico;
+  }
+
+  /// Guarda apenas a confirmacao da sugestao para a proxima execucao.
+  /// O plano original permanece intacto e a decisao pode ser sincronizada depois.
+  static Future<void> salvarDecisaoProgressaoExercicio(
+    Map<String, dynamic> decisao,
+  ) async {
+    final exerciseKey = decisao['exerciseKey']?.toString().trim() ?? '';
+    if (exerciseKey.isEmpty) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final atuais = prefs.getStringList(_exerciseProgressionDecisionsKey) ?? [];
+    final atualizados = <String>[];
+
+    for (final item in atuais) {
+      try {
+        final decoded = jsonDecode(item);
+        if (decoded is Map &&
+            decoded['exerciseKey']?.toString().trim() == exerciseKey) {
+          continue;
+        }
+      } catch (_) {
+        // Preserva entradas legiveis e substitui somente a decisao do exercicio.
+      }
+      atualizados.add(item);
+    }
+
+    atualizados.add(
+      jsonEncode({...decisao, 'acceptedAt': DateTime.now().toIso8601String()}),
+    );
+    await prefs.setStringList(_exerciseProgressionDecisionsKey, atualizados);
+    if (kDebugMode) {
+      debugPrint('[ExerciseProgression] Decisao salva para $exerciseKey.');
+    }
+  }
+
+  static Future<Map<String, dynamic>?> carregarDecisaoProgressaoExercicio(
+    String exerciseKey,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final itens = prefs.getStringList(_exerciseProgressionDecisionsKey) ?? [];
+
+    for (final item in itens.reversed) {
+      try {
+        final decoded = jsonDecode(item);
+        if (decoded is Map &&
+            decoded['exerciseKey']?.toString().trim() == exerciseKey) {
+          return Map<String, dynamic>.from(decoded);
+        }
+      } catch (_) {
+        if (kDebugMode) {
+          debugPrint('[ExerciseProgression] Decisao local invalida ignorada.');
+        }
+      }
+    }
+    return null;
   }
 
   /// Atualiza apenas a chave derivada de registros antigos, sem apagar dados.

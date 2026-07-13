@@ -6,14 +6,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/exercicios/exercicios.dart';
 import '../../models/exercicio_model.dart';
 import '../../models/exercise_history_model.dart';
+import '../../models/exercise_progression_model.dart';
 import '../../models/progresso_exercicio_model.dart';
 import '../../models/treino_model.dart';
 import '../../services/storage_service.dart';
 import '../../services/exercise_history_service.dart';
+import '../../services/exercise_progression_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_components.dart';
 import '../../widgets/exercicio_gif_viewer.dart';
 import '../treinos/treino_em_andamento_page.dart';
+import '../treinos/widgets/exercise_next_progression_card.dart';
 
 class _ExercicioBuscaIndex {
   final ExercicioModel exercicio;
@@ -2314,6 +2317,8 @@ class _BibliotecaExercicioDetalhePageState
   bool carregandoFavorito = true;
   late final Future<ExerciseHistorySnapshot> historicoExercicioFuture;
   late final Future<List<ProgressoExercicioModel>> progressoFuture;
+  late final Future<ExerciseProgressionModel> proximaProgressaoFuture;
+  final GlobalKey _historicoKey = GlobalKey();
 
   ExercicioModel get exercicio => widget.exercicio;
 
@@ -2323,6 +2328,20 @@ class _BibliotecaExercicioDetalhePageState
     historicoExercicioFuture = const ExerciseHistoryService()
         .loadExerciseHistory(exercicio);
     progressoFuture = _carregarProgresso(historicoExercicioFuture);
+    proximaProgressaoFuture = const ExerciseProgressionService().generate(
+      exercise: exercicio,
+      config: ExerciseProgressionConfig(
+        sets: exercicio.series <= 0 ? 3 : exercicio.series,
+        repRange: exercicio.repeticoes.contains('-')
+            ? exercicio.repeticoes
+            : '6-12',
+        restSeconds: exercicio.descansoSegundos <= 0
+            ? 60
+            : exercicio.descansoSegundos,
+        goal: exercicio.objetivo,
+        level: exercicio.dificuldade,
+      ),
+    );
     _carregarFavorito();
   }
 
@@ -2370,6 +2389,35 @@ class _BibliotecaExercicioDetalhePageState
       favorito = novoEstado;
       exercicio.favorito = novoEstado;
     });
+  }
+
+  Future<void> _aceitarProximaProgressao() async {
+    final progression = await proximaProgressaoFuture;
+    await const ExerciseProgressionService().accept(progression);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Sugestao salva para a proxima execucao. O plano nao foi alterado.',
+        ),
+      ),
+    );
+  }
+
+  void _manterConfiguracaoAtual() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Configuracao atual mantida.')),
+    );
+  }
+
+  void _mostrarHistorico() {
+    final target = _historicoKey.currentContext;
+    if (target != null) {
+      Scrollable.ensureVisible(
+        target,
+        duration: const Duration(milliseconds: 220),
+      );
+    }
   }
 
   List<ExercicioModel> get semelhantes {
@@ -2428,7 +2476,14 @@ class _BibliotecaExercicioDetalhePageState
           const SizedBox(height: 16),
           _progressoCard(),
           const SizedBox(height: 16),
-          _historicoDetalhadoCard(),
+          ExerciseNextProgressionCard(
+            future: proximaProgressaoFuture,
+            onApply: _aceitarProximaProgressao,
+            onKeep: _manterConfiguracaoAtual,
+            onViewHistory: _mostrarHistorico,
+          ),
+          const SizedBox(height: 16),
+          KeyedSubtree(key: _historicoKey, child: _historicoDetalhadoCard()),
           const SizedBox(height: 16),
           _secaoTexto(
             titulo: "Descrição",

@@ -5,16 +5,19 @@ import 'package:flutter/material.dart';
 import '../../core/xp/xp_config.dart';
 import '../../models/coach_insight_model.dart';
 import '../../models/exercicio_model.dart';
+import '../../models/exercise_progression_model.dart';
 import '../../models/historico_serie_treino_model.dart';
 import '../../models/historico_treino_model.dart';
 import '../../models/treino_model.dart';
 import '../../services/coach_insight_service.dart';
+import '../../services/exercise_progression_service.dart';
 import '../../services/progressao_service.dart';
 import '../../services/recorde_service.dart';
 import '../../services/storage_service.dart';
 import '../../widgets/exercicio_gif_viewer.dart';
 import '../exercicios/biblioteca_exercicios_page.dart';
 import 'treino_finalizado_page.dart';
+import 'widgets/exercise_next_progression_card.dart';
 
 class TreinoEmAndamentoPage extends StatefulWidget {
   final TreinoModel treino;
@@ -36,7 +39,7 @@ class TreinoEmAndamentoPage extends StatefulWidget {
 
 class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   static const int _seriesPorExercicio = 3;
-  static const int _descansoPadrao = 60;
+  int _descansoPadrao = 60;
 
   late final List<ExercicioModel> _exercicios;
 
@@ -44,6 +47,8 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   final Map<int, List<_HistoricoSerieLocal>> _historico = {};
   final Map<int, String> _comentarios = {};
   final Set<int> _exerciciosPulados = {};
+  final Set<int> _sugestoesProgressaoIgnoradas = {};
+  final Set<int> _sugestoesProgressaoAplicadas = {};
   final List<_XpVisualHistoryEntry> _xpVisualHistorico = [];
   final String _sessaoTreinoId =
       'sessao_${DateTime.now().microsecondsSinceEpoch}';
@@ -51,6 +56,8 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   final _pesoController = TextEditingController(text: '0');
   final _repeticoesController = TextEditingController(text: '12');
   final _comentarioController = TextEditingController();
+  final ExerciseProgressionService _exerciseProgressionService =
+      const ExerciseProgressionService();
 
   Timer? _treinoTimer;
   Timer? _descansoTimer;
@@ -58,7 +65,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   int _exercicioAtual = 0;
   int _segundosTreino = 0;
   int _descansoRestante = 0;
-  int _descansoTotal = _descansoPadrao;
+  int _descansoTotal = 60;
   int _xpVisualSessao = 0;
   int _xpVisualEvento = 0;
   int _xpVisualKey = 0;
@@ -67,6 +74,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   bool _treinoFinalizadoVisual = false;
   bool _finalizacaoEmAndamento = false;
   String _xpVisualTitulo = '';
+  Future<ExerciseProgressionModel>? _nextProgressionFuture;
 
   int get _totalExercicios => _exercicios.length;
 
@@ -96,6 +104,8 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     debugPrint('Treino: ${widget.treino.nome}');
     debugPrint('Qtd exercícios: ${_exercicios.length}');
     debugPrint(_exercicios.map((e) => e.nome).toList().toString());
+
+    _carregarProximaProgressaoAtual();
 
     _iniciarCronometro();
   }
@@ -260,7 +270,72 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
       _descansoFinalizado = false;
       _exercicioAtual = index;
       _sincronizarComentario();
+      _descansoPadrao = 60;
     });
+    _carregarProximaProgressaoAtual();
+  }
+
+  void _carregarProximaProgressaoAtual() {
+    final exercicio = _exercicio;
+    if (exercicio == null) return;
+    _nextProgressionFuture = _resolverProximaProgressao(exercicio);
+  }
+
+  Future<ExerciseProgressionModel> _resolverProximaProgressao(
+    ExercicioModel exercicio,
+  ) async {
+    final accepted = await _exerciseProgressionService.loadAccepted(exercicio);
+    if (accepted != null) {
+      debugPrint('[ExerciseProgression] Sugestao aceita restaurada.');
+      return accepted;
+    }
+    return _exerciseProgressionService.generate(
+      exercise: exercicio,
+      config: ExerciseProgressionConfig(
+        sets: _seriesPorExercicio,
+        repRange: exercicio.repeticoes.contains('-')
+            ? exercicio.repeticoes
+            : '6-12',
+        restSeconds: _descansoPadrao,
+        goal: exercicio.objetivo,
+        level: exercicio.dificuldade,
+      ),
+    );
+  }
+
+  Future<void> _aplicarProximaProgressao() async {
+    final progression = await _nextProgressionFuture;
+    if (progression == null) return;
+
+    await _exerciseProgressionService.accept(
+      progression,
+      forNextOccurrence: false,
+    );
+    if (!mounted) return;
+
+    setState(() {
+      _pesoController.text = progression.suggestedWeight.toStringAsFixed(
+        progression.suggestedWeight % 1 == 0 ? 0 : 1,
+      );
+      _repeticoesController.text = _repeticoesMeta(
+        progression.suggestedRepRange,
+      ).toString();
+      _descansoPadrao = progression.suggestedRestSeconds;
+      _sugestoesProgressaoAplicadas.add(_exercicioAtual);
+    });
+    _mostrarMensagem('Sugestao aplicada somente a esta execucao.');
+  }
+
+  void _ignorarProximaProgressao() {
+    setState(() => _sugestoesProgressaoIgnoradas.add(_exercicioAtual));
+    _mostrarMensagem('Configuracao atual mantida.');
+  }
+
+  int _repeticoesMeta(String range) {
+    final match = RegExp(r'(\d+)\s*[-–]\s*(\d+)').firstMatch(range);
+    return int.tryParse(match?.group(2) ?? '') ??
+        int.tryParse(_texto(_repeticoesController)) ??
+        8;
   }
 
   Future<ExercicioModel?> _selecionarExercicioDaBiblioteca() async {
@@ -1043,6 +1118,23 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
                                       : '${_descansoPadrao}s',
                                   series: '$concluidas/$_seriesPorExercicio',
                                 ),
+                                if (concluidas == 0 &&
+                                    _nextProgressionFuture != null &&
+                                    !_sugestoesProgressaoIgnoradas.contains(
+                                      _exercicioAtual,
+                                    ) &&
+                                    !_sugestoesProgressaoAplicadas.contains(
+                                      _exercicioAtual,
+                                    )) ...[
+                                  const SizedBox(height: 14),
+                                  ExerciseNextProgressionCard(
+                                    future: _nextProgressionFuture!,
+                                    compact: true,
+                                    onApply: _aplicarProximaProgressao,
+                                    onKeep: _ignorarProximaProgressao,
+                                    onViewHistory: _abrirProgressaoSheet,
+                                  ),
+                                ],
                                 if (_emDescanso) ...[
                                   const SizedBox(height: 18),
                                   _RestCard(

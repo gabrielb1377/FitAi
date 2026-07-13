@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import '../../design_system/fit_design_system.dart';
 import '../../models/coach_insight_model.dart';
 import '../../models/exercicio_model.dart';
+import '../../models/exercise_progression_model.dart';
 import '../../models/treino_model.dart';
 import '../../services/coach_insight_service.dart';
+import '../../services/exercise_progression_service.dart';
 import '../../services/progressao_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/treino_service.dart';
@@ -13,7 +15,7 @@ import 'treino_em_andamento_page.dart';
 import 'widgets/exercise_hub_widgets.dart';
 import 'widgets/exercise_coach_insights_card.dart';
 import 'widgets/exercise_notes_card.dart';
-import 'widgets/exercise_progression_card.dart';
+import 'widgets/exercise_next_progression_card.dart';
 import 'widgets/exercise_records_card.dart';
 
 class ExercicioDetalhePage extends StatefulWidget {
@@ -32,8 +34,9 @@ class ExercicioDetalhePage extends StatefulWidget {
 
 class _ExercicioDetalhePageState extends State<ExercicioDetalhePage> {
   late Future<ResumoCargaExercicio> _resumoCargaFuture;
-  late Future<ProgressaoInteligenteResumo> _progressaoFuture;
+  late Future<ExerciseProgressionModel> _nextProgressionFuture;
   late Future<List<CoachInsightModel>> _coachInsightsFuture;
+  final GlobalKey _historyKey = GlobalKey();
   bool _favorito = false;
 
   ExercicioModel get exercicio => widget.exercicio;
@@ -42,7 +45,7 @@ class _ExercicioDetalhePageState extends State<ExercicioDetalhePage> {
   void initState() {
     super.initState();
     _resumoCargaFuture = _carregarResumoCarga();
-    _progressaoFuture = _carregarProgressao();
+    _nextProgressionFuture = _carregarProximaProgressao();
     _coachInsightsFuture = _carregarCoachInsights();
     _carregarFavorito();
   }
@@ -53,7 +56,7 @@ class _ExercicioDetalhePageState extends State<ExercicioDetalhePage> {
     if (oldWidget.exercicio.id != exercicio.id ||
         oldWidget.exercicio.nome != exercicio.nome) {
       _resumoCargaFuture = _carregarResumoCarga();
-      _progressaoFuture = _carregarProgressao();
+      _nextProgressionFuture = _carregarProximaProgressao();
       _coachInsightsFuture = _carregarCoachInsights();
       _carregarFavorito();
     }
@@ -63,17 +66,27 @@ class _ExercicioDetalhePageState extends State<ExercicioDetalhePage> {
     return const ProgressaoService().carregarResumoCarga(exercicio: exercicio);
   }
 
-  Future<ProgressaoInteligenteResumo> _carregarProgressao() {
-    return const ProgressaoService().carregarProgressaoInteligente(
-      exercicio: exercicio,
-      metaRepeticoes: 8,
+  Future<ExerciseProgressionModel> _carregarProximaProgressao() {
+    return const ExerciseProgressionService().generate(
+      exercise: exercicio,
+      config: ExerciseProgressionConfig(
+        sets: exercicio.series <= 0 ? 3 : exercicio.series,
+        repRange: exercicio.repeticoes.trim().isEmpty
+            ? '6-12'
+            : exercicio.repeticoes,
+        restSeconds: exercicio.descansoSegundos <= 0
+            ? 60
+            : exercicio.descansoSegundos,
+        goal: exercicio.objetivo,
+        level: exercicio.dificuldade,
+      ),
     );
   }
 
   void _recarregarDadosExercicio() {
     setState(() {
       _resumoCargaFuture = _carregarResumoCarga();
-      _progressaoFuture = _carregarProgressao();
+      _nextProgressionFuture = _carregarProximaProgressao();
       _coachInsightsFuture = _carregarCoachInsights();
     });
   }
@@ -166,15 +179,21 @@ class _ExercicioDetalhePageState extends State<ExercicioDetalhePage> {
                                   future: _coachInsightsFuture,
                                 ),
                                 const SizedBox(height: 14),
-                                ExerciseHistoryCard(resumo: resumo),
+                                ExerciseNextProgressionCard(
+                                  future: _nextProgressionFuture,
+                                  onApply: _aceitarProximaProgressao,
+                                  onKeep: _manterConfiguracaoAtual,
+                                  onViewHistory: _mostrarHistorico,
+                                ),
+                                const SizedBox(height: 14),
+                                KeyedSubtree(
+                                  key: _historyKey,
+                                  child: ExerciseHistoryCard(resumo: resumo),
+                                ),
                                 const SizedBox(height: 14),
                                 ExerciseStatsCard(resumo: resumo),
                                 const SizedBox(height: 14),
                                 ExerciseRecordsCard(exercicio: exercicio),
-                                const SizedBox(height: 14),
-                                ExerciseProgressionCard(
-                                  future: _progressaoFuture,
-                                ),
                               ],
                             ),
                           );
@@ -195,6 +214,35 @@ class _ExercicioDetalhePageState extends State<ExercicioDetalhePage> {
         ),
       ),
     );
+  }
+
+  Future<void> _aceitarProximaProgressao() async {
+    final progression = await _nextProgressionFuture;
+    await const ExerciseProgressionService().accept(progression);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Sugestao salva para a proxima execucao. O plano nao foi alterado.',
+        ),
+      ),
+    );
+  }
+
+  void _manterConfiguracaoAtual() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Configuracao atual mantida.')),
+    );
+  }
+
+  void _mostrarHistorico() {
+    final target = _historyKey.currentContext;
+    if (target != null) {
+      Scrollable.ensureVisible(
+        target,
+        duration: const Duration(milliseconds: 220),
+      );
+    }
   }
 
   void _executarAgora() {
