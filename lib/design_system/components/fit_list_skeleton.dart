@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../tokens/fit_radius.dart';
 import '../tokens/fit_spacing.dart';
+import 'fit_skeleton.dart';
 
 /// Skeleton simples e sem animacao para listas durante carregamento inicial.
 ///
@@ -23,7 +24,6 @@ class FitListSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.surfaceContainerHighest;
     return Semantics(
       label: 'Carregando lista',
       liveRegion: true,
@@ -33,12 +33,10 @@ class FitListSkeleton extends StatelessWidget {
         shrinkWrap: true,
         itemCount: itemCount,
         separatorBuilder: (_, _) => SizedBox(height: spacing),
-        itemBuilder: (_, index) => Container(
+        itemBuilder: (_, index) => FitSkeleton(
           height: itemHeight,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: FitRadius.mediumBorder,
-          ),
+          borderRadius: FitRadius.mediumBorder,
+          semanticLabel: 'Carregando item ${index + 1}',
         ),
       ),
     );

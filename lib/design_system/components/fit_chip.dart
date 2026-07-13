@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../tokens/fit_radius.dart';
+import '../tokens/fit_spacing.dart';
+
 /// Alias de compatibilidade para o chip de filtro selecionavel FitIA.
 class FitChip extends FitFilterChip {
   const FitChip({
@@ -33,6 +36,7 @@ class FitFilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return FilterChip(
       label: Text(label),
       selected: selected,
@@ -40,6 +44,9 @@ class FitFilterChip extends StatelessWidget {
       avatar: icon == null ? null : Icon(icon, size: 16),
       showCheckmark: false,
       materialTapTargetSize: MaterialTapTargetSize.padded,
+      shape: const RoundedRectangleBorder(borderRadius: FitRadius.pillBorder),
+      side: BorderSide(color: colors.outlineVariant),
+      padding: const EdgeInsets.symmetric(horizontal: FitSpacing.s8),
     );
   }
 }

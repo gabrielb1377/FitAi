@@ -7,4 +7,9 @@ abstract final class FitDuration {
   static const medium = Duration(milliseconds: 240);
   static const slow = Duration(milliseconds: 320);
   static const curve = Curves.easeOutCubic;
+
+  /// Alias semanticos para evitar escolher duracao por tentativa.
+  static const feedback = fast;
+  static const transition = normal;
+  static const reveal = medium;
 }

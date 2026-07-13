@@ -19,10 +19,7 @@ class ApiConfig {
     return Uri.parse('$_baseUrl$normalizedPath');
   }
 
-  static void configure({
-    String? baseUrl,
-    Duration? timeout,
-  }) {
+  static void configure({String? baseUrl, Duration? timeout}) {
     if (baseUrl != null && baseUrl.trim().isNotEmpty) {
       _baseUrl = _normalizeBaseUrl(baseUrl);
     }

@@ -6,9 +6,7 @@ class LoginPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Entrar"),
-      ),
+      appBar: AppBar(title: const Text("Entrar")),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -35,10 +33,7 @@ class LoginPage extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               height: 50,
-              child: ElevatedButton(
-                onPressed: () {},
-                child: Text("Entrar"),
-              ),
+              child: ElevatedButton(onPressed: () {}, child: Text("Entrar")),
             ),
           ],
         ),

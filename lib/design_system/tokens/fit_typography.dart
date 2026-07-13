@@ -32,7 +32,7 @@ abstract final class FitTypography {
     fontSize: 12,
     fontWeight: FontWeight.w600,
     color: FitColors.textSecondary,
-    letterSpacing: 0.4,
+    letterSpacing: 0,
   );
   static const caption = TextStyle(
     fontSize: 11,
@@ -71,6 +71,19 @@ abstract final class FitTypography {
       height: 1.4,
     ),
     labelLarge: label,
+    labelMedium: TextStyle(
+      fontSize: 12,
+      fontWeight: FontWeight.w600,
+      color: FitColors.textSecondary,
+      letterSpacing: 0,
+    ),
     labelSmall: caption,
+    bodySmall: caption,
+    titleSmall: TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+      color: FitColors.textPrimary,
+      height: 1.3,
+    ),
   );
 }

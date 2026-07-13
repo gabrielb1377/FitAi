@@ -16,18 +16,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Editar Perfil"),
-      ),
+      appBar: AppBar(title: const Text("Editar Perfil")),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: ListView(
           children: [
             TextField(
               controller: nomeController,
-              decoration: const InputDecoration(
-                labelText: "Nome",
-              ),
+              decoration: const InputDecoration(labelText: "Nome"),
             ),
 
             const SizedBox(height: 15),
@@ -35,9 +31,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             TextField(
               controller: pesoController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: "Peso",
-              ),
+              decoration: const InputDecoration(labelText: "Peso"),
             ),
 
             const SizedBox(height: 15),
@@ -45,9 +39,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             TextField(
               controller: alturaController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: "Altura",
-              ),
+              decoration: const InputDecoration(labelText: "Altura"),
             ),
 
             const SizedBox(height: 15),
@@ -55,25 +47,22 @@ class _EditProfilePageState extends State<EditProfilePage> {
             TextField(
               controller: idadeController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: "Idade",
-              ),
+              decoration: const InputDecoration(labelText: "Idade"),
             ),
 
             const SizedBox(height: 30),
 
             ElevatedButton(
-             onPressed: () {
+              onPressed: () {
+                final dadosPerfil = {
+                  "nome": nomeController.text,
+                  "peso": pesoController.text,
+                  "altura": alturaController.text,
+                  "idade": idadeController.text,
+                };
 
-              final dadosPerfil = {
-                "nome": nomeController.text,
-                "peso": pesoController.text,
-                "altura": alturaController.text,
-                "idade": idadeController.text,
-              };
-
-              Navigator.pop(context, dadosPerfil);
-            },
+                Navigator.pop(context, dadosPerfil);
+              },
               child: const Text("Salvar"),
             ),
           ],
