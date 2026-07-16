@@ -3,6 +3,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 
+import '../design_system/tokens/fit_colors.dart';
+
 // ─────────────────────────────────────────────
 //  PALETA DE CORES
 // ─────────────────────────────────────────────
@@ -17,30 +19,30 @@ class AppColors {
   static const rankDiamante = Color(0xFF00BCD4);
 
   // Primária — verde energia (inspirado Nike/Strava)
-  static const primary = Color(0xFF00E676);
-  static const primaryDark = Color(0xFF00C853);
-  static const primaryLight = Color(0xFF69F0AE);
+  static const primary = FitColors.primary;
+  static const primaryDark = FitColors.primaryDark;
+  static const primaryLight = FitColors.primaryLight;
 
   // Fundo
-  static const background = Color(0xFF070808);
-  static const surface = Color(0xFF101312);
-  static const surfaceVariant = Color(0xFF191D1B);
-  static const surfaceElevated = Color(0xFF202622);
+  static const background = FitColors.background;
+  static const surface = FitColors.surface;
+  static const surfaceVariant = FitColors.surfaceVariant;
+  static const surfaceElevated = FitColors.surfaceElevated;
   static const card = Color(0xFF151917);
-  static const outline = Color(0xFF2A332E);
-  static const outlineSoft = Color(0xFF1F2823);
+  static const outline = FitColors.outline;
+  static const outlineSoft = FitColors.outlineSoft;
 
   // Texto
-  static const textPrimary = Color(0xFFFFFFFF);
-  static const textSecondary = Color(0xFFB1B8B3);
-  static const textHint = Color(0xFF717971);
+  static const textPrimary = FitColors.textPrimary;
+  static const textSecondary = FitColors.textSecondary;
+  static const textHint = FitColors.textHint;
 
   // Acentos
-  static const accent1 = Color(0xFF448AFF); // azul
+  static const accent1 = FitColors.ai; // azul
   static const accent2 = Color(0xFFFF6D00); // laranja
   static const accent3 = Color(0xFFE040FB); // roxo
-  static const danger = Color(0xFFFF5C7A);
-  static const warning = Color(0xFFFFC857);
+  static const danger = FitColors.danger;
+  static const warning = FitColors.warning;
 
   // Gradientes
   static const gradientPrimary = LinearGradient(

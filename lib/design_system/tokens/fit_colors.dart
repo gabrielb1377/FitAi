@@ -14,22 +14,32 @@ abstract final class FitColors {
   static const surface = Color(0xFF101312);
   static const surfaceVariant = Color(0xFF191D1B);
   static const surfaceElevated = Color(0xFF202622);
+  static const surfaceSubtle = surfaceVariant;
   static const outline = Color(0xFF2A332E);
   static const outlineSoft = Color(0xFF1F2823);
+  static const border = outline;
+  static const divider = outlineSoft;
+  static const overlay = Color(0x99000000);
 
   static const textPrimary = Color(0xFFFFFFFF);
   static const textSecondary = Color(0xFFB1B8B3);
   static const textHint = Color(0xFF717971);
+  static const textDisabled = Color(0x61717971);
 
   static const info = Color(0xFF448AFF);
   static const ai = info;
   static const warning = Color(0xFFFFC857);
   static const danger = Color(0xFFFF5C7A);
+  static const error = danger;
   static const success = primary;
   static const running = Color(0xFFFF8A50);
   static const energy = running;
   static const steps = info;
   static const achievement = Color(0xFFFF9F43);
+
+  static const primaryContainer = Color(0x2400E676);
+  static const aiContainer = Color(0x24448AFF);
+  static const achievementContainer = Color(0x24FF9F43);
 
   static const onPrimary = Colors.black;
   static const onInfo = Colors.white;
@@ -38,6 +48,8 @@ abstract final class FitColors {
   static const colorScheme = ColorScheme.dark(
     primary: primary,
     onPrimary: onPrimary,
+    primaryContainer: primaryContainer,
+    onPrimaryContainer: primary,
     secondary: info,
     onSecondary: onInfo,
     tertiary: achievement,

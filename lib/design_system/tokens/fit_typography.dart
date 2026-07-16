@@ -40,6 +40,13 @@ abstract final class FitTypography {
     color: FitColors.textHint,
     height: 1.3,
   );
+  static const metric = TextStyle(
+    fontSize: 32,
+    fontWeight: FontWeight.w800,
+    color: FitColors.textPrimary,
+    height: 1.12,
+    fontFeatures: [FontFeature.tabularFigures()],
+  );
 
   static const textTheme = TextTheme(
     displayLarge: display,
@@ -49,6 +56,7 @@ abstract final class FitTypography {
       color: FitColors.textPrimary,
       height: 1.12,
     ),
+    displaySmall: metric,
     headlineLarge: headline,
     headlineMedium: TextStyle(
       fontSize: 22,
@@ -56,6 +64,7 @@ abstract final class FitTypography {
       color: FitColors.textPrimary,
       height: 1.25,
     ),
+    headlineSmall: title,
     titleLarge: title,
     titleMedium: TextStyle(
       fontSize: 16,
