@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/app_theme.dart';
+import '../../design_system/components/fit_bottom_navigation.dart';
 import '../app_router.dart';
 
+/// Fachada legada para consumidores que ainda importam a navegacao antiga.
+///
+/// A shell oficial usa [FitBottomNavigation] diretamente. Este wrapper preserva
+/// o contrato anterior sem manter duas implementacoes visuais em paralelo.
 class AppBottomNavigation extends StatelessWidget {
   final int selectedIndex;
   final List<AppRouteDestination> destinations;
@@ -17,43 +21,17 @@ class AppBottomNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: AppColors.surface.withAlpha(242),
-            borderRadius: BorderRadius.circular(AppRadii.xl),
-            border: Border.all(color: const Color(0xFF2A2A2A)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withAlpha(90),
-                blurRadius: 22,
-                offset: const Offset(0, 10),
-              ),
-            ],
+    return FitBottomNavigation(
+      selectedIndex: selectedIndex,
+      onSelected: onDestinationSelected,
+      destinations: [
+        for (final destination in destinations)
+          FitNavigationDestination(
+            label: destination.label,
+            icon: destination.icon,
+            selectedIcon: destination.selectedIcon,
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(AppRadii.xl),
-            child: BottomNavigationBar(
-              currentIndex: selectedIndex,
-              onTap: onDestinationSelected,
-              type: BottomNavigationBarType.fixed,
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              items: [
-                for (final destination in destinations)
-                  BottomNavigationBarItem(
-                    icon: Icon(destination.icon),
-                    activeIcon: Icon(destination.selectedIcon),
-                    label: destination.label,
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
+      ],
     );
   }
 }

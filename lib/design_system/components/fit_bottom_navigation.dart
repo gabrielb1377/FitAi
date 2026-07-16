@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../tokens/fit_duration.dart';
 import '../tokens/fit_elevation.dart';
 import '../tokens/fit_radius.dart';
 import '../tokens/fit_spacing.dart';
@@ -9,11 +10,17 @@ class FitNavigationDestination {
   final String label;
   final IconData icon;
   final IconData? selectedIcon;
+  final Widget? badge;
+  final String? badgeSemanticLabel;
+  final bool enabled;
 
   const FitNavigationDestination({
     required this.label,
     required this.icon,
     this.selectedIcon,
+    this.badge,
+    this.badgeSemanticLabel,
+    this.enabled = true,
   });
 }
 
@@ -43,28 +50,31 @@ class FitBottomNavigation extends StatelessWidget {
         FitSpacing.s12,
         FitSpacing.s8,
       ),
-      child: Material(
-        color: colors.surface,
-        shape: RoundedRectangleBorder(
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
           borderRadius: FitRadius.largeBorder,
-          side: BorderSide(color: colors.outlineVariant),
+          boxShadow: FitElevation.level1,
         ),
-        child: DecoratedBox(
-          decoration: const BoxDecoration(
+        child: Material(
+          color: colors.surface,
+          shape: RoundedRectangleBorder(
             borderRadius: FitRadius.largeBorder,
-            boxShadow: FitElevation.level2,
+            side: BorderSide(color: colors.outlineVariant),
           ),
-          child: Row(
-            children: [
-              for (var index = 0; index < destinations.length; index++)
-                Expanded(
-                  child: _Destination(
-                    destination: destinations[index],
-                    selected: index == selectedIndex,
-                    onTap: () => onSelected(index),
+          child: ClipRRect(
+            borderRadius: FitRadius.largeBorder,
+            child: Row(
+              children: [
+                for (var index = 0; index < destinations.length; index++)
+                  Expanded(
+                    child: _Destination(
+                      destination: destinations[index],
+                      selected: index == selectedIndex,
+                      onTap: () => onSelected(index),
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -86,13 +96,20 @@ class _Destination extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final color = selected ? colors.primary : colors.onSurfaceVariant;
+    final enabled = destination.enabled;
+    final color = !enabled
+        ? colors.onSurfaceVariant.withAlpha(96)
+        : selected
+        ? colors.primary
+        : colors.onSurfaceVariant;
     return Semantics(
       button: true,
       selected: selected,
+      enabled: enabled,
       label: destination.label,
+      hint: selected ? 'Aba selecionada' : 'Abrir aba',
       child: InkWell(
-        onTap: onTap,
+        onTap: enabled ? onTap : null,
         borderRadius: FitRadius.mediumBorder,
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 64),
@@ -101,21 +118,48 @@ class _Destination extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  selected
-                      ? destination.selectedIcon ?? destination.icon
-                      : destination.icon,
-                  color: color,
-                  size: 22,
+                AnimatedScale(
+                  scale: selected ? 1 : .94,
+                  duration: FitDuration.fast,
+                  curve: FitDuration.curve,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Icon(
+                        selected
+                            ? destination.selectedIcon ?? destination.icon
+                            : destination.icon,
+                        color: color,
+                        size: 22,
+                      ),
+                      if (destination.badge != null)
+                        Positioned(
+                          top: -6,
+                          right: -8,
+                          child: Semantics(
+                            label: destination.badgeSemanticLabel,
+                            child: destination.badge!,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: FitSpacing.s4),
-                Text(
-                  destination.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: color,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                SizedBox(
+                  height: 16,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: AnimatedDefaultTextStyle(
+                      duration: FitDuration.fast,
+                      curve: FitDuration.curve,
+                      style: Theme.of(context).textTheme.labelSmall!.copyWith(
+                        color: color,
+                        fontWeight: selected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
+                      child: Text(destination.label, maxLines: 1),
+                    ),
                   ),
                 ),
               ],

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../screens/atividades_page.dart';
-import '../screens/estatisticas/stats_page.dart';
+import '../screens/exercicios/biblioteca_exercicios_page.dart';
 import '../screens/home/home_page.dart';
 import '../screens/perfil/perfil_page.dart';
 import '../screens/treinos/treinos_page.dart';
@@ -71,8 +71,13 @@ class AppRouter {
       label: 'Planos',
     ),
     AppRouteDestination(
-      icon: Icons.monitor_heart_outlined,
-      selectedIcon: Icons.monitor_heart_rounded,
+      icon: Icons.grid_view_outlined,
+      selectedIcon: Icons.grid_view_rounded,
+      label: 'Biblioteca',
+    ),
+    AppRouteDestination(
+      icon: Icons.directions_run_outlined,
+      selectedIcon: Icons.directions_run_rounded,
       label: 'Atividades',
     ),
     AppRouteDestination(
@@ -80,16 +85,12 @@ class AppRouter {
       selectedIcon: Icons.person_rounded,
       label: 'Perfil',
     ),
-    AppRouteDestination(
-      icon: Icons.bar_chart_outlined,
-      selectedIcon: Icons.bar_chart_rounded,
-      label: 'Stats',
-    ),
   ];
 
   static List<Widget> buildPages(AppRouteState state) {
     return [
       HomePage(
+        key: const PageStorageKey('tab-home'),
         nome: state.nome,
         distancia: state.distancia,
         passos: state.passos,
@@ -97,8 +98,13 @@ class AppRouter {
         nivel: state.nivel,
         onXpAtualizado: state.carregarDados,
       ),
-      TreinosPage(onXpAtualizado: state.carregarDados),
+      TreinosPage(
+        key: const PageStorageKey('tab-planos'),
+        onXpAtualizado: state.carregarDados,
+      ),
+      const BibliotecaExerciciosPage(key: PageStorageKey('tab-biblioteca')),
       AtividadesPage(
+        key: const PageStorageKey('tab-atividades'),
         passos: state.passos,
         distancia: state.distancia,
         velocidadeMedia: state.velocidadeMedia,
@@ -108,6 +114,7 @@ class AppRouter {
         pararCorrida: state.pararCorrida,
       ),
       PerfilPage(
+        key: const PageStorageKey('tab-perfil'),
         nome: state.nome,
         peso: state.peso,
         altura: state.altura,
@@ -117,7 +124,6 @@ class AppRouter {
         conquista10Km: state.conquista10Km,
         onPerfilAtualizado: state.carregarDados,
       ),
-      StatsPage(),
     ];
   }
 }

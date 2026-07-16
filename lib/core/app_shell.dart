@@ -2,12 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../design_system/components/fit_bottom_navigation.dart';
 import '../services/running_session_service.dart';
 import '../services/steps_service.dart';
 import '../services/storage_service.dart';
 import '../theme/app_theme.dart';
 import 'app_router.dart';
-import 'navigation/bottom_navigation.dart';
 import 'navigation/side_navigation.dart';
 
 class AppShell extends StatefulWidget {
@@ -191,40 +191,58 @@ class _AppNavigationFrameState extends State<AppNavigationFrame> {
 
   @override
   Widget build(BuildContext context) {
+    assert(widget.pages.isNotEmpty);
+    assert(widget.pages.length == widget.destinations.length);
     final index = widget.selectedIndex.clamp(0, widget.pages.length - 1);
+    final navigationDestinations = [
+      for (final destination in widget.destinations)
+        FitNavigationDestination(
+          label: destination.label,
+          icon: destination.icon,
+          selectedIcon: destination.selectedIcon,
+        ),
+    ];
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final useSideNavigation = constraints.maxWidth >= 840;
-        final page = IndexedStack(index: index, children: widget.pages);
+    return PopScope<void>(
+      canPop: index == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && index != 0) {
+          widget.onDestinationSelected(0);
+        }
+      },
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final useSideNavigation = constraints.maxWidth >= 840;
+          final page = IndexedStack(index: index, children: widget.pages);
 
-        if (useSideNavigation) {
+          if (useSideNavigation) {
+            return Scaffold(
+              backgroundColor: AppColors.background,
+              body: Row(
+                children: [
+                  AppSideNavigation(
+                    selectedIndex: index,
+                    destinations: widget.destinations,
+                    onDestinationSelected: widget.onDestinationSelected,
+                  ),
+                  const VerticalDivider(width: 1),
+                  Expanded(child: page),
+                ],
+              ),
+            );
+          }
+
           return Scaffold(
             backgroundColor: AppColors.background,
-            body: Row(
-              children: [
-                AppSideNavigation(
-                  selectedIndex: index,
-                  destinations: AppRouter.destinations,
-                  onDestinationSelected: widget.onDestinationSelected,
-                ),
-                const VerticalDivider(width: 1),
-                Expanded(child: page),
-              ],
+            body: page,
+            bottomNavigationBar: FitBottomNavigation(
+              selectedIndex: index,
+              destinations: navigationDestinations,
+              onSelected: widget.onDestinationSelected,
             ),
           );
-        }
-
-        return Scaffold(
-          backgroundColor: AppColors.background,
-          body: page,
-          bottomNavigationBar: AppBottomNavigation(
-            selectedIndex: index,
-            destinations: widget.destinations,
-            onDestinationSelected: widget.onDestinationSelected,
-          ),
-        );
-      },
+        },
+      ),
     );
   }
 }
