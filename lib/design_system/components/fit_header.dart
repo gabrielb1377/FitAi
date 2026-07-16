@@ -13,6 +13,7 @@ class FitHeader extends StatelessWidget {
   final String backTooltip;
   final Widget? avatar;
   final Widget? leading;
+  final Widget? trailing;
   final List<Widget> actions;
   final EdgeInsetsGeometry padding;
 
@@ -25,6 +26,7 @@ class FitHeader extends StatelessWidget {
     this.backTooltip = 'Voltar',
     this.avatar,
     this.leading,
+    this.trailing,
     this.actions = const [],
     this.padding = const EdgeInsets.fromLTRB(
       FitSpacing.s20,
@@ -76,6 +78,7 @@ class FitHeader extends StatelessWidget {
               ],
             ),
           ),
+          ?trailing,
           ...actions,
         ],
       ),

@@ -7,13 +7,19 @@ class FitSectionHeader extends StatelessWidget {
   final String title;
   final String? subtitle;
   final Widget? action;
+  final Widget? badge;
+  final VoidCallback? onViewAll;
+  final String viewAllLabel;
 
   const FitSectionHeader({
     super.key,
     required this.title,
     this.subtitle,
     this.action,
-  });
+    this.badge,
+    this.onViewAll,
+    this.viewAllLabel = 'Ver tudo',
+  }) : assert(action == null || onViewAll == null);
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +48,11 @@ class FitSectionHeader extends StatelessWidget {
             ],
           ),
         ),
-        if (action != null) ...[const SizedBox(width: FitSpacing.s12), action!],
+        if (badge != null) ...[const SizedBox(width: FitSpacing.s8), badge!],
+        if (action != null || onViewAll != null) ...[
+          const SizedBox(width: FitSpacing.s12),
+          action ?? TextButton(onPressed: onViewAll, child: Text(viewAllLabel)),
+        ],
       ],
     );
   }

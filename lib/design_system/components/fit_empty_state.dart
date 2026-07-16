@@ -13,6 +13,8 @@ class FitEmptyState extends StatelessWidget {
   final String description;
   final String? actionLabel;
   final VoidCallback? onAction;
+  final String? secondaryActionLabel;
+  final VoidCallback? onSecondaryAction;
 
   const FitEmptyState({
     super.key,
@@ -22,8 +24,11 @@ class FitEmptyState extends StatelessWidget {
     required this.description,
     this.actionLabel,
     this.onAction,
+    this.secondaryActionLabel,
+    this.onSecondaryAction,
   }) : assert(icon == null || image == null),
-       assert((actionLabel == null) == (onAction == null));
+       assert((actionLabel == null) == (onAction == null)),
+       assert((secondaryActionLabel == null) == (onSecondaryAction == null));
 
   @override
   Widget build(BuildContext context) {
@@ -57,6 +62,14 @@ class FitEmptyState extends StatelessWidget {
               if (onAction != null) ...[
                 const SizedBox(height: FitSpacing.s20),
                 FitButton(label: actionLabel!, onPressed: onAction),
+              ],
+              if (onSecondaryAction != null) ...[
+                const SizedBox(height: FitSpacing.s8),
+                FitButton(
+                  label: secondaryActionLabel!,
+                  onPressed: onSecondaryAction,
+                  variant: FitButtonVariant.ghost,
+                ),
               ],
             ],
           ),

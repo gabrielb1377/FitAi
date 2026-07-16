@@ -11,6 +11,7 @@ não autoriza a migração automática das telas existentes.
 - `extensions/`: atalhos seguros de `BuildContext` para tema, tokens e viewport.
 - `components/`: widgets `Fit*` reutilizáveis.
 - `animations/`: helpers de movimento curto e acessível.
+- `catalog/`: página compilável de demonstração, sem rota de produção.
 
 ## Uso em novos componentes
 
@@ -23,6 +24,29 @@ import 'package:fitai/design_system/fit_design_system.dart';
 Use `FitColors`, `FitSpacing`, `FitRadius`, `FitTypography` e `FitDuration`.
 Quando houver contexto, `context.fitColors`, `context.fitText` e os helpers de
 breakpoint evitam valores locais e leituras ambíguas.
+
+O barrel dos componentes está em `components/components.dart`; o ponto de
+entrada `fit_design_system.dart` também o exporta.
+
+## Categorias principais
+
+- Ações: `FitButton`, `FitIconButton` e `FitFeedback`.
+- Superfícies: `FitCard`, cards especializados e `FitStatCard`.
+- Entrada: `FitSearchField`, `FitTextField`, `FitNumberField`,
+  `FitPasswordField` e `FitDropdownField`.
+- Estado: `FitLoading`, `FitSkeleton`, `FitEmptyState`, `FitErrorState`,
+  `FitOfflineState` e `FitSuccessState`.
+- Feedback e overlays: `FitDialog`, `FitConfirmDialog`, `FitBottomSheet` e
+  `FitActionSheet`.
+- Métricas e progresso: `FitMetric`, `FitMetricRow`, `FitProgressBar`,
+  `FitCircularProgress`, `FitStepProgress` e `FitGoalProgress`.
+
+## Catálogo de desenvolvimento
+
+`catalog/design_system_catalog_page.dart` pode ser aberto apenas por uma rota
+de desenvolvimento criada em sprint específica. Não o inclua na Bottom
+Navigation ou em fluxos de produção. O catálogo não acessa backend, providers
+ou serviços de domínio.
 
 ## Migração gradual
 

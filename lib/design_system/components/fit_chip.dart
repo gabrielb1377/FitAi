@@ -12,6 +12,7 @@ class FitChip extends FitFilterChip {
     super.onSelected,
     super.icon,
     super.enabled,
+    super.variant,
   });
 }
 
@@ -24,6 +25,7 @@ class FitFilterChip extends StatelessWidget {
   final ValueChanged<bool>? onSelected;
   final IconData? icon;
   final bool enabled;
+  final FitChipVariant variant;
 
   const FitFilterChip({
     super.key,
@@ -32,11 +34,17 @@ class FitFilterChip extends StatelessWidget {
     this.onSelected,
     this.icon,
     this.enabled = true,
+    this.variant = FitChipVariant.filter,
   });
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final selectedColor = switch (variant) {
+      FitChipVariant.status => colors.tertiaryContainer,
+      FitChipVariant.difficulty => colors.secondaryContainer,
+      _ => colors.primaryContainer,
+    };
     return FilterChip(
       label: Text(label),
       selected: selected,
@@ -47,6 +55,9 @@ class FitFilterChip extends StatelessWidget {
       shape: const RoundedRectangleBorder(borderRadius: FitRadius.pillBorder),
       side: BorderSide(color: colors.outlineVariant),
       padding: const EdgeInsets.symmetric(horizontal: FitSpacing.s8),
+      selectedColor: selectedColor,
     );
   }
 }
+
+enum FitChipVariant { filter, tag, status, difficulty, selectable }

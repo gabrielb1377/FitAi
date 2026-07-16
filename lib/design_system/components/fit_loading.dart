@@ -47,3 +47,8 @@ class FitLoading extends StatelessWidget {
 }
 
 enum FitLoadingLayout { inline, fullScreen }
+
+/// Alias explicito para carregamento que ocupa somente o espaco do conteudo.
+class FitInlineLoading extends FitLoading {
+  const FitInlineLoading({super.key, super.label, super.size}) : super.inline();
+}

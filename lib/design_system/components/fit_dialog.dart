@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../tokens/fit_radius.dart';
 import '../tokens/fit_spacing.dart';
+import 'fit_button.dart';
 
 /// Dialog FitIA para confirmacoes curtas e decisoes criticas.
 class FitDialog extends StatelessWidget {
@@ -83,6 +84,71 @@ class FitDialog extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Confirmacao curta para acoes importantes ou destrutivas.
+class FitConfirmDialog extends StatelessWidget {
+  const FitConfirmDialog({
+    super.key,
+    required this.title,
+    required this.message,
+    this.confirmLabel = 'Confirmar',
+    this.cancelLabel = 'Cancelar',
+    this.isDestructive = false,
+  });
+
+  final String title;
+  final String message;
+  final String confirmLabel;
+  final String cancelLabel;
+  final bool isDestructive;
+
+  static Future<bool?> show({
+    required BuildContext context,
+    required String title,
+    required String message,
+    String confirmLabel = 'Confirmar',
+    String cancelLabel = 'Cancelar',
+    bool isDestructive = false,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      builder: (_) => FitConfirmDialog(
+        title: title,
+        message: message,
+        confirmLabel: confirmLabel,
+        cancelLabel: cancelLabel,
+        isDestructive: isDestructive,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FitDialog(
+      title: title,
+      message: message,
+      icon: isDestructive
+          ? Icons.warning_amber_rounded
+          : Icons.help_outline_rounded,
+      actions: [
+        FitButton(
+          label: cancelLabel,
+          onPressed: () => Navigator.of(context).pop(false),
+          variant: FitButtonVariant.ghost,
+          size: FitButtonSize.compact,
+        ),
+        FitButton(
+          label: confirmLabel,
+          onPressed: () => Navigator.of(context).pop(true),
+          variant: isDestructive
+              ? FitButtonVariant.danger
+              : FitButtonVariant.primary,
+          size: FitButtonSize.compact,
+        ),
+      ],
     );
   }
 }

@@ -112,3 +112,79 @@ class FitBottomSheet extends StatelessWidget {
     );
   }
 }
+
+/// Opcao simples para [FitActionSheet]. O chamador decide a navegacao ou a
+/// logica de dominio por meio de [onTap].
+class FitActionSheetItem {
+  const FitActionSheetItem({
+    required this.label,
+    required this.icon,
+    this.description,
+    this.onTap,
+    this.isDestructive = false,
+    this.enabled = true,
+  });
+
+  final String label;
+  final IconData icon;
+  final String? description;
+  final VoidCallback? onTap;
+  final bool isDestructive;
+  final bool enabled;
+}
+
+/// Bottom sheet para uma lista curta de acoes contextuais.
+class FitActionSheet extends StatelessWidget {
+  const FitActionSheet({
+    super.key,
+    required this.items,
+    this.title,
+    this.subtitle,
+  });
+
+  final List<FitActionSheetItem> items;
+  final String? title;
+  final String? subtitle;
+
+  static Future<T?> show<T>({
+    required BuildContext context,
+    required List<FitActionSheetItem> items,
+    String? title,
+    String? subtitle,
+  }) {
+    return FitBottomSheet.show<T>(
+      context: context,
+      title: title,
+      subtitle: subtitle,
+      child: FitActionSheet(items: items),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return ListView.separated(
+      shrinkWrap: true,
+      primary: false,
+      itemCount: items.length,
+      separatorBuilder: (_, _) => const Divider(),
+      itemBuilder: (context, index) {
+        final item = items[index];
+        final color = item.isDestructive ? colors.error : colors.onSurface;
+        return Semantics(
+          button: true,
+          enabled: item.enabled && item.onTap != null,
+          label: item.label,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            enabled: item.enabled && item.onTap != null,
+            leading: Icon(item.icon, color: color),
+            title: Text(item.label),
+            subtitle: item.description == null ? null : Text(item.description!),
+            onTap: item.enabled ? item.onTap : null,
+          ),
+        );
+      },
+    );
+  }
+}

@@ -43,6 +43,22 @@ class FitBadge extends StatelessWidget {
       tone = FitBadgeTone.info,
       icon = Icons.science_outlined;
 
+  const FitBadge.success({super.key, this.label = 'Concluido', this.icon})
+    : tone = FitBadgeTone.success;
+
+  const FitBadge.warning({super.key, this.label = 'Atencao', this.icon})
+    : tone = FitBadgeTone.warning;
+
+  const FitBadge.error({super.key, this.label = 'Erro', this.icon})
+    : tone = FitBadgeTone.danger;
+
+  const FitBadge.custom({
+    super.key,
+    required this.label,
+    required this.tone,
+    this.icon,
+  });
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;

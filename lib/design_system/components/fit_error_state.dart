@@ -13,6 +13,8 @@ class FitErrorState extends StatelessWidget {
   final String? details;
   final VoidCallback? onRetry;
   final String retryLabel;
+  final String? secondaryActionLabel;
+  final VoidCallback? onSecondaryAction;
 
   const FitErrorState({
     super.key,
@@ -22,7 +24,9 @@ class FitErrorState extends StatelessWidget {
     this.details,
     this.onRetry,
     this.retryLabel = 'Tentar novamente',
-  });
+    this.secondaryActionLabel,
+    this.onSecondaryAction,
+  }) : assert((secondaryActionLabel == null) == (onSecondaryAction == null));
 
   @override
   Widget build(BuildContext context) {
@@ -65,6 +69,14 @@ class FitErrorState extends StatelessWidget {
                   icon: Icons.refresh_rounded,
                   onPressed: onRetry,
                   variant: FitButtonVariant.outlined,
+                ),
+              ],
+              if (onSecondaryAction != null) ...[
+                const SizedBox(height: FitSpacing.s8),
+                FitButton(
+                  label: secondaryActionLabel!,
+                  onPressed: onSecondaryAction,
+                  variant: FitButtonVariant.ghost,
                 ),
               ],
             ],

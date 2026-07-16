@@ -5,27 +5,36 @@ import '../tokens/fit_spacing.dart';
 
 /// Metrica horizontal sem card para linhas de resumo densas.
 class FitHorizontalMetric extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  final String? detail;
-  final Color? color;
-
   const FitHorizontalMetric({
     super.key,
     required this.label,
     required this.value,
     required this.icon,
     this.detail,
+    this.unit,
+    this.trend,
     this.color,
-  });
+    this.isLoading = false,
+    this.unavailable = false,
+  }) : assert(!isLoading || !unavailable);
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final String? detail;
+  final String? unit;
+  final String? trend;
+  final Color? color;
+  final bool isLoading;
+  final bool unavailable;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final accent = color ?? colors.primary;
     return Semantics(
-      label: '$label: $value${detail == null ? '' : ', $detail'}',
+      label:
+          '$label: ${unavailable ? 'Indisponivel' : value}${detail == null ? '' : ', $detail'}',
       child: Row(
         children: [
           Container(
@@ -55,19 +64,35 @@ class FitHorizontalMetric extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
+                if (trend != null)
+                  Text(
+                    trend!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: accent),
+                  ),
               ],
             ),
           ),
           const SizedBox(width: FitSpacing.s8),
-          Flexible(
-            child: Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.end,
-              style: Theme.of(context).textTheme.titleMedium,
+          if (isLoading)
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            Flexible(
+              child: Text(
+                unavailable ? '--' : '$value${unit == null ? '' : ' $unit'}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.end,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
             ),
-          ),
         ],
       ),
     );
