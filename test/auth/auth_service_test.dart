@@ -1,0 +1,137 @@
+import 'dart:convert';
+
+import 'package:fitai/features/auth/data/auth_service.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  test('primeira abertura sem sessao inicia o onboarding', () async {
+    final service = AuthService(client: MockClient((_) async => _ok()));
+
+    expect(
+      await service.resolveLaunchDestination(),
+      AuthLaunchDestination.onboarding,
+    );
+
+    await service.completeOnboarding();
+    expect(
+      await service.resolveLaunchDestination(),
+      AuthLaunchDestination.login,
+    );
+  });
+
+  test('login usa contrato do backend e restaura sessao local', () async {
+    late http.Request captured;
+    final service = AuthService(
+      client: MockClient((request) async {
+        captured = request;
+        return _ok();
+      }),
+    );
+
+    final session = await service.login(
+      email: 'gabriel@fitia.app',
+      password: '123456',
+    );
+
+    expect(captured.url.path, '/auth/login');
+    expect(jsonDecode(captured.body), {
+      'email': 'gabriel@fitia.app',
+      'password': '123456',
+    });
+    expect(session.name, 'Gabriel');
+    expect((await service.restoreSession())?.email, 'gabriel@fitia.app');
+    expect(
+      await service.resolveLaunchDestination(),
+      AuthLaunchDestination.appShell,
+    );
+  });
+
+  test('cadastro envia somente o contrato aceito pelo backend', () async {
+    late http.Request captured;
+    final service = AuthService(
+      client: MockClient((request) async {
+        captured = request;
+        return _ok(statusCode: 201);
+      }),
+    );
+
+    await service.register(
+      name: 'Gabriel',
+      email: 'gabriel@fitia.app',
+      password: '123456',
+    );
+
+    expect(captured.url.path, '/auth/register');
+    expect(jsonDecode(captured.body), {
+      'name': 'Gabriel',
+      'email': 'gabriel@fitia.app',
+      'password': '123456',
+    });
+  });
+
+  test('credenciais invalidas recebem mensagem segura', () async {
+    final service = AuthService(
+      client: MockClient(
+        (_) async =>
+            http.Response(jsonEncode({'error': 'invalid_credentials'}), 401),
+      ),
+    );
+
+    await expectLater(
+      service.login(email: 'gabriel@fitia.app', password: 'invalida'),
+      throwsA(
+        isA<AuthException>()
+            .having(
+              (error) => error.kind,
+              'kind',
+              AuthFailureKind.invalidCredentials,
+            )
+            .having(
+              (error) => error.message,
+              'message',
+              'E-mail ou senha incorretos.',
+            ),
+      ),
+    );
+  });
+
+  test('sessao expirada e descartada antes de abrir o aplicativo', () async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'fitai.auth.session.v1',
+      jsonEncode({
+        'userId': 'user-1',
+        'name': 'Gabriel',
+        'email': 'gabriel@fitia.app',
+        'token': _token(expiry: DateTime(2020)),
+      }),
+    );
+    final service = AuthService(client: MockClient((_) async => _ok()));
+
+    expect(await service.restoreSession(), isNull);
+    expect(
+      await service.resolveLaunchDestination(),
+      AuthLaunchDestination.onboarding,
+    );
+  });
+}
+
+http.Response _ok({int statusCode = 200}) => http.Response(
+  jsonEncode({
+    'token': _token(),
+    'user': {'id': 'user-1', 'name': 'Gabriel', 'email': 'gabriel@fitia.app'},
+  }),
+  statusCode,
+);
+
+String _token({DateTime? expiry}) {
+  String encode(Object value) =>
+      base64Url.encode(utf8.encode(jsonEncode(value))).replaceAll('=', '');
+  final expiresAt = expiry ?? DateTime.now().add(const Duration(days: 7));
+  return '${encode({'alg': 'none'})}.${encode({'exp': expiresAt.millisecondsSinceEpoch ~/ 1000})}.signature';
+}

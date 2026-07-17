@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'screens/dashboard_page.dart';
+import 'features/auth/presentation/pages/auth_splash_page.dart';
 import 'theme/app_theme.dart';
 
 void main() {
@@ -26,7 +26,7 @@ class FitAI extends StatelessWidget {
       title: 'FitIA',
       theme: AppTheme.dark,
       scrollBehavior: const AppScrollBehavior(),
-      home: const DashboardPage(),
+      home: const AuthSplashPage(),
     );
   }
 }
