@@ -32,6 +32,17 @@ void main() {
     expect(find.byType(LoginPage), findsOneWidget);
   });
 
+  testWidgets('splash sem bypass preserva a entrada normal', (tester) async {
+    await tester.pumpWidget(
+      _host(AuthSplashPage(authService: AuthService(bypassLogin: false))),
+    );
+
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(find.byType(OnboardingPage), findsOneWidget);
+  });
+
   testWidgets('onboarding persiste conclusao e segue para login', (
     tester,
   ) async {

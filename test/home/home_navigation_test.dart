@@ -1,4 +1,5 @@
 import 'package:fitai/features/home/presentation/controllers/home_controller.dart';
+import 'package:fitai/core/config/dev_data.dart';
 import 'package:fitai/features/home/presentation/pages/home_coach_page.dart';
 import 'package:fitai/features/home/presentation/pages/home_goals_page.dart';
 import 'package:fitai/features/home/presentation/pages/home_page.dart';
@@ -61,6 +62,7 @@ Future<void> _pumpHome(WidgetTester tester) async {
     achievementsLoader: () async => const [],
     notificationsLoader: () async => const [],
     networkCheck: () async => true,
+    devDataLoader: () async => const DevRuntimeData.disabled(),
   );
   addTearDown(controller.dispose);
   await tester.pumpWidget(

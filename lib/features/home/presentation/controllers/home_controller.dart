@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/config/dev_data.dart';
+import '../../../../core/config/dev_fixtures.dart';
 import '../../../../models/achievement_model.dart';
 import '../../../../models/coach_insight_model.dart';
 import '../../../../models/fitai_meta_model.dart';
@@ -24,6 +26,8 @@ typedef HomeAchievementsLoader = Future<List<AchievementModel>> Function();
 typedef HomeNotificationsLoader =
     Future<List<FitaiNotificationModel>> Function();
 typedef HomeNetworkCheck = Future<bool> Function();
+typedef HomeWorkoutsLoader = Future<List<TreinoModel>> Function();
+typedef HomeDevDataLoader = Future<DevRuntimeData> Function();
 
 class HomeController extends ChangeNotifier {
   HomeController({
@@ -33,6 +37,8 @@ class HomeController extends ChangeNotifier {
     HomeAchievementsLoader? achievementsLoader,
     HomeNotificationsLoader? notificationsLoader,
     HomeNetworkCheck? networkCheck,
+    HomeWorkoutsLoader? workoutsLoader,
+    HomeDevDataLoader? devDataLoader,
   }) : _historyLoader =
            historyLoader ?? StorageService.carregarHistoricoTreinos,
        _coachLoader =
@@ -44,6 +50,8 @@ class HomeController extends ChangeNotifier {
            notificationsLoader ??
            const NotificationService().carregarNotificacoes,
        _networkCheck = networkCheck ?? NetworkService().isBackendAvailable,
+       _workoutsLoader = workoutsLoader ?? StorageService.carregarTreinos,
+       _devDataLoader = devDataLoader ?? const DevDataService().resolve,
        _state = HomeState.initial(
          const TreinoDoDiaService().selecionarTreinoDoDiaDetalhado(
            const [],
@@ -57,6 +65,8 @@ class HomeController extends ChangeNotifier {
   final HomeAchievementsLoader _achievementsLoader;
   final HomeNotificationsLoader _notificationsLoader;
   final HomeNetworkCheck _networkCheck;
+  final HomeWorkoutsLoader _workoutsLoader;
+  final HomeDevDataLoader _devDataLoader;
   HomeState _state;
   bool _loading = false;
 
@@ -97,9 +107,15 @@ class HomeController extends ChangeNotifier {
 
     try {
       final history = await _historyLoader();
+      final devData = await _devDataLoader();
+      final availableWorkouts = await _resolveWorkouts(workouts);
+      if (devData.useFixtureHome) {
+        _applyFixtures(devData, availableWorkouts, history);
+        return;
+      }
       final recommendationFuture = IaEvolutivaService.instance
           .gerarRecomendacao(
-            treinosDisponiveis: workouts,
+            treinosDisponiveis: availableWorkouts,
             historico: history,
             xpAtual: xp,
             nivelAtual: level,
@@ -114,7 +130,7 @@ class HomeController extends ChangeNotifier {
       final notifications = await _notificationsLoader();
       final streakService = const StreakService();
       final selection = const TreinoDoDiaService()
-          .selecionarTreinoDoDiaDetalhado(workouts, history);
+          .selecionarTreinoDoDiaDetalhado(availableWorkouts, history);
 
       _state = HomeState(
         status: HomeLoadStatus.ready,
@@ -148,6 +164,63 @@ class HomeController extends ChangeNotifier {
       }
       notifyListeners();
     }
+  }
+
+  Future<List<TreinoModel>> _resolveWorkouts(List<TreinoModel> workouts) async {
+    final merged = <String, TreinoModel>{
+      for (final workout in workouts) workout.id: workout,
+    };
+    if (merged.isEmpty) {
+      for (final workout in await _workoutsLoader()) {
+        merged[workout.id] = workout;
+      }
+    }
+    return merged.values.toList(growable: false);
+  }
+
+  void _applyFixtures(
+    DevRuntimeData devData,
+    List<TreinoModel> availableWorkouts,
+    List<HistoricoTreinoModel> existingHistory,
+  ) {
+    final useFakeWorkout = devData.useFakeWorkout && availableWorkouts.isEmpty;
+    final workouts = useFakeWorkout ? DevFixtures.workouts : availableWorkouts;
+    final history = existingHistory.isNotEmpty
+        ? existingHistory
+        : useFakeWorkout
+        ? DevFixtures.workoutHistory
+        : existingHistory;
+    final selection = const TreinoDoDiaService().selecionarTreinoDoDiaDetalhado(
+      workouts,
+      history,
+    );
+    final streakService = const StreakService();
+    final selectedWorkout = selection.treino;
+
+    _state = HomeState(
+      status: HomeLoadStatus.ready,
+      selection: selection,
+      history: history,
+      coachInsights: devData.useFakeCoach
+          ? DevFixtures.coachInsights
+          : const [],
+      goals: devData.useFakeGoals
+          ? DevFixtures.goals
+          : const FitaiMetasResumo(metas: []),
+      achievements: devData.useFakeAchievements
+          ? DevFixtures.achievements
+          : const [],
+      notifications: devData.useFakeNotifications
+          ? DevFixtures.notifications
+          : const [],
+      recommendation: selectedWorkout == null || !devData.useFakeCoach
+          ? null
+          : DevFixtures.recommendation(selectedWorkout),
+      workoutsThisWeek: streakService.treinosNaSemana(history),
+      weeklyXp: streakService.xpTreinosNaSemana(history),
+      currentStreak: streakService.calcularStreak(history).atual,
+      lastUpdatedAt: DateTime.now(),
+    );
   }
 
   void _debugLog(String message) {

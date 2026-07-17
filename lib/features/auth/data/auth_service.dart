@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/api/api_config.dart';
+import '../../../core/config/dev_config.dart';
 
 enum AuthLaunchDestination { onboarding, login, appShell }
 
@@ -70,14 +71,20 @@ class AuthSession {
 /// Cliente de autenticacao que preserva sessao local e usa os contratos atuais
 /// do backend. Senhas e tokens nunca sao registrados em logs.
 class AuthService {
-  AuthService({http.Client? client}) : _client = client ?? http.Client();
+  AuthService({http.Client? client, bool? bypassLogin})
+    : _client = client ?? http.Client(),
+      _bypassLogin =
+          DevConfig.enabled && (bypassLogin ?? DevConfig.bypassLogin);
 
   static const _sessionKey = 'fitai.auth.session.v1';
   static const _onboardingKey = 'fitai.auth.onboarding.completed.v1';
 
   final http.Client _client;
+  final bool _bypassLogin;
 
   Future<AuthLaunchDestination> resolveLaunchDestination() async {
+    if (_bypassLogin) return AuthLaunchDestination.appShell;
+
     final session = await restoreSession();
     if (session != null) return AuthLaunchDestination.appShell;
 

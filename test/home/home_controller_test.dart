@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fitai/core/config/dev_data.dart';
 import 'package:fitai/features/home/presentation/controllers/home_controller.dart';
 import 'package:fitai/features/home/presentation/states/home_state.dart';
 import 'package:fitai/models/fitai_meta_model.dart';
@@ -66,6 +67,8 @@ HomeController _controller({
     achievementsLoader: () async => const [],
     notificationsLoader: () async => const [],
     networkCheck: () async => isOnline,
+    workoutsLoader: () async => const [],
+    devDataLoader: () async => const DevRuntimeData.disabled(),
   );
 }
 

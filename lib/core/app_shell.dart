@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../core/config/dev_data.dart';
+import '../core/config/dev_fixtures.dart';
+import '../core/widgets/dev_mode_banner.dart';
 import '../design_system/components/fit_bottom_navigation.dart';
 import '../services/running_session_service.dart';
 import '../services/steps_service.dart';
@@ -40,6 +43,7 @@ class _AppShellState extends State<AppShell> {
   bool conquistaPrimeiraCorrida = false;
   bool conquista10Km = false;
   bool corridaIniciada = false;
+  DevRuntimeData _devData = const DevRuntimeData.disabled();
 
   @override
   void initState() {
@@ -59,18 +63,23 @@ class _AppShellState extends State<AppShell> {
   }
 
   Future<void> carregarDados() async {
-    xp = await StorageService.carregarXp();
-    nivel = await StorageService.carregarNivel();
+    _devData = await const DevDataService().resolve();
+    final savedXp = await StorageService.carregarXp();
+    final savedLevel = await StorageService.carregarNivel();
+    _applyProgress(savedXp, savedLevel);
 
     final perfil = await StorageService.carregarPerfilUsuario();
-
-    nome = perfil['nome'] ?? nome;
-    peso = perfil['peso'] ?? peso;
-    altura = perfil['altura'] ?? altura;
-    idade = perfil['idade'] ?? idade;
+    if (_devData.useFakeUser) {
+      nome = DevFixtures.user.name;
+    } else {
+      nome = perfil['nome'] ?? nome;
+      peso = perfil['peso'] ?? peso;
+      altura = perfil['altura'] ?? altura;
+      idade = perfil['idade'] ?? idade;
+    }
 
     await stepsService.initialize();
-    passos = stepsService.stepsToday;
+    passos = _effectiveSteps(stepsService.stepsToday);
     conquistaPrimeiraCorrida = await StorageService.carregarPrimeiraCorrida();
     conquista10Km = await StorageService.carregar10Km();
 
@@ -100,9 +109,8 @@ class _AppShellState extends State<AppShell> {
     if (!mounted) return;
 
     setState(() {
-      passos = stepsService.stepsToday;
-      xp = novoXp;
-      nivel = novoNivel;
+      passos = _effectiveSteps(stepsService.stepsToday);
+      _applyProgress(novoXp, novoNivel);
     });
   }
 
@@ -111,6 +119,26 @@ class _AppShellState extends State<AppShell> {
     segundos = runningSession.elapsedSeconds;
     velocidadeMedia = runningSession.averageSpeed;
     corridaIniciada = runningSession.hasActiveSession;
+    if (!corridaIniciada && distancia <= 0 && _devData.useFakeRunning) {
+      distancia = DevFixtures.running.distanceKm;
+      segundos = DevFixtures.running.elapsedSeconds;
+      velocidadeMedia = DevFixtures.running.averageSpeed;
+    }
+  }
+
+  void _applyProgress(int savedXp, int savedLevel) {
+    if (_devData.useFakeProgress && savedXp <= 0 && savedLevel <= 1) {
+      xp = DevFixtures.user.xp;
+      nivel = DevFixtures.user.level;
+      return;
+    }
+    xp = savedXp;
+    nivel = savedLevel;
+  }
+
+  int _effectiveSteps(int realSteps) {
+    if (_devData.useFakeSteps && realSteps <= 0) return DevFixtures.steps;
+    return realSteps;
   }
 
   void iniciarCorrida() {
@@ -145,11 +173,13 @@ class _AppShellState extends State<AppShell> {
     );
     final pages = AppRouter.buildPages(routeState);
 
-    return AppNavigationFrame(
-      selectedIndex: currentIndex,
-      pages: pages,
-      destinations: AppRouter.destinations,
-      onDestinationSelected: _selectDestination,
+    return DevModeBanner(
+      child: AppNavigationFrame(
+        selectedIndex: currentIndex,
+        pages: pages,
+        destinations: AppRouter.destinations,
+        onDestinationSelected: _selectDestination,
+      ),
     );
   }
 

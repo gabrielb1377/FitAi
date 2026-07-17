@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fitai/core/config/dev_config.dart';
 import 'package:fitai/features/auth/data/auth_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -10,7 +11,10 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   test('primeira abertura sem sessao inicia o onboarding', () async {
-    final service = AuthService(client: MockClient((_) async => _ok()));
+    final service = AuthService(
+      client: MockClient((_) async => _ok()),
+      bypassLogin: false,
+    );
 
     expect(
       await service.resolveLaunchDestination(),
@@ -31,6 +35,7 @@ void main() {
         captured = request;
         return _ok();
       }),
+      bypassLogin: false,
     );
 
     final session = await service.login(
@@ -111,12 +116,31 @@ void main() {
         'token': _token(expiry: DateTime(2020)),
       }),
     );
-    final service = AuthService(client: MockClient((_) async => _ok()));
+    final service = AuthService(
+      client: MockClient((_) async => _ok()),
+      bypassLogin: false,
+    );
 
     expect(await service.restoreSession(), isNull);
     expect(
       await service.resolveLaunchDestination(),
       AuthLaunchDestination.onboarding,
+    );
+  });
+
+  test('debug pode pular login sem persistir sessao falsa', () async {
+    final service = AuthService(client: MockClient((_) async => _ok()));
+
+    expect(DevConfig.enabled, isTrue);
+    expect(
+      await service.resolveLaunchDestination(),
+      AuthLaunchDestination.appShell,
+    );
+    expect(
+      (await SharedPreferences.getInstance()).containsKey(
+        'fitai.auth.session.v1',
+      ),
+      isFalse,
     );
   });
 }
