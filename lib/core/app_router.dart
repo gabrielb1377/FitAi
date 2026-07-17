@@ -35,6 +35,7 @@ class AppRouteState {
   final VoidCallback iniciarCorrida;
   final VoidCallback pararCorrida;
   final Future<void> Function() carregarDados;
+  final ValueChanged<int> onSelectTab;
 
   const AppRouteState({
     required this.nome,
@@ -53,6 +54,7 @@ class AppRouteState {
     required this.iniciarCorrida,
     required this.pararCorrida,
     required this.carregarDados,
+    required this.onSelectTab,
   });
 }
 
@@ -96,6 +98,12 @@ class AppRouter {
         passos: state.passos,
         xp: state.xp,
         nivel: state.nivel,
+        velocidadeMedia: state.velocidadeMedia,
+        segundos: state.segundos,
+        corridaIniciada: state.corridaIniciada,
+        iniciarCorrida: state.iniciarCorrida,
+        pararCorrida: state.pararCorrida,
+        onSelectTab: state.onSelectTab,
         onXpAtualizado: state.carregarDados,
       ),
       TreinosPage(

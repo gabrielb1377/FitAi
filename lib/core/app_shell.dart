@@ -23,12 +23,12 @@ class _AppShellState extends State<AppShell> {
 
   int currentIndex = 0;
 
-  String nome = "Gabriel";
+  String nome = "Atleta";
   String peso = "70 kg";
   String altura = "175 cm";
   String idade = "18";
 
-  int passos = 7542;
+  int passos = 0;
 
   int segundos = 0;
   double distancia = 0.0;
@@ -141,6 +141,7 @@ class _AppShellState extends State<AppShell> {
       iniciarCorrida: iniciarCorrida,
       pararCorrida: pararCorrida,
       carregarDados: carregarDados,
+      onSelectTab: _selectDestination,
     );
     final pages = AppRouter.buildPages(routeState);
 
@@ -148,14 +149,13 @@ class _AppShellState extends State<AppShell> {
       selectedIndex: currentIndex,
       pages: pages,
       destinations: AppRouter.destinations,
-      onDestinationSelected: (index) {
-        if (index >= pages.length) return;
-
-        setState(() {
-          currentIndex = index;
-        });
-      },
+      onDestinationSelected: _selectDestination,
     );
+  }
+
+  void _selectDestination(int index) {
+    if (index < 0 || index >= AppRouter.destinations.length) return;
+    setState(() => currentIndex = index);
   }
 }
 
