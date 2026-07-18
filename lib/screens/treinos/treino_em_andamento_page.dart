@@ -21,6 +21,7 @@ import 'treino_finalizado_page.dart';
 import 'treino_navigation.dart';
 import 'widgets/exercise_next_progression_card.dart';
 import 'widgets/plans/official_workout_session.dart';
+import 'widgets/plans/workout_session_models.dart';
 
 class TreinoEmAndamentoPage extends StatefulWidget {
   final TreinoModel treino;
@@ -1090,6 +1091,78 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
         .toList();
     final exerciciosConcluidos = _exerciciosConcluidosTotal();
     final progresso = _progressoSessao();
+    final seriesState = _seriesConcluidas[_exercicioAtual] ?? const <int>{};
+    final historyByNumber = {
+      for (final entry in historicoAtual) entry.numero: entry,
+    };
+    final currentSetIndex = concluidas.clamp(0, _seriesPorExercicio - 1);
+    final setHistory = List<WorkoutSetSnapshot>.generate(_seriesPorExercicio, (
+      index,
+    ) {
+      final entry = historyByNumber[index + 1];
+      return WorkoutSetSnapshot(
+        number: index + 1,
+        weight: entry?.peso ?? _texto(_pesoController),
+        repetitions: entry?.repeticoes.toString() ?? '-',
+        restSeconds: _descansoPadrao,
+        isCompleted: seriesState.contains(index),
+        isCurrent: index == currentSetIndex,
+      );
+    });
+
+    void openHistory() => _abrirPerformanceSheet(
+      entries: historicoAtual,
+      sessionEntries: historicoSessao,
+      exerciciosConcluidos: exerciciosConcluidos,
+    );
+
+    final quickActions = <WorkoutQuickAction>[
+      WorkoutQuickAction(
+        label: 'Coach IA',
+        icon: Icons.smart_toy_outlined,
+        color: FitColors.ai,
+        onTap: () => _abrirCoachSheet(historicoAtual),
+      ),
+      WorkoutQuickAction(
+        label: 'Histórico',
+        icon: Icons.history_rounded,
+        onTap: openHistory,
+      ),
+      WorkoutQuickAction(
+        label: 'Progressão',
+        icon: Icons.trending_up_rounded,
+        onTap: _abrirProgressaoSheet,
+      ),
+      WorkoutQuickAction(
+        label: 'Notas',
+        icon: Icons.notes_rounded,
+        onTap: _abrirNotasSheet,
+      ),
+      WorkoutQuickAction(
+        label: 'Trocar exercício',
+        icon: Icons.swap_horiz_rounded,
+        onTap: _trocarExercicioAtual,
+      ),
+      WorkoutQuickAction(
+        label: 'Músculos',
+        icon: Icons.accessibility_new_rounded,
+        onTap: _abrirMusculosSheet,
+      ),
+      WorkoutQuickAction(
+        label: 'Ver GIF',
+        icon: Icons.play_circle_outline_rounded,
+        onTap: _abrirExecucaoSheet,
+      ),
+      WorkoutQuickAction(
+        label: 'Mais opções',
+        icon: Icons.more_horiz_rounded,
+        onTap: () => _abrirAcoesDoExercicio(
+          entries: historicoAtual,
+          sessionEntries: historicoSessao,
+          exerciciosConcluidos: exerciciosConcluidos,
+        ),
+      ),
+    ];
 
     return PopScope<void>(
       canPop: _permitirSair,
@@ -1111,24 +1184,15 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
         restSeconds: _emDescanso ? _descansoRestante : _descansoPadrao,
         isResting: _emDescanso,
         progress: progresso,
+        history: setHistory,
+        quickActions: quickActions,
         onClose: _confirmarEncerrarTreino,
-        onExerciseTap: () => _abrirAcoesDoExercicio(
-          entries: historicoAtual,
-          sessionEntries: historicoSessao,
-          exerciciosConcluidos: exerciciosConcluidos,
-        ),
+        onMenu: _abrirMenuEdicaoTreino,
+        onViewExecution: _abrirExecucaoSheet,
         onCompleteSet: _registrarSerie,
         onRestTap: _emDescanso ? _pularDescanso : _iniciarDescanso,
+        onViewAllHistory: openHistory,
         onChanged: (_) => setState(() {}),
-        historyLines: historicoAtual
-            .take(3)
-            .map(
-              (entry) =>
-                  'Serie ${entry.numero}: ${entry.peso} kg x ${entry.repeticoes}',
-            )
-            .toList(growable: false),
-        onSwapExercise: _trocarExercicioAtual,
-        onEndWorkout: _confirmarEncerrarTreino,
         onPrevious: _exercicioAtual == 0 ? null : _exercicioAnterior,
         onNext: _exercicioAtual >= _totalExercicios - 1
             ? null
@@ -1142,6 +1206,114 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     final minutos = ((_segundosTreino % 3600) ~/ 60).toString().padLeft(2, '0');
     final segundos = (_segundosTreino % 60).toString().padLeft(2, '0');
     return '$horas:$minutos:$segundos';
+  }
+
+  void _abrirExecucaoSheet() {
+    final exercicio = _exercicio;
+    if (exercicio == null) return;
+
+    _abrirInfoSheet(
+      title: 'Execução de ${exercicio.nome}',
+      icon: Icons.play_circle_outline_rounded,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AspectRatio(
+            aspectRatio: 1.7,
+            child: ClipRRect(
+              borderRadius: FitRadius.mediumBorder,
+              child: ExercicioGifImage(
+                imagem: exercicio.imagem,
+                titulo: exercicio.nome,
+                gifPath: exercicio.gifPath,
+                fit: BoxFit.contain,
+                cacheHeight: 640,
+              ),
+            ),
+          ),
+          const SizedBox(height: FitSpacing.s16),
+          FitCard(
+            variant: FitCardVariant.outlined,
+            title: 'Como executar',
+            child: Text(
+              exercicio.comoExecutar.trim().isEmpty
+                  ? 'Mantenha o movimento controlado e respeite a amplitude confortável.'
+                  : exercicio.comoExecutar,
+            ),
+          ),
+          if (exercicio.cuidados.trim().isNotEmpty) ...[
+            const SizedBox(height: FitSpacing.s12),
+            FitCard(
+              variant: FitCardVariant.outlined,
+              title: 'Cuidados',
+              child: Text(exercicio.cuidados),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _abrirNotasSheet() {
+    _abrirInfoSheet(
+      title: 'Notas da série',
+      icon: Icons.notes_rounded,
+      child: TextField(
+        controller: _comentarioController,
+        minLines: 4,
+        maxLines: 7,
+        autofocus: true,
+        decoration: const InputDecoration(
+          labelText: 'Comentario',
+          hintText: 'Anote técnica, dor ou percepção de esforço',
+        ),
+        onChanged: (value) {
+          _comentarios[_exercicioAtual] = value.trim();
+        },
+      ),
+    );
+  }
+
+  void _abrirMusculosSheet() {
+    final exercicio = _exercicio;
+    if (exercicio == null) return;
+    final primary = exercicio.musculos
+        .where((name) => name.trim().isNotEmpty)
+        .toList();
+    final secondary = exercicio.musculosSecundarios
+        .where((name) => name.trim().isNotEmpty)
+        .toList();
+
+    _abrirInfoSheet(
+      title: 'Músculos trabalhados',
+      icon: Icons.accessibility_new_rounded,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Principais', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: FitSpacing.s8),
+          Wrap(
+            spacing: FitSpacing.s8,
+            runSpacing: FitSpacing.s8,
+            children: (primary.isEmpty ? [exercicio.categoria] : primary)
+                .map((name) => FitTagChip(label: name))
+                .toList(growable: false),
+          ),
+          if (secondary.isNotEmpty) ...[
+            const SizedBox(height: FitSpacing.s20),
+            Text('Secundários', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: FitSpacing.s8),
+            Wrap(
+              spacing: FitSpacing.s8,
+              runSpacing: FitSpacing.s8,
+              children: secondary
+                  .map((name) => FitTagChip(label: name))
+                  .toList(growable: false),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   void _abrirAcoesDoExercicio({

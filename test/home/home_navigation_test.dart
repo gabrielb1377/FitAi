@@ -1,5 +1,6 @@
 import 'package:fitai/features/home/presentation/controllers/home_controller.dart';
 import 'package:fitai/core/config/dev_data.dart';
+import 'package:fitai/core/config/dev_fixtures.dart';
 import 'package:fitai/features/home/presentation/pages/home_coach_page.dart';
 import 'package:fitai/features/home/presentation/pages/home_goals_page.dart';
 import 'package:fitai/features/home/presentation/pages/home_page.dart';
@@ -7,6 +8,7 @@ import 'package:fitai/design_system/fit_design_system.dart';
 import 'package:fitai/models/fitai_meta_model.dart';
 import 'package:fitai/screens/corridas/corridas_page.dart';
 import 'package:fitai/screens/passos_page.dart';
+import 'package:fitai/screens/treinos/treino_em_andamento_page.dart';
 import 'package:fitai/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -52,9 +54,18 @@ void main() {
 
     expect(find.byType(PassosPage), findsOneWidget);
   });
+
+  testWidgets('abre a PLAN-009 oficial pela acao principal', (tester) async {
+    await _pumpHome(tester, withWorkout: true);
+
+    await _tapVisible(tester, find.text('Iniciar treino'));
+
+    expect(find.byType(TreinoEmAndamentoPage), findsOneWidget);
+    expect(find.text('PROGRESSO DO TREINO'), findsOneWidget);
+  });
 }
 
-Future<void> _pumpHome(WidgetTester tester) async {
+Future<void> _pumpHome(WidgetTester tester, {bool withWorkout = false}) async {
   final controller = HomeController(
     historyLoader: () async => const [],
     coachLoader: () async => const [],
@@ -62,6 +73,7 @@ Future<void> _pumpHome(WidgetTester tester) async {
     achievementsLoader: () async => const [],
     notificationsLoader: () async => const [],
     networkCheck: () async => true,
+    workoutsLoader: () async => withWorkout ? DevFixtures.workouts : const [],
     devDataLoader: () async => const DevRuntimeData.disabled(),
   );
   addTearDown(controller.dispose);

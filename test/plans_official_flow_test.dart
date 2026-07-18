@@ -67,11 +67,18 @@ void main() {
     await tester.pumpWidget(_app(TreinoEmAndamentoPage(treino: plan)));
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('Tempo total'), findsOneWidget);
-    expect(find.text('Concluir serie'), findsOneWidget);
-    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    expect(find.text('PROGRESSO DO TREINO'), findsOneWidget);
+    expect(find.text('EXERCÍCIO ATUAL'), findsOneWidget);
+    expect(find.text('CONCLUIR SÉRIE'), findsOneWidget);
+    expect(find.text('REST'), findsOneWidget);
+    expect(find.text('Próximo exercício'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Coach IA'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pump();
-    expect(find.text('Descanso'), findsOneWidget);
+    expect(find.text('Mais opções'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     SharedPreferences.setMockInitialValues({'xp': 80, 'nivel': 3});
@@ -132,17 +139,17 @@ void main() {
     );
     await tester.pump();
 
-    await tester.drag(find.byType(ListView).first, const Offset(0, -240));
+    await tester.drag(find.byType(ListView).first, const Offset(0, -620));
     await tester.pump();
-    final completeSet = find.text('Concluir serie');
+    final completeSet = find.text('CONCLUIR SÉRIE');
     await tester.tap(completeSet);
     await tester.pump();
-    expect(find.text('2 de 4'), findsOneWidget);
+    expect(find.text('1 de 4'), findsOneWidget);
 
     await tester.ensureVisible(completeSet);
     await tester.tap(completeSet);
     await tester.pump();
-    expect(find.text('3 de 4'), findsOneWidget);
+    expect(find.text('2 de 4'), findsOneWidget);
   });
 
   testWidgets('PLAN-009 pede confirmacao antes de encerrar uma sessao', (
@@ -158,6 +165,29 @@ void main() {
     expect(find.text('Sair sem salvar'), findsOneWidget);
   });
 
+  testWidgets('PLAN-009 nao apresenta overflow em Android pequeno', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      _app(TreinoEmAndamentoPage(treino: _plan(sets: 4))),
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+
+    await tester.scrollUntilVisible(
+      find.text('Mais opções'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('PLAN-009 salva historico uma unica vez ao concluir a sessao', (
     tester,
   ) async {
@@ -165,9 +195,9 @@ void main() {
     await tester.pumpWidget(_app(TreinoEmAndamentoPage(treino: plan)));
     await tester.pump();
 
-    await tester.drag(find.byType(ListView).first, const Offset(0, -240));
+    await tester.drag(find.byType(ListView).first, const Offset(0, -620));
     await tester.pump();
-    final completeSet = find.text('Concluir serie');
+    final completeSet = find.text('CONCLUIR SÉRIE');
     await tester.tap(completeSet);
     await tester.tap(completeSet);
     await tester.pump(const Duration(milliseconds: 900));

@@ -6,7 +6,7 @@ extension _HomePageNavigation on _HomePageState {
     if (workout == null) return;
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => TreinoProfissionalPage(
+        builder: (_) => TreinoEmAndamentoPage(
           treino: workout,
           onXpAtualizado: widget.onXpAtualizado,
         ),
@@ -114,7 +114,7 @@ extension _HomePageNavigation on _HomePageState {
       if (!mounted || workout == null) return;
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => TreinoProfissionalPage(treino: workout),
+          builder: (_) => TreinoEmAndamentoPage(treino: workout),
         ),
       );
       return;

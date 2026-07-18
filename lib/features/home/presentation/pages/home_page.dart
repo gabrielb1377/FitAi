@@ -10,7 +10,7 @@ import '../../../../screens/passos_page.dart';
 import '../../../../screens/perfil/agenda_treinos_page.dart';
 import '../../../../screens/perfil/evolucao_page.dart';
 import '../../../../screens/treinos/criar_treino_page.dart';
-import '../../../../screens/treinos/treino_profissional_page.dart';
+import '../../../../screens/treinos/treino_em_andamento_page.dart';
 import '../../../../services/achievement_service.dart';
 import '../../../../services/coach_insight_service.dart';
 import '../../../../services/metas_service.dart';

@@ -204,7 +204,8 @@ abstract final class DevFixtures {
         locais: const ['Academia'],
         dificuldade: 'Intermediario',
         objetivo: 'Hipertrofia',
-        imagem: '',
+        imagem:
+            'assets/gifs/barbell_banded_weighted_plate_bench_press_male.gif',
         video: '',
         tags: const ['composto'],
         caloriasHora: 280,
@@ -224,7 +225,7 @@ abstract final class DevFixtures {
         locais: const ['Academia'],
         dificuldade: 'Intermediario',
         objetivo: 'Hipertrofia',
-        imagem: '',
+        imagem: 'assets/gifs/band_seated_row.gif',
         video: '',
         tags: const ['composto'],
         caloriasHora: 240,
