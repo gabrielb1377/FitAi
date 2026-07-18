@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../design_system/fit_design_system.dart';
 import '../../core/xp/xp_config.dart';
 import '../../models/coach_insight_model.dart';
 import '../../models/exercicio_model.dart';
@@ -17,6 +18,7 @@ import '../../services/storage_service.dart';
 import '../../widgets/exercicio_gif_viewer.dart';
 import '../exercicios/biblioteca_exercicios_page.dart';
 import 'treino_finalizado_page.dart';
+import 'treino_navigation.dart';
 import 'widgets/exercise_next_progression_card.dart';
 import 'widgets/plans/official_workout_session.dart';
 
@@ -39,7 +41,7 @@ class TreinoEmAndamentoPage extends StatefulWidget {
 }
 
 class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
-  static const int _seriesPorExercicio = 3;
+  static const int _seriesPadraoPorExercicio = 3;
   int _descansoPadrao = 60;
 
   late final List<ExercicioModel> _exercicios;
@@ -74,6 +76,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   bool _descansoFinalizado = false;
   bool _treinoFinalizadoVisual = false;
   bool _finalizacaoEmAndamento = false;
+  bool _permitirSair = false;
   String _xpVisualTitulo = '';
   Future<ExerciseProgressionModel>? _nextProgressionFuture;
 
@@ -81,6 +84,21 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
 
   ExercicioModel? get _exercicio =>
       _totalExercicios == 0 ? null : _exercicios[_exercicioAtual];
+
+  int get _seriesPorExercicio => _seriesAlvoPara(_exercicioAtual);
+
+  int _seriesAlvoPara(int index) {
+    if (index < 0 || index >= _exercicios.length) {
+      return _seriesPadraoPorExercicio;
+    }
+    final configured = _exercicios[index].series;
+    return configured <= 0 ? _seriesPadraoPorExercicio : configured;
+  }
+
+  int get _totalSeriesPlanejadas => List<int>.generate(
+    _exercicios.length,
+    _seriesAlvoPara,
+  ).fold(0, (total, sets) => total + sets);
 
   bool get _emDescanso => _descansoRestante > 0;
 
@@ -859,9 +877,16 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   }
 
   int _exerciciosConcluidosTotal() {
-    return _seriesConcluidas.values
-        .where((series) => series.length >= _seriesPorExercicio)
+    return _seriesConcluidas.entries
+        .where((entry) => entry.value.length >= _seriesAlvoPara(entry.key))
         .length;
+  }
+
+  double _progressoSessao() {
+    if (_totalSeriesPlanejadas <= 0) return 0;
+    return (_seriesConcluidasTotal() / _totalSeriesPlanejadas)
+        .clamp(0.0, 1.0)
+        .toDouble();
   }
 
   double _volumeSessaoTotal() {
@@ -1027,6 +1052,32 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     );
   }
 
+  Future<void> _confirmarEncerrarTreino() async {
+    if (_finalizacaoEmAndamento) return;
+
+    final hasProgress = _seriesConcluidasTotal() > 0;
+    final confirmed = await FitConfirmDialog.show(
+      context: context,
+      title: hasProgress ? 'Encerrar e salvar treino?' : 'Sair do treino?',
+      message: hasProgress
+          ? 'As series registradas serao salvas no historico antes de sair.'
+          : 'Nenhuma serie foi registrada. Voce pode voltar sem salvar.',
+      confirmLabel: hasProgress ? 'Encerrar e salvar' : 'Sair sem salvar',
+      isDestructive: !hasProgress,
+    );
+    if (!mounted || confirmed != true) return;
+
+    if (hasProgress) {
+      await _finalizarTreino();
+      return;
+    }
+
+    setState(() => _permitirSair = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) TreinoNavigation.popOrHome(context);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final exercicio = _exercicio;
@@ -1038,38 +1089,51 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
         .expand<_HistoricoSerieLocal>((entries) => entries)
         .toList();
     final exerciciosConcluidos = _exerciciosConcluidosTotal();
-    final progresso =
-        ((_exercicioAtual + (concluidas / _seriesPorExercicio)) /
-                _totalExercicios)
-            .clamp(0.0, 1.0)
-            .toDouble();
+    final progresso = _progressoSessao();
 
-    return OfficialWorkoutSession(
-      title: _grupoDia,
-      elapsedTime: _tempoCompletoFormatado,
-      exercise: exercicio,
-      exerciseIndex: _exercicioAtual,
-      exerciseCount: _totalExercicios,
-      completedSets: concluidas,
-      targetSets: _seriesPorExercicio,
-      repetitionsController: _repeticoesController,
-      weightController: _pesoController,
-      restSeconds: _emDescanso ? _descansoRestante : _descansoPadrao,
-      isResting: _emDescanso,
-      progress: progresso,
-      onClose: () => Navigator.pop(context),
-      onExerciseTap: () => _abrirAcoesDoExercicio(
-        entries: historicoAtual,
-        sessionEntries: historicoSessao,
-        exerciciosConcluidos: exerciciosConcluidos,
+    return PopScope<void>(
+      canPop: _permitirSair,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && !_permitirSair) {
+          _confirmarEncerrarTreino();
+        }
+      },
+      child: OfficialWorkoutSession(
+        title: _grupoDia,
+        elapsedTime: _tempoCompletoFormatado,
+        exercise: exercicio,
+        exerciseIndex: _exercicioAtual,
+        exerciseCount: _totalExercicios,
+        completedSets: concluidas,
+        targetSets: _seriesPorExercicio,
+        repetitionsController: _repeticoesController,
+        weightController: _pesoController,
+        restSeconds: _emDescanso ? _descansoRestante : _descansoPadrao,
+        isResting: _emDescanso,
+        progress: progresso,
+        onClose: _confirmarEncerrarTreino,
+        onExerciseTap: () => _abrirAcoesDoExercicio(
+          entries: historicoAtual,
+          sessionEntries: historicoSessao,
+          exerciciosConcluidos: exerciciosConcluidos,
+        ),
+        onCompleteSet: _registrarSerie,
+        onRestTap: _emDescanso ? _pularDescanso : _iniciarDescanso,
+        onChanged: (_) => setState(() {}),
+        historyLines: historicoAtual
+            .take(3)
+            .map(
+              (entry) =>
+                  'Serie ${entry.numero}: ${entry.peso} kg x ${entry.repeticoes}',
+            )
+            .toList(growable: false),
+        onSwapExercise: _trocarExercicioAtual,
+        onEndWorkout: _confirmarEncerrarTreino,
+        onPrevious: _exercicioAtual == 0 ? null : _exercicioAnterior,
+        onNext: _exercicioAtual >= _totalExercicios - 1
+            ? null
+            : _proximoExercicioManual,
       ),
-      onCompleteSet: _registrarSerie,
-      onRestTap: _emDescanso ? _pularDescanso : _iniciarDescanso,
-      onChanged: (_) => setState(() {}),
-      onPrevious: _exercicioAtual == 0 ? null : _exercicioAnterior,
-      onNext: _exercicioAtual >= _totalExercicios - 1
-          ? null
-          : _proximoExercicioManual,
     );
   }
 
@@ -1169,13 +1233,9 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
         .toList();
     final exerciciosConcluidos = _exerciciosConcluidosTotal();
     final seriesConcluidasTotal = _seriesConcluidasTotal();
-    final totalSeries = _totalExercicios * _seriesPorExercicio;
+    final totalSeries = _totalSeriesPlanejadas;
     final volumeSessao = _volumeSessaoTotal();
-    final progresso = _totalExercicios == 0
-        ? 0.0
-        : ((_exercicioAtual + (concluidas / _seriesPorExercicio)) /
-                  _totalExercicios)
-              .clamp(0.0, 1.0);
+    final progresso = _progressoSessao();
 
     return Scaffold(
       backgroundColor: const Color(0xFF05070A),

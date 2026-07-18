@@ -11,6 +11,7 @@ import '../../services/progressao_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/treino_service.dart';
 import 'treino_em_andamento_page.dart';
+import 'treino_navigation.dart';
 import 'widgets/exercise_coach_insights_card.dart';
 import 'widgets/exercise_next_progression_card.dart';
 import 'widgets/exercise_notes_card.dart';
@@ -91,7 +92,7 @@ class _ExercicioDetalhePageState extends State<ExercicioDetalhePage> {
                   title: exercicio.nome,
                   subtitle: exercicio.categoria,
                   showBackButton: true,
-                  onBack: () => Navigator.maybePop(context),
+                  onBack: () => TreinoNavigation.popOrHome(context),
                   actions: [
                     FitIconButton(
                       icon: _favorito
@@ -129,8 +130,12 @@ class _ExercicioDetalhePageState extends State<ExercicioDetalhePage> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 560),
             child: FitButton(
-              label: 'Adicionar serie',
-              icon: Icons.add_rounded,
+              label: widget.onConcluir == null
+                  ? 'Iniciar treino rapido'
+                  : 'Adicionar ao treino',
+              icon: widget.onConcluir == null
+                  ? Icons.play_arrow_rounded
+                  : Icons.add_rounded,
               onPressed: _executarAgora,
               expand: true,
             ),
@@ -404,9 +409,10 @@ class _ExercicioDetalhePageState extends State<ExercicioDetalhePage> {
     setState(_loadFutures);
   }
 
-  void _executarAgora() {
+  Future<void> _executarAgora() async {
     if (widget.onConcluir != null) {
       widget.onConcluir!.call();
+      _reload();
       return;
     }
     final workout = TreinoModel(
@@ -425,10 +431,11 @@ class _ExercicioDetalhePageState extends State<ExercicioDetalhePage> {
       dataCriacao: DateTime.now().toIso8601String(),
     );
     TreinoService.instance.adicionarTreino(workout);
-    Navigator.push<void>(
+    await Navigator.push<void>(
       context,
       MaterialPageRoute(builder: (_) => TreinoEmAndamentoPage(treino: workout)),
     );
+    if (mounted) _reload();
   }
 
   int get _sets => exercicio.series <= 0 ? 3 : exercicio.series;

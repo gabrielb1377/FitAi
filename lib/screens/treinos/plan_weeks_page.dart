@@ -7,6 +7,7 @@ import 'controllers/plan_day_data.dart';
 import 'controllers/plan_progress_snapshot.dart';
 import 'exercicio_detalhe_page.dart';
 import 'workout_day_page.dart';
+import 'treino_navigation.dart';
 import 'widgets/plans/plan_media.dart';
 
 class PlanWeeksPage extends StatefulWidget {
@@ -34,13 +35,13 @@ class _PlanWeeksPageState extends State<PlanWeeksPage> {
                 FitHeader(
                   title: widget.plan.nome,
                   showBackButton: true,
-                  onBack: () => Navigator.maybePop(context),
+                  onBack: () => TreinoNavigation.popOrHome(context),
                 ),
                 _PlanDetailTabs(
                   selectedIndex: _tabIndex,
                   onSelected: (index) {
                     if (index == 0) {
-                      Navigator.maybePop(context);
+                      TreinoNavigation.popOrHome(context);
                     } else {
                       setState(() => _tabIndex = index);
                     }

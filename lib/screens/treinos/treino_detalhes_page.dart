@@ -5,6 +5,7 @@ import '../../models/treino_model.dart';
 import 'controllers/plan_day_data.dart';
 import 'controllers/plan_progress_snapshot.dart';
 import 'plan_weeks_page.dart';
+import 'treino_navigation.dart';
 import 'workout_day_page.dart';
 import 'widgets/plans/plan_media.dart';
 
@@ -66,7 +67,7 @@ class TreinoDetalhesPage extends StatelessWidget {
                         icon: Icons.arrow_back_rounded,
                         tooltip: 'Voltar',
                         variant: FitIconButtonVariant.subtle,
-                        onPressed: () => Navigator.maybePop(context),
+                        onPressed: () => TreinoNavigation.popOrHome(context),
                       ),
                       const Spacer(),
                       FitIconButton(

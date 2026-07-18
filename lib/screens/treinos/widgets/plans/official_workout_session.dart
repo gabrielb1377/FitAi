@@ -27,6 +27,9 @@ class OfficialWorkoutSession extends StatelessWidget {
     required this.onCompleteSet,
     required this.onRestTap,
     required this.onChanged,
+    this.historyLines = const [],
+    this.onSwapExercise,
+    this.onEndWorkout,
     this.onPrevious,
     this.onNext,
   });
@@ -48,13 +51,18 @@ class OfficialWorkoutSession extends StatelessWidget {
   final VoidCallback onCompleteSet;
   final VoidCallback onRestTap;
   final ValueChanged<String> onChanged;
+  final List<String> historyLines;
+  final VoidCallback? onSwapExercise;
+  final VoidCallback? onEndWorkout;
   final VoidCallback? onPrevious;
   final VoidCallback? onNext;
 
   @override
   Widget build(BuildContext context) {
     final currentSet = (completedSets + 1).clamp(1, targetSets).toInt();
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -171,6 +179,10 @@ class OfficialWorkoutSession extends StatelessWidget {
                   isResting: isResting,
                   onTap: onRestTap,
                 ),
+                if (historyLines.isNotEmpty) ...[
+                  const SizedBox(height: FitSpacing.s16),
+                  _SessionHistory(lines: historyLines),
+                ],
                 const SizedBox(height: FitSpacing.s16),
                 Row(
                   children: [
@@ -193,6 +205,34 @@ class OfficialWorkoutSession extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (onSwapExercise != null || onEndWorkout != null) ...[
+                  const SizedBox(height: FitSpacing.s8),
+                  Row(
+                    children: [
+                      if (onSwapExercise != null)
+                        Expanded(
+                          child: FitButton(
+                            label: 'Trocar',
+                            leadingIcon: Icons.swap_horiz_rounded,
+                            variant: FitButtonVariant.ghost,
+                            onPressed: onSwapExercise,
+                          ),
+                        ),
+                      if (onSwapExercise != null && onEndWorkout != null)
+                        const SizedBox(width: FitSpacing.s8),
+                      if (onEndWorkout != null)
+                        Expanded(
+                          child: FitButton(
+                            label: 'Encerrar',
+                            leadingIcon: Icons.stop_circle_outlined,
+                            variant: FitButtonVariant.outlined,
+                            onPressed: onEndWorkout,
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+                SizedBox(height: FitSpacing.s32 + bottomInset),
               ],
             ),
           ),
@@ -223,7 +263,7 @@ class _SessionHeader extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: FitIconButton(
               icon: Icons.close_rounded,
-              tooltip: 'Sair do treino',
+              tooltip: 'Encerrar treino',
               variant: FitIconButtonVariant.subtle,
               onPressed: onClose,
             ),
@@ -238,6 +278,35 @@ class _SessionHeader extends StatelessWidget {
               style: Theme.of(context).textTheme.titleLarge,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SessionHistory extends StatelessWidget {
+  const _SessionHistory({required this.lines});
+
+  final List<String> lines;
+
+  @override
+  Widget build(BuildContext context) {
+    return FitCard(
+      variant: FitCardVariant.outlined,
+      padding: const EdgeInsets.all(FitSpacing.s12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Historico desta sessao',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: FitSpacing.s8),
+          for (final line in lines.take(3))
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: FitSpacing.s2),
+              child: Text(line, style: Theme.of(context).textTheme.bodyMedium),
+            ),
         ],
       ),
     );

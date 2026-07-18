@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/xp/xp_config.dart';
 import '../../design_system/fit_design_system.dart';
 import '../../services/storage_service.dart';
+import 'treino_navigation.dart';
 
 class TreinoFinalizadoPage extends StatefulWidget {
   const TreinoFinalizadoPage({
@@ -41,6 +42,8 @@ class TreinoFinalizadoPage extends StatefulWidget {
 
 class _TreinoFinalizadoPageState extends State<TreinoFinalizadoPage> {
   late final Future<_XpSnapshot> _xpFuture = _loadXp();
+  bool _permitirSair = false;
+  bool _navegando = false;
 
   Future<_XpSnapshot> _loadXp() async {
     final values = await Future.wait<int>([
@@ -52,111 +55,133 @@ class _TreinoFinalizadoPageState extends State<TreinoFinalizadoPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600),
-            child: ListView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(
-                FitSpacing.s20,
-                FitSpacing.s32,
-                FitSpacing.s20,
-                FitSpacing.s32,
-              ),
-              children: [
-                Semantics(
-                  header: true,
-                  child: Text(
-                    'Treino concluido!',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineLarge,
+    return PopScope<void>(
+      canPop: _permitirSair,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && !_permitirSair) _returnToPlans();
+      },
+      child: Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: ListView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(
+                  FitSpacing.s20,
+                  FitSpacing.s12,
+                  FitSpacing.s20,
+                  FitSpacing.s32,
+                ),
+                children: [
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FitIconButton(
+                      icon: Icons.close_rounded,
+                      tooltip: 'Voltar ao plano',
+                      variant: FitIconButtonVariant.subtle,
+                      onPressed: _returnToPlans,
+                    ),
                   ),
-                ),
-                const SizedBox(height: FitSpacing.s8),
-                Text(
-                  'Otimo trabalho. Sua evolucao foi salva.',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-                const SizedBox(height: FitSpacing.s24),
-                const _CompletionRing(),
-                const SizedBox(height: FitSpacing.s24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _CompletionMetric(
-                        value: widget.tempo,
-                        label: 'Tempo total',
-                      ),
+                  Semantics(
+                    header: true,
+                    child: Text(
+                      'Treino concluido!',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineLarge,
                     ),
-                    const SizedBox(width: FitSpacing.s8),
-                    Expanded(
-                      child: _CompletionMetric(
-                        value: '${widget.exerciciosConcluidos}',
-                        label: 'Exercicios',
-                      ),
-                    ),
-                    const SizedBox(width: FitSpacing.s8),
-                    Expanded(
-                      child: _CompletionMetric(
-                        value: widget.volume,
-                        label: 'Volume total',
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: FitSpacing.s16),
-                FitCard(
-                  variant: FitCardVariant.outlined,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  ),
+                  const SizedBox(height: FitSpacing.s8),
+                  Text(
+                    'Otimo trabalho. Sua evolucao foi salva.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                  const SizedBox(height: FitSpacing.s24),
+                  const _CompletionRing(),
+                  const SizedBox(height: FitSpacing.s24),
+                  Row(
                     children: [
-                      Text(
-                        '+${widget.xp}',
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
-                      const SizedBox(width: FitSpacing.s8),
-                      Text(
-                        'XP',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: FitColors.primary,
+                      Expanded(
+                        child: _CompletionMetric(
+                          value: widget.tempo,
+                          label: 'Tempo total',
                         ),
                       ),
                       const SizedBox(width: FitSpacing.s8),
-                      Text(
-                        'ganhos',
-                        style: Theme.of(context).textTheme.bodyLarge,
+                      Expanded(
+                        child: _CompletionMetric(
+                          value: '${widget.exerciciosConcluidos}',
+                          label: 'Exercicios',
+                        ),
+                      ),
+                      const SizedBox(width: FitSpacing.s8),
+                      Expanded(
+                        child: _CompletionMetric(
+                          value: widget.volume,
+                          label: 'Volume total',
+                        ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: FitSpacing.s20),
-                FutureBuilder<_XpSnapshot>(
-                  future: _xpFuture,
-                  builder: (context, snapshot) {
-                    if (!snapshot.hasData) {
-                      return const FitSkeleton(height: 76);
-                    }
-                    return _LevelProgress(snapshot: snapshot.data!);
-                  },
-                ),
-                const SizedBox(height: FitSpacing.s24),
-                FitButton(
-                  label: 'Ver resumo',
-                  onPressed: widget.onVerHistorico ?? _showSummary,
-                  expand: true,
-                ),
-                const SizedBox(height: FitSpacing.s12),
-                FitButton(
-                  label: 'Compartilhar',
-                  leadingIcon: Icons.ios_share_rounded,
-                  variant: FitButtonVariant.outlined,
-                  onPressed: widget.onCompartilhar ?? _showSummary,
-                  expand: true,
-                ),
-              ],
+                  const SizedBox(height: FitSpacing.s16),
+                  FitCard(
+                    variant: FitCardVariant.outlined,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '+${widget.xp}',
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
+                        const SizedBox(width: FitSpacing.s8),
+                        Text(
+                          'XP',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(color: FitColors.primary),
+                        ),
+                        const SizedBox(width: FitSpacing.s8),
+                        Text(
+                          'ganhos',
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: FitSpacing.s20),
+                  FutureBuilder<_XpSnapshot>(
+                    future: _xpFuture,
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        return const FitSkeleton(height: 76);
+                      }
+                      return _LevelProgress(snapshot: snapshot.data!);
+                    },
+                  ),
+                  const SizedBox(height: FitSpacing.s24),
+                  FitButton(
+                    label: 'Ver resumo',
+                    onPressed: widget.onVerHistorico ?? _showSummary,
+                    expand: true,
+                  ),
+                  const SizedBox(height: FitSpacing.s12),
+                  FitButton(
+                    label: 'Compartilhar',
+                    leadingIcon: Icons.ios_share_rounded,
+                    variant: FitButtonVariant.outlined,
+                    onPressed: widget.onCompartilhar ?? _showShareFeedback,
+                    expand: true,
+                  ),
+                  const SizedBox(height: FitSpacing.s12),
+                  FitButton(
+                    label: 'Voltar ao plano',
+                    leadingIcon: Icons.arrow_back_rounded,
+                    variant: FitButtonVariant.ghost,
+                    onPressed: _returnToPlans,
+                    expand: true,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -169,6 +194,7 @@ class _TreinoFinalizadoPageState extends State<TreinoFinalizadoPage> {
       context: context,
       title: widget.nomeTreino,
       subtitle: 'Resumo da sessao concluida',
+      isScrollControlled: true,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -187,7 +213,7 @@ class _TreinoFinalizadoPageState extends State<TreinoFinalizadoPage> {
             label: 'Voltar para Planos',
             onPressed: () {
               Navigator.pop(context);
-              (widget.onVoltar ?? _returnToPlans).call();
+              _returnToPlans();
             },
             expand: true,
           ),
@@ -197,7 +223,33 @@ class _TreinoFinalizadoPageState extends State<TreinoFinalizadoPage> {
   }
 
   void _returnToPlans() {
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    if (_navegando) return;
+    _navegando = true;
+
+    if (widget.onVoltar != null) {
+      widget.onVoltar!.call();
+      return;
+    }
+
+    setState(() => _permitirSair = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final navigator = Navigator.of(context);
+      if (navigator.canPop()) {
+        navigator.pop();
+      } else {
+        TreinoNavigation.popOrHome(context);
+      }
+    });
+  }
+
+  void _showShareFeedback() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Resumo pronto para compartilhar.'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 }
 

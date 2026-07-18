@@ -5,6 +5,7 @@ import 'package:fitai/screens/treinos/exercicio_detalhe_page.dart';
 import 'package:fitai/screens/treinos/treino_detalhes_page.dart';
 import 'package:fitai/screens/treinos/treino_em_andamento_page.dart';
 import 'package:fitai/screens/treinos/treino_finalizado_page.dart';
+import 'package:fitai/services/exercise_history_service.dart';
 import 'package:fitai/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -96,34 +97,125 @@ void main() {
     expect(find.text('Ver resumo'), findsOneWidget);
     expect(find.text('Compartilhar'), findsOneWidget);
   });
+
+  testWidgets('PLAN-008 volta para a rota anterior quando ela existe', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        Builder(
+          builder: (context) => FilledButton(
+            onPressed: () => Navigator.of(context).push<void>(
+              MaterialPageRoute<void>(
+                builder: (_) => ExercicioDetalhePage(exercicio: _exercise()),
+              ),
+            ),
+            child: const Text('Abrir exercicio'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Abrir exercicio'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Voltar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Abrir exercicio'), findsOneWidget);
+  });
+
+  testWidgets('PLAN-009 preserva a serie atual configurada no exercicio', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(TreinoEmAndamentoPage(treino: _plan(sets: 4))),
+    );
+    await tester.pump();
+
+    await tester.drag(find.byType(ListView).first, const Offset(0, -240));
+    await tester.pump();
+    final completeSet = find.text('Concluir serie');
+    await tester.tap(completeSet);
+    await tester.pump();
+    expect(find.text('2 de 4'), findsOneWidget);
+
+    await tester.ensureVisible(completeSet);
+    await tester.tap(completeSet);
+    await tester.pump();
+    expect(find.text('3 de 4'), findsOneWidget);
+  });
+
+  testWidgets('PLAN-009 pede confirmacao antes de encerrar uma sessao', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(TreinoEmAndamentoPage(treino: _plan())));
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('Encerrar treino'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sair do treino?'), findsOneWidget);
+    expect(find.text('Sair sem salvar'), findsOneWidget);
+  });
+
+  testWidgets('PLAN-009 salva historico uma unica vez ao concluir a sessao', (
+    tester,
+  ) async {
+    final plan = _plan(sets: 1);
+    await tester.pumpWidget(_app(TreinoEmAndamentoPage(treino: plan)));
+    await tester.pump();
+
+    await tester.drag(find.byType(ListView).first, const Offset(0, -240));
+    await tester.pump();
+    final completeSet = find.text('Concluir serie');
+    await tester.tap(completeSet);
+    await tester.tap(completeSet);
+    await tester.pump(const Duration(milliseconds: 900));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TreinoFinalizadoPage), findsOneWidget);
+    final history = await const ExerciseHistoryService().loadExerciseHistory(
+      _exercise(sets: 1),
+    );
+    expect(history.executions, hasLength(1));
+    expect(history.executions.single.sets, hasLength(1));
+  });
+
+  testWidgets('PLAN-010 abre resumo e retorna pelo comando explicito', (
+    tester,
+  ) async {
+    var returnedToPlan = false;
+    await tester.pumpWidget(
+      _app(
+        TreinoFinalizadoPage(
+          tempo: '41:20',
+          volume: '4.200 kg',
+          xp: 35,
+          onVoltar: () => returnedToPlan = true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(ListView).first, const Offset(0, -520));
+    await tester.pump();
+    final viewSummary = find.text('Ver resumo');
+    await tester.tap(viewSummary);
+    await tester.pumpAndSettle();
+    expect(find.text('Resumo da sessao concluida'), findsOneWidget);
+
+    await tester.tap(find.text('Voltar para Planos'));
+    await tester.pump();
+    expect(returnedToPlan, isTrue);
+  });
 }
 
 Widget _app(Widget home) {
   return MaterialApp(theme: AppTheme.dark, home: home);
 }
 
-TreinoModel _plan() {
-  final exercise = ExercicioModel(
-    id: 'remada-curvada',
-    nome: 'Remada curvada',
-    categoria: 'Costas',
-    descricao: 'Movimento composto para dorsais.',
-    comoExecutar: 'Mantenha a coluna neutra e puxe a barra.',
-    cuidados: 'Evite arredondar a lombar.',
-    musculos: const ['Dorsais'],
-    musculosSecundarios: const ['Biceps'],
-    equipamentos: const ['Barra'],
-    locais: const ['Academia'],
-    dificuldade: 'Intermediario',
-    objetivo: 'Hipertrofia',
-    imagem: '',
-    video: '',
-    tags: const ['Composto'],
-    caloriasHora: 300,
-    series: 3,
-    repeticoes: '8-12',
-    descansoSegundos: 90,
-  );
+TreinoModel _plan({int sets = 3}) {
+  final exercise = _exercise(sets: sets);
   return TreinoModel(
     id: 'plan-test',
     nome: 'Plano Upper Lower',
@@ -144,5 +236,29 @@ TreinoModel _plan() {
     criadoPorIA: false,
     exercicios: [exercise],
     dataCriacao: DateTime.now().toIso8601String(),
+  );
+}
+
+ExercicioModel _exercise({int sets = 3}) {
+  return ExercicioModel(
+    id: 'remada-curvada',
+    nome: 'Remada curvada',
+    categoria: 'Costas',
+    descricao: 'Movimento composto para dorsais.',
+    comoExecutar: 'Mantenha a coluna neutra e puxe a barra.',
+    cuidados: 'Evite arredondar a lombar.',
+    musculos: const ['Dorsais'],
+    musculosSecundarios: const ['Biceps'],
+    equipamentos: const ['Barra'],
+    locais: const ['Academia'],
+    dificuldade: 'Intermediario',
+    objetivo: 'Hipertrofia',
+    imagem: '',
+    video: '',
+    tags: const ['Composto'],
+    caloriasHora: 300,
+    series: sets,
+    repeticoes: '8-12',
+    descansoSegundos: 90,
   );
 }

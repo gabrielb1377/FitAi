@@ -6,6 +6,7 @@ import '../../models/treino_model.dart';
 import 'controllers/plan_day_data.dart';
 import 'exercicio_detalhe_page.dart';
 import 'treino_em_andamento_page.dart';
+import 'treino_navigation.dart';
 import 'widgets/plans/plan_media.dart';
 
 class WorkoutDayPage extends StatelessWidget {
@@ -101,7 +102,7 @@ class WorkoutDayPage extends StatelessWidget {
           FitHeader(
             title: '$prefix - ${day.label}',
             showBackButton: true,
-            onBack: () => Navigator.maybePop(context),
+            onBack: () => TreinoNavigation.popOrHome(context),
             padding: EdgeInsets.zero,
           ),
           const SizedBox(height: FitSpacing.s16),
