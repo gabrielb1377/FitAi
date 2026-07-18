@@ -5,6 +5,7 @@ import 'package:fitai/screens/treinos/exercicio_detalhe_page.dart';
 import 'package:fitai/screens/treinos/treino_detalhes_page.dart';
 import 'package:fitai/screens/treinos/treino_em_andamento_page.dart';
 import 'package:fitai/screens/treinos/treino_finalizado_page.dart';
+import 'package:fitai/screens/exercicios/biblioteca_exercicios_page.dart';
 import 'package:fitai/services/exercise_history_service.dart';
 import 'package:fitai/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -72,12 +73,11 @@ void main() {
     expect(find.text('CONCLUIR SÉRIE'), findsOneWidget);
     expect(find.text('REST'), findsOneWidget);
     expect(find.text('Próximo exercício'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('Coach IA'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.pump();
+    await _scrollToQuickAction(tester, 'Mais opções');
+    expect(find.text('Coach IA'), findsOneWidget);
+    expect(find.text('Histórico'), findsOneWidget);
+    expect(find.text('Trocar exercício'), findsOneWidget);
+    expect(find.text('Ver GIF'), findsOneWidget);
     expect(find.text('Mais opções'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
@@ -165,6 +165,79 @@ void main() {
     expect(find.text('Sair sem salvar'), findsOneWidget);
   });
 
+  testWidgets('PLAN-009 abre o Coach pelo atalho compacto', (tester) async {
+    await tester.pumpWidget(_app(TreinoEmAndamentoPage(treino: _plan())));
+    await tester.pump();
+    await _scrollToQuickAction(tester, 'Coach IA');
+
+    await tester.tap(find.text('Coach IA'));
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(find.text('Coach FitIA'), findsOneWidget);
+  });
+
+  testWidgets('PLAN-009 abre o histórico pelo atalho compacto', (tester) async {
+    await tester.pumpWidget(_app(TreinoEmAndamentoPage(treino: _plan())));
+    await tester.pump();
+    await _scrollToQuickAction(tester, 'Histórico');
+
+    await tester.tap(find.text('Histórico'));
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(find.text('Performance'), findsWidgets);
+  });
+
+  testWidgets('PLAN-009 abre o GIF pelo atalho compacto', (tester) async {
+    await tester.pumpWidget(_app(TreinoEmAndamentoPage(treino: _plan())));
+    await tester.pump();
+    await _scrollToQuickAction(tester, 'Ver GIF');
+
+    await tester.tap(find.text('Ver GIF'));
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(find.text('Execução de Remada curvada'), findsOneWidget);
+  });
+
+  testWidgets('PLAN-009 abre substituição sem alterar a série atual', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(TreinoEmAndamentoPage(treino: _plan(sets: 4))),
+    );
+    await tester.pump();
+
+    await tester.drag(find.byType(ListView).first, const Offset(0, -620));
+    await tester.pump();
+    await tester.tap(find.text('CONCLUIR SÉRIE'));
+    await tester.pump();
+    expect(find.text('1 de 4'), findsOneWidget);
+
+    await _scrollToQuickAction(tester, 'Trocar exercício');
+    await tester.tap(find.text('Trocar exercício'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(BibliotecaExerciciosPage), findsOneWidget);
+  });
+
+  testWidgets('PLAN-009 concentra ações secundárias em Mais opções', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(TreinoEmAndamentoPage(treino: _plan())));
+    await tester.pump();
+    await _scrollToQuickAction(tester, 'Mais opções');
+
+    await tester.tap(find.text('Mais opções'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Progressão'), findsOneWidget);
+    expect(find.text('Notas'), findsOneWidget);
+    expect(find.text('Músculos'), findsOneWidget);
+    expect(find.text('Encerrar treino'), findsOneWidget);
+
+    await tester.tap(find.text('Encerrar treino'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Sair do treino?'), findsOneWidget);
+  });
+
   testWidgets('PLAN-009 nao apresenta overflow em Android pequeno', (
     tester,
   ) async {
@@ -179,12 +252,7 @@ void main() {
     await tester.pump();
     expect(tester.takeException(), isNull);
 
-    await tester.scrollUntilVisible(
-      find.text('Mais opções'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.pump();
+    await _scrollToQuickAction(tester, 'Mais opções');
     expect(tester.takeException(), isNull);
   });
 
@@ -242,6 +310,15 @@ void main() {
 
 Widget _app(Widget home) {
   return MaterialApp(theme: AppTheme.dark, home: home);
+}
+
+Future<void> _scrollToQuickAction(WidgetTester tester, String label) async {
+  await tester.scrollUntilVisible(
+    find.text(label),
+    300,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.pump();
 }
 
 TreinoModel _plan({int sets = 3}) {

@@ -135,88 +135,265 @@ class WorkoutQuickActionsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final primaryActions = actions.take(4).toList(growable: false);
+    final moreAction = actions.length > 4 ? actions[4] : null;
+
+    if (primaryActions.isEmpty) return const SizedBox.shrink();
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(
-        FitSpacing.s12,
-        FitSpacing.s12,
-        FitSpacing.s12,
-        FitSpacing.s16,
-      ),
+      padding: const EdgeInsets.all(FitSpacing.s8),
       decoration: BoxDecoration(
-        color: FitColors.surface,
-        borderRadius: FitRadius.xLargeBorder,
+        color: FitColors.surfaceVariant,
+        borderRadius: FitRadius.largeBorder,
         border: Border.all(color: FitColors.outlineSoft),
       ),
-      child: Column(
-        children: [
-          Container(
-            width: 44,
-            height: 4,
-            decoration: const BoxDecoration(
-              color: FitColors.textHint,
-              borderRadius: FitRadius.pillBorder,
-            ),
-          ),
-          const SizedBox(height: FitSpacing.s12),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4,
-              mainAxisExtent: 88,
-              crossAxisSpacing: FitSpacing.s4,
-              mainAxisSpacing: FitSpacing.s4,
-            ),
-            itemCount: actions.length,
-            itemBuilder: (context, index) =>
-                _QuickActionTile(action: actions[index]),
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) => Column(
+          children: [
+            if (constraints.maxWidth < 390)
+              _NarrowQuickActionsGrid(actions: primaryActions)
+            else
+              _QuickActionsRow(actions: primaryActions),
+            if (moreAction != null) ...[
+              const SizedBox(height: FitSpacing.s4),
+              const Divider(height: 1, color: FitColors.outlineSoft),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FitButton(
+                  label: moreAction.label,
+                  leadingIcon: moreAction.icon,
+                  onPressed: moreAction.onTap,
+                  variant: FitButtonVariant.ghost,
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
 }
 
-class _QuickActionTile extends StatelessWidget {
-  const _QuickActionTile({required this.action});
+class _QuickActionsRow extends StatelessWidget {
+  const _QuickActionsRow({required this.actions});
 
-  final WorkoutQuickAction action;
+  final List<WorkoutQuickAction> actions;
 
   @override
   Widget build(BuildContext context) {
-    final color = action.color ?? FitColors.primary;
-    return Semantics(
-      button: true,
-      label: action.label,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: action.onTap,
-          borderRadius: FitRadius.mediumBorder,
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: FitSpacing.s4,
-              vertical: FitSpacing.s8,
-            ),
-            decoration: BoxDecoration(
-              border: Border.all(color: FitColors.outlineSoft),
-              borderRadius: FitRadius.mediumBorder,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(action.icon, color: color, size: 25),
-                const SizedBox(height: FitSpacing.s8),
-                Text(
-                  action.label,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: FitColors.textPrimary,
-                  ),
+    return Row(
+      children: [
+        for (var index = 0; index < actions.length; index++) ...[
+          if (index > 0) const SizedBox(width: FitSpacing.s4),
+          Expanded(child: _QuickActionTile(action: actions[index])),
+        ],
+      ],
+    );
+  }
+}
+
+class _NarrowQuickActionsGrid extends StatelessWidget {
+  const _NarrowQuickActionsGrid({required this.actions});
+
+  final List<WorkoutQuickAction> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisExtent: 58,
+        crossAxisSpacing: FitSpacing.s4,
+        mainAxisSpacing: FitSpacing.s4,
+      ),
+      itemCount: actions.length,
+      itemBuilder: (context, index) =>
+          _QuickActionTile(action: actions[index], compact: true),
+    );
+  }
+}
+
+class _QuickActionTile extends StatelessWidget {
+  const _QuickActionTile({required this.action, this.compact = false});
+
+  final WorkoutQuickAction action;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = action.color ?? FitColors.textSecondary;
+    final labelStyle = Theme.of(
+      context,
+    ).textTheme.labelSmall?.copyWith(color: FitColors.textPrimary);
+
+    return Tooltip(
+      message: action.label,
+      child: Semantics(
+        button: true,
+        label: action.label,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: action.onTap,
+            borderRadius: FitRadius.mediumBorder,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 48),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: FitSpacing.s4,
+                  vertical: FitSpacing.s4,
                 ),
-              ],
+                decoration: BoxDecoration(
+                  border: Border.all(color: FitColors.outlineSoft),
+                  borderRadius: FitRadius.mediumBorder,
+                ),
+                child: compact
+                    ? Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(action.icon, color: color, size: 20),
+                          const SizedBox(width: FitSpacing.s8),
+                          Flexible(
+                            child: Text(
+                              action.label,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: labelStyle,
+                            ),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(action.icon, color: color, size: 20),
+                          const SizedBox(height: FitSpacing.s4),
+                          Text(
+                            action.label,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: labelStyle,
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class WorkoutMoreOptionsSheet {
+  const WorkoutMoreOptionsSheet._();
+
+  static Future<void> show({
+    required BuildContext context,
+    required List<WorkoutQuickAction> actions,
+    required VoidCallback onEndWorkout,
+  }) {
+    return FitBottomSheet.show<void>(
+      context: context,
+      title: 'Mais opções',
+      child: _WorkoutMoreOptionsContent(
+        actions: actions,
+        onEndWorkout: onEndWorkout,
+      ),
+    );
+  }
+}
+
+class _WorkoutMoreOptionsContent extends StatelessWidget {
+  const _WorkoutMoreOptionsContent({
+    required this.actions,
+    required this.onEndWorkout,
+  });
+
+  final List<WorkoutQuickAction> actions;
+  final VoidCallback onEndWorkout;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            for (var index = 0; index < actions.length; index++) ...[
+              if (index > 0) const SizedBox(width: FitSpacing.s8),
+              Expanded(
+                child: _MoreOptionsActionTile(
+                  action: actions[index],
+                  onTap: () => _openAction(context, actions[index]),
+                ),
+              ),
+            ],
+          ],
+        ),
+        const Divider(height: FitSpacing.s16, color: FitColors.outlineSoft),
+        SizedBox(
+          width: double.infinity,
+          child: FitButton(
+            label: 'Encerrar treino',
+            leadingIcon: Icons.stop_circle_outlined,
+            onPressed: () => _endWorkout(context),
+            variant: FitButtonVariant.danger,
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _openAction(BuildContext context, WorkoutQuickAction action) {
+    Navigator.of(context).pop();
+    WidgetsBinding.instance.addPostFrameCallback((_) => action.onTap());
+  }
+
+  void _endWorkout(BuildContext context) {
+    Navigator.of(context).pop();
+    WidgetsBinding.instance.addPostFrameCallback((_) => onEndWorkout());
+  }
+}
+
+class _MoreOptionsActionTile extends StatelessWidget {
+  const _MoreOptionsActionTile({required this.action, required this.onTap});
+
+  final WorkoutQuickAction action;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = action.color ?? FitColors.textPrimary;
+    return Tooltip(
+      message: action.label,
+      child: Semantics(
+        button: true,
+        label: action.label,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: FitRadius.mediumBorder,
+            child: SizedBox(
+              height: 56,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(action.icon, color: color, size: 18),
+                  const SizedBox(height: FitSpacing.s4),
+                  Text(
+                    action.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
+                ],
+              ),
             ),
           ),
         ),

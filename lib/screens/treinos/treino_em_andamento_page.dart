@@ -21,6 +21,7 @@ import 'treino_finalizado_page.dart';
 import 'treino_navigation.dart';
 import 'widgets/exercise_next_progression_card.dart';
 import 'widgets/plans/official_workout_session.dart';
+import 'widgets/plans/workout_session_chrome.dart';
 import 'widgets/plans/workout_session_models.dart';
 
 class TreinoEmAndamentoPage extends StatefulWidget {
@@ -452,7 +453,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
 
     setState(() {
       _exercicios[_exercicioAtual] = selecionado;
-      _resetarEstadoDoExercicioAtual();
+      _exerciciosPulados.remove(_exercicioAtual);
     });
 
     _mostrarMensagem('Exercício substituído.');
@@ -1129,24 +1130,9 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
         onTap: openHistory,
       ),
       WorkoutQuickAction(
-        label: 'Progressão',
-        icon: Icons.trending_up_rounded,
-        onTap: _abrirProgressaoSheet,
-      ),
-      WorkoutQuickAction(
-        label: 'Notas',
-        icon: Icons.notes_rounded,
-        onTap: _abrirNotasSheet,
-      ),
-      WorkoutQuickAction(
         label: 'Trocar exercício',
         icon: Icons.swap_horiz_rounded,
         onTap: _trocarExercicioAtual,
-      ),
-      WorkoutQuickAction(
-        label: 'Músculos',
-        icon: Icons.accessibility_new_rounded,
-        onTap: _abrirMusculosSheet,
       ),
       WorkoutQuickAction(
         label: 'Ver GIF',
@@ -1156,11 +1142,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
       WorkoutQuickAction(
         label: 'Mais opções',
         icon: Icons.more_horiz_rounded,
-        onTap: () => _abrirAcoesDoExercicio(
-          entries: historicoAtual,
-          sessionEntries: historicoSessao,
-          exerciciosConcluidos: exerciciosConcluidos,
-        ),
+        onTap: _abrirMaisOpcoesRapidas,
       ),
     ];
 
@@ -1316,81 +1298,29 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     );
   }
 
-  void _abrirAcoesDoExercicio({
-    required List<_HistoricoSerieLocal> entries,
-    required List<_HistoricoSerieLocal> sessionEntries,
-    required int exerciciosConcluidos,
-  }) {
-    final showSuggestion =
-        entries.isEmpty &&
-        _nextProgressionFuture != null &&
-        !_sugestoesProgressaoIgnoradas.contains(_exercicioAtual) &&
-        !_sugestoesProgressaoAplicadas.contains(_exercicioAtual);
-    _abrirInfoSheet(
-      title: 'Acoes do exercicio',
-      icon: Icons.more_horiz_rounded,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _QuickActionsRow(
-            onSwap: _trocarExercicioAtual,
-            onXp: _abrirXpSheet,
-            onCoach: () => _abrirCoachSheet(entries),
-            onProgression: _abrirProgressaoSheet,
-            onPerformance: () => _abrirPerformanceSheet(
-              entries: entries,
-              sessionEntries: sessionEntries,
-              exerciciosConcluidos: exerciciosConcluidos,
-            ),
-          ),
-          if (showSuggestion) ...[
-            const SizedBox(height: 14),
-            ExerciseNextProgressionCard(
-              future: _nextProgressionFuture!,
-              compact: true,
-              onApply: _aplicarProximaProgressao,
-              onKeep: _ignorarProximaProgressao,
-              onViewHistory: _abrirProgressaoSheet,
-            ),
-          ],
-          if (_emDescanso) ...[
-            const SizedBox(height: 14),
-            _RestCard(
-              seconds: _descansoRestante,
-              totalSeconds: _descansoTotal,
-              nextLabel: _proximoDescansoLabel(),
-              onSkip: _pularDescanso,
-              onAddTime: () => _ajustarDescanso(15),
-              onRemoveTime: () => _ajustarDescanso(-15),
-            ),
-          ],
-          const SizedBox(height: 14),
-          TextField(
-            controller: _comentarioController,
-            maxLines: 3,
-            decoration: const InputDecoration(
-              labelText: 'Comentario da serie',
-              hintText: 'Anote tecnica, dor ou percepcao de esforco',
-            ),
-            onChanged: (value) {
-              _comentarios[_exercicioAtual] = value.trim();
-            },
-          ),
-          const SizedBox(height: 14),
-          _HistoryCard(entries: entries),
-          const SizedBox(height: 14),
-          _SecondaryActionButton(
-            label: 'Editar treino',
-            icon: Icons.tune_rounded,
-            onTap: () {
-              Navigator.pop(context);
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) _abrirMenuEdicaoTreino();
-              });
-            },
-          ),
-        ],
-      ),
+  void _abrirMaisOpcoesRapidas() {
+    WorkoutMoreOptionsSheet.show(
+      context: context,
+      actions: [
+        WorkoutQuickAction(
+          label: 'Progressão',
+          icon: Icons.trending_up_rounded,
+          onTap: _abrirProgressaoSheet,
+        ),
+        WorkoutQuickAction(
+          label: 'Notas',
+          icon: Icons.notes_rounded,
+          onTap: _abrirNotasSheet,
+        ),
+        WorkoutQuickAction(
+          label: 'Músculos',
+          icon: Icons.accessibility_new_rounded,
+          onTap: _abrirMusculosSheet,
+        ),
+      ],
+      onEndWorkout: () {
+        _confirmarEncerrarTreino();
+      },
     );
   }
 
