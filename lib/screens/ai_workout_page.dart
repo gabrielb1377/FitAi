@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../design_system/fit_design_system.dart';
 import '../models/exercicio_model.dart';
 import '../models/treino_model.dart';
 import '../services/backend_ai_service.dart';
 import '../services/treino_service.dart';
 import '../theme/app_theme.dart';
+import 'treinos/widgets/plans/plan_wizard_choice_tile.dart';
 
 class AIWorkoutPage extends StatefulWidget {
   const AIWorkoutPage({super.key});
@@ -1066,6 +1068,235 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
 
   @override
   Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: Column(
+              children: [
+                FitHeader(
+                  title: 'Criar plano IA',
+                  showBackButton: true,
+                  onBack: () => Navigator.maybePop(context),
+                  trailing: const FitBadge.ai(),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: FitSpacing.s20),
+                  child: FitProgress(value: 0.2),
+                ),
+                Expanded(
+                  child: ListView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(
+                      FitSpacing.s20,
+                      FitSpacing.s24,
+                      FitSpacing.s20,
+                      FitSpacing.s24,
+                    ),
+                    children: [
+                      Text(
+                        'Vamos criar o seu plano',
+                        style: Theme.of(context).textTheme.headlineMedium,
+                      ),
+                      const SizedBox(height: FitSpacing.s8),
+                      Text(
+                        'A IA usa suas escolhas para montar uma rotina unica e adaptada ao seu momento.',
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                      const SizedBox(height: FitSpacing.s24),
+                      PlanWizardChoiceTile(
+                        index: 1,
+                        label: 'Objetivo principal',
+                        value: objetivo,
+                        onTap: () => _selectString(
+                          title: 'Objetivo principal',
+                          options: objetivos,
+                          selected: objetivo,
+                          onSelected: (value) => objetivo = value,
+                        ),
+                      ),
+                      const SizedBox(height: FitSpacing.s12),
+                      PlanWizardChoiceTile(
+                        index: 2,
+                        label: 'Experiencia de treino',
+                        value: nivel,
+                        onTap: () => _selectString(
+                          title: 'Experiencia de treino',
+                          options: niveis,
+                          selected: nivel,
+                          onSelected: (value) => nivel = value,
+                        ),
+                      ),
+                      const SizedBox(height: FitSpacing.s12),
+                      PlanWizardChoiceTile(
+                        index: 3,
+                        label: 'Frequencia semanal',
+                        value: '$diasPorSemana dias por semana',
+                        onTap: () => _selectInt(
+                          title: 'Frequencia semanal',
+                          options: diasOptions,
+                          selected: diasPorSemana,
+                          suffix: 'dias por semana',
+                          onSelected: (value) => diasPorSemana = value,
+                        ),
+                      ),
+                      const SizedBox(height: FitSpacing.s12),
+                      PlanWizardChoiceTile(
+                        index: 4,
+                        label: 'Duracao do treino',
+                        value: '$tempoPorTreino minutos',
+                        onTap: () => _selectInt(
+                          title: 'Duracao do treino',
+                          options: temposOptions,
+                          selected: tempoPorTreino,
+                          suffix: 'minutos',
+                          onSelected: (value) => tempoPorTreino = value,
+                        ),
+                      ),
+                      const SizedBox(height: FitSpacing.s12),
+                      PlanWizardChoiceTile(
+                        index: 5,
+                        label: 'Equipamentos disponiveis',
+                        value: _equipmentSummary,
+                        onTap: _showAdvancedPreferences,
+                      ),
+                      const SizedBox(height: FitSpacing.s16),
+                      FitButton(
+                        label: 'Preferencias avancadas',
+                        leadingIcon: Icons.tune_rounded,
+                        variant: FitButtonVariant.ghost,
+                        onPressed: _showAdvancedPreferences,
+                        expand: true,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(
+          FitSpacing.s20,
+          FitSpacing.s8,
+          FitSpacing.s20,
+          FitSpacing.s16,
+        ),
+        child: Center(
+          heightFactor: 1,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: FitButton(
+              label: carregando ? 'Gerando plano...' : 'Gerar plano com IA',
+              leadingIcon: Icons.auto_awesome_rounded,
+              onPressed: carregando ? null : _gerarTreino,
+              isLoading: carregando,
+              expand: true,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _selectString({
+    required String title,
+    required List<String> options,
+    required String selected,
+    required ValueChanged<String> onSelected,
+  }) async {
+    final value = await FitBottomSheet.show<String>(
+      context: context,
+      title: title,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 420),
+        child: ListView.builder(
+          shrinkWrap: true,
+          itemCount: options.length,
+          itemBuilder: (context, index) {
+            final option = options[index];
+            return ListTile(
+              contentPadding: EdgeInsets.zero,
+              minTileHeight: 52,
+              title: Text(option),
+              trailing: option == selected
+                  ? const Icon(Icons.check_rounded, color: FitColors.primary)
+                  : null,
+              onTap: () => Navigator.pop(context, option),
+            );
+          },
+        ),
+      ),
+    );
+    if (!mounted || value == null) return;
+    setState(() => onSelected(value));
+  }
+
+  Future<void> _selectInt({
+    required String title,
+    required List<int> options,
+    required int selected,
+    required String suffix,
+    required ValueChanged<int> onSelected,
+  }) async {
+    final value = await FitBottomSheet.show<int>(
+      context: context,
+      title: title,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: options
+            .map((option) {
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                minTileHeight: 52,
+                title: Text('$option $suffix'),
+                trailing: option == selected
+                    ? const Icon(Icons.check_rounded, color: FitColors.primary)
+                    : null,
+                onTap: () => Navigator.pop(context, option),
+              );
+            })
+            .toList(growable: false),
+      ),
+    );
+    if (!mounted || value == null) return;
+    setState(() => onSelected(value));
+  }
+
+  Future<void> _showAdvancedPreferences() async {
+    await FitBottomSheet.show<void>(
+      context: context,
+      title: 'Preferencias avancadas',
+      subtitle: 'Contexto opcional para deixar a geracao mais precisa.',
+      isScrollControlled: true,
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * 0.68,
+        child: ListView(
+          physics: const BouncingScrollPhysics(),
+          children: [
+            _buildDadosPessoais(),
+            const SizedBox(height: FitSpacing.s16),
+            _buildConfiguracaoTreino(),
+            const SizedBox(height: FitSpacing.s16),
+            _buildPreferencias(),
+          ],
+        ),
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
+  String get _equipmentSummary {
+    final value = equipamentosController.text.trim();
+    if (value.isNotEmpty) return value;
+    return localTreino == 'Academia' ? 'Academia completa' : localTreino;
+  }
+
+  // Mantido apenas como referencia durante a migracao incremental da UI.
+  // ignore: unused_element
+  Widget _buildLegacy(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Gerador de Treino IA')),

@@ -1,8 +1,27 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/app_theme.dart';
+import '../../core/xp/xp_config.dart';
+import '../../design_system/fit_design_system.dart';
+import '../../services/storage_service.dart';
 
-class TreinoFinalizadoPage extends StatelessWidget {
+class TreinoFinalizadoPage extends StatefulWidget {
+  const TreinoFinalizadoPage({
+    super.key,
+    this.nomeTreino = 'Treino',
+    required this.tempo,
+    required this.volume,
+    required this.xp,
+    this.exerciciosConcluidos = 0,
+    this.seriesConcluidas = 0,
+    this.recordes = 0,
+    this.conquistas = 0,
+    this.resumoIa =
+        'Treino concluido com sucesso. Mantenha a consistencia para continuar evoluindo.',
+    this.onVoltar,
+    this.onVerHistorico,
+    this.onCompartilhar,
+  });
+
   final String nomeTreino;
   final String tempo;
   final String volume;
@@ -16,464 +35,312 @@ class TreinoFinalizadoPage extends StatelessWidget {
   final VoidCallback? onVerHistorico;
   final VoidCallback? onCompartilhar;
 
-  const TreinoFinalizadoPage({
-    super.key,
-    this.nomeTreino = 'Treino',
-    required this.tempo,
-    required this.volume,
-    required this.xp,
-    this.exerciciosConcluidos = 0,
-    this.seriesConcluidas = 0,
-    this.recordes = 0,
-    this.conquistas = 0,
-    this.resumoIa =
-        'Treino concluido com sucesso. Mantenha a consistencia para evoluir nas proximas sessoes.',
-    this.onVoltar,
-    this.onVerHistorico,
-    this.onCompartilhar,
-  });
+  @override
+  State<TreinoFinalizadoPage> createState() => _TreinoFinalizadoPageState();
+}
+
+class _TreinoFinalizadoPageState extends State<TreinoFinalizadoPage> {
+  late final Future<_XpSnapshot> _xpFuture = _loadXp();
+
+  Future<_XpSnapshot> _loadXp() async {
+    final values = await Future.wait<int>([
+      StorageService.carregarXp(),
+      StorageService.carregarNivel(),
+    ]);
+    return _XpSnapshot(xp: values[0], level: values[1]);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          SliverToBoxAdapter(child: _hero(context)),
-          SliverPadding(
-            padding: EdgeInsets.fromLTRB(
-              _horizontalPadding(context),
-              0,
-              _horizontalPadding(context),
-              120,
-            ),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                Transform.translate(
-                  offset: const Offset(0, -30),
-                  child: _metricsGrid(context),
-                ),
-                const SizedBox(height: 2),
-                _resumoIaCard(),
-                const SizedBox(height: 18),
-                _statusCard(),
-              ]),
-            ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: SafeArea(
-        minimum: EdgeInsets.fromLTRB(
-          _horizontalPadding(context),
-          10,
-          _horizontalPadding(context),
-          18,
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: onVoltar ?? () => _voltarParaPlanos(context),
-                icon: const Icon(Icons.dashboard_customize_rounded),
-                label: const Text('Planos'),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: ListView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(
+                FitSpacing.s20,
+                FitSpacing.s32,
+                FitSpacing.s20,
+                FitSpacing.s32,
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed:
-                    onVerHistorico ??
-                    onCompartilhar ??
-                    () => _mostrarHistorico(context),
-                icon: const Icon(Icons.history_rounded),
-                label: const Text('Ver histórico'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _hero(BuildContext context) {
-    return SizedBox(
-      height: 340,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          const DecoratedBox(
-            decoration: BoxDecoration(gradient: AppColors.gradientPrimary),
-          ),
-          Positioned(
-            right: -42,
-            top: 78,
-            child: Icon(
-              Icons.emoji_events_rounded,
-              color: Colors.black.withAlpha(42),
-              size: 220,
-            ),
-          ),
-          Positioned(
-            left: -70,
-            bottom: -90,
-            child: Container(
-              width: 220,
-              height: 220,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.black.withAlpha(18),
-              ),
-            ),
-          ),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.transparent,
-                  Colors.black.withAlpha(28),
-                  AppColors.background.withAlpha(246),
-                ],
-              ),
-            ),
-          ),
-          SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                _horizontalPadding(context),
-                20,
-                _horizontalPadding(context),
-                34,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: IconButton.filledTonal(
-                      onPressed: onVoltar ?? () => _voltarParaPlanos(context),
-                      icon: const Icon(Icons.close_rounded),
-                      color: Colors.black,
-                    ),
+              children: [
+                Semantics(
+                  header: true,
+                  child: Text(
+                    'Treino concluido!',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineLarge,
                   ),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withAlpha(24),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: const Text(
-                      'TREINO FINALIZADO',
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: .8,
+                ),
+                const SizedBox(height: FitSpacing.s8),
+                Text(
+                  'Otimo trabalho. Sua evolucao foi salva.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+                const SizedBox(height: FitSpacing.s24),
+                const _CompletionRing(),
+                const SizedBox(height: FitSpacing.s24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _CompletionMetric(
+                        value: widget.tempo,
+                        label: 'Tempo total',
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    nomeTreino,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      color: Colors.black,
-                      fontWeight: FontWeight.w900,
-                      height: .98,
+                    const SizedBox(width: FitSpacing.s8),
+                    Expanded(
+                      child: _CompletionMetric(
+                        value: '${widget.exerciciosConcluidos}',
+                        label: 'Exercicios',
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Seu treino foi salvo no historico e sua evolucao acabou de ganhar mais um ponto.',
-                    style: TextStyle(
-                      color: Colors.black87,
-                      height: 1.35,
-                      fontWeight: FontWeight.w700,
+                    const SizedBox(width: FitSpacing.s8),
+                    Expanded(
+                      child: _CompletionMetric(
+                        value: widget.volume,
+                        label: 'Volume total',
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _metricsGrid(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 760 ? 4 : 2;
-        final spacing = columns == 4 ? 12.0 : 10.0;
-        final width =
-            (constraints.maxWidth - (spacing * (columns - 1))) / columns;
-
-        return Wrap(
-          spacing: spacing,
-          runSpacing: spacing,
-          children: [
-            SizedBox(
-              width: width,
-              child: _MetricCard(
-                icon: Icons.timer_rounded,
-                label: 'Tempo',
-                value: tempo,
-                color: AppColors.primary,
-              ),
-            ),
-            SizedBox(
-              width: width,
-              child: _MetricCard(
-                icon: Icons.fitness_center_rounded,
-                label: 'Exercícios',
-                value: '$exerciciosConcluidos',
-                color: AppColors.accent1,
-              ),
-            ),
-            SizedBox(
-              width: width,
-              child: _MetricCard(
-                icon: Icons.check_circle_rounded,
-                label: 'Séries',
-                value: '$seriesConcluidas',
-                color: AppColors.accent3,
-              ),
-            ),
-            SizedBox(
-              width: width,
-              child: _MetricCard(
-                icon: Icons.monitor_weight_rounded,
-                label: 'Volume',
-                value: volume,
-                color: AppColors.accent1,
-              ),
-            ),
-            SizedBox(
-              width: width,
-              child: _MetricCard(
-                icon: Icons.bolt_rounded,
-                label: 'XP',
-                value: '+$xp',
-                color: AppColors.accent3,
-              ),
-            ),
-            SizedBox(
-              width: width,
-              child: _MetricCard(
-                icon: Icons.emoji_events_rounded,
-                label: 'Recordes',
-                value: '$recordes',
-                color: AppColors.rankOuro,
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _resumoIaCard() {
-    return AppGradientCard(
-      padding: const EdgeInsets.all(18),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: AppColors.primary.withAlpha(28),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(
-              Icons.auto_awesome_rounded,
-              color: AppColors.primary,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Resumo IA',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
+                  ],
+                ),
+                const SizedBox(height: FitSpacing.s16),
+                FitCard(
+                  variant: FitCardVariant.outlined,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '+${widget.xp}',
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      const SizedBox(width: FitSpacing.s8),
+                      Text(
+                        'XP',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: FitColors.primary,
+                        ),
+                      ),
+                      const SizedBox(width: FitSpacing.s8),
+                      Text(
+                        'ganhos',
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  resumoIa,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    height: 1.45,
-                    fontWeight: FontWeight.w600,
-                  ),
+                const SizedBox(height: FitSpacing.s20),
+                FutureBuilder<_XpSnapshot>(
+                  future: _xpFuture,
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return const FitSkeleton(height: 76);
+                    }
+                    return _LevelProgress(snapshot: snapshot.data!);
+                  },
+                ),
+                const SizedBox(height: FitSpacing.s24),
+                FitButton(
+                  label: 'Ver resumo',
+                  onPressed: widget.onVerHistorico ?? _showSummary,
+                  expand: true,
+                ),
+                const SizedBox(height: FitSpacing.s12),
+                FitButton(
+                  label: 'Compartilhar',
+                  leadingIcon: Icons.ios_share_rounded,
+                  variant: FitButtonVariant.outlined,
+                  onPressed: widget.onCompartilhar ?? _showSummary,
+                  expand: true,
                 ),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _statusCard() {
-    return AppGradientCard(
-      padding: const EdgeInsets.all(18),
+  Future<void> _showSummary() async {
+    await FitBottomSheet.show<void>(
+      context: context,
+      title: widget.nomeTreino,
+      subtitle: 'Resumo da sessao concluida',
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _StatusRow(
-            icon: Icons.workspace_premium_rounded,
-            label: 'Conquistas desbloqueadas',
-            value: '$conquistas',
+          _SummaryRow(
+            label: 'Series concluidas',
+            value: '${widget.seriesConcluidas}',
           ),
-          const SizedBox(height: 12),
-          _StatusRow(
-            icon: Icons.trending_up_rounded,
-            label: 'Proximo passo',
-            value: recordes > 0 ? 'Manter evolucao' : 'Nova sessao',
+          const FitDivider(),
+          _SummaryRow(label: 'Recordes pessoais', value: '${widget.recordes}'),
+          const FitDivider(),
+          _SummaryRow(label: 'Conquistas', value: '${widget.conquistas}'),
+          const SizedBox(height: FitSpacing.s16),
+          Align(alignment: Alignment.centerLeft, child: Text(widget.resumoIa)),
+          const SizedBox(height: FitSpacing.s20),
+          FitButton(
+            label: 'Voltar para Planos',
+            onPressed: () {
+              Navigator.pop(context);
+              (widget.onVoltar ?? _returnToPlans).call();
+            },
+            expand: true,
           ),
         ],
       ),
     );
   }
 
-  void _voltarParaPlanos(BuildContext context) {
+  void _returnToPlans() {
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
-
-  void _mostrarHistorico(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Treino salvo. Abra o histórico em Planos.'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  double _horizontalPadding(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    if (width >= 1080) return 72;
-    if (width >= 720) return 36;
-    return 20;
-  }
 }
 
-class _MetricCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  const _MetricCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
+class _CompletionRing extends StatelessWidget {
+  const _CompletionRing();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withAlpha(16)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(42),
-            blurRadius: 18,
-            offset: const Offset(0, 12),
+    return Center(
+      child: Semantics(
+        label: 'Treino 100 por cento concluido',
+        child: SizedBox.square(
+          dimension: 210,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              const CircularProgressIndicator(
+                value: 1,
+                strokeWidth: 14,
+                strokeCap: StrokeCap.round,
+                color: FitColors.primary,
+                backgroundColor: FitColors.surfaceVariant,
+              ),
+              Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '100%',
+                      style: Theme.of(context).textTheme.displaySmall,
+                    ),
+                    const SizedBox(height: FitSpacing.s4),
+                    Text(
+                      'Concluido',
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 14),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _StatusRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
+class _CompletionMetric extends StatelessWidget {
+  const _CompletionMetric({required this.value, required this.label});
 
-  const _StatusRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
+  final String value;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return FitCard(
+      variant: FitCardVariant.outlined,
+      padding: const EdgeInsets.symmetric(
+        horizontal: FitSpacing.s8,
+        vertical: FitSpacing.s16,
+      ),
+      child: SizedBox(
+        height: 64,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Center(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    value,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: FitSpacing.s4),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LevelProgress extends StatelessWidget {
+  const _LevelProgress({required this.snapshot});
+
+  final _XpSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final target = XpConfig.xpParaProximoNivel(snapshot.level);
+    final progress = target <= 0 ? 0.0 : snapshot.xp / target;
+    return Column(
       children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: AppColors.surfaceVariant,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(icon, color: AppColors.primary, size: 20),
+        Row(
+          children: [
+            Expanded(child: Text('Nivel ${snapshot.level}')),
+            Text('Nivel ${snapshot.level + 1}'),
+          ],
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
+        const SizedBox(height: FitSpacing.s8),
+        FitProgress(value: progress),
+        const SizedBox(height: FitSpacing.s8),
         Text(
-          value,
-          style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.w900,
-          ),
+          '${snapshot.xp} / $target XP',
+          style: Theme.of(context).textTheme.bodyMedium,
         ),
       ],
     );
   }
+}
+
+class _SummaryRow extends StatelessWidget {
+  const _SummaryRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 48),
+      child: Row(
+        children: [
+          Expanded(child: Text(label)),
+          Text(value, style: Theme.of(context).textTheme.titleMedium),
+        ],
+      ),
+    );
+  }
+}
+
+class _XpSnapshot {
+  const _XpSnapshot({required this.xp, required this.level});
+
+  final int xp;
+  final int level;
 }

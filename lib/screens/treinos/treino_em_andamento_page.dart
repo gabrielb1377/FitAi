@@ -18,6 +18,7 @@ import '../../widgets/exercicio_gif_viewer.dart';
 import '../exercicios/biblioteca_exercicios_page.dart';
 import 'treino_finalizado_page.dart';
 import 'widgets/exercise_next_progression_card.dart';
+import 'widgets/plans/official_workout_session.dart';
 
 class TreinoEmAndamentoPage extends StatefulWidget {
   final TreinoModel treino;
@@ -126,7 +127,6 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     });
   }
 
-  // ignore: unused_element
   void _registrarSerie() {
     final exercicio = _exercicio;
     if (exercicio == null) return;
@@ -1029,6 +1029,138 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
 
   @override
   Widget build(BuildContext context) {
+    final exercicio = _exercicio;
+    if (exercicio == null) return _buildLegacy(context);
+
+    final concluidas = _seriesConcluidas[_exercicioAtual]?.length ?? 0;
+    final historicoAtual = _historico[_exercicioAtual] ?? const [];
+    final historicoSessao = _historico.values
+        .expand<_HistoricoSerieLocal>((entries) => entries)
+        .toList();
+    final exerciciosConcluidos = _exerciciosConcluidosTotal();
+    final progresso =
+        ((_exercicioAtual + (concluidas / _seriesPorExercicio)) /
+                _totalExercicios)
+            .clamp(0.0, 1.0)
+            .toDouble();
+
+    return OfficialWorkoutSession(
+      title: _grupoDia,
+      elapsedTime: _tempoCompletoFormatado,
+      exercise: exercicio,
+      exerciseIndex: _exercicioAtual,
+      exerciseCount: _totalExercicios,
+      completedSets: concluidas,
+      targetSets: _seriesPorExercicio,
+      repetitionsController: _repeticoesController,
+      weightController: _pesoController,
+      restSeconds: _emDescanso ? _descansoRestante : _descansoPadrao,
+      isResting: _emDescanso,
+      progress: progresso,
+      onClose: () => Navigator.pop(context),
+      onExerciseTap: () => _abrirAcoesDoExercicio(
+        entries: historicoAtual,
+        sessionEntries: historicoSessao,
+        exerciciosConcluidos: exerciciosConcluidos,
+      ),
+      onCompleteSet: _registrarSerie,
+      onRestTap: _emDescanso ? _pularDescanso : _iniciarDescanso,
+      onChanged: (_) => setState(() {}),
+      onPrevious: _exercicioAtual == 0 ? null : _exercicioAnterior,
+      onNext: _exercicioAtual >= _totalExercicios - 1
+          ? null
+          : _proximoExercicioManual,
+    );
+  }
+
+  String get _tempoCompletoFormatado {
+    final horas = (_segundosTreino ~/ 3600).toString().padLeft(2, '0');
+    final minutos = ((_segundosTreino % 3600) ~/ 60).toString().padLeft(2, '0');
+    final segundos = (_segundosTreino % 60).toString().padLeft(2, '0');
+    return '$horas:$minutos:$segundos';
+  }
+
+  void _abrirAcoesDoExercicio({
+    required List<_HistoricoSerieLocal> entries,
+    required List<_HistoricoSerieLocal> sessionEntries,
+    required int exerciciosConcluidos,
+  }) {
+    final showSuggestion =
+        entries.isEmpty &&
+        _nextProgressionFuture != null &&
+        !_sugestoesProgressaoIgnoradas.contains(_exercicioAtual) &&
+        !_sugestoesProgressaoAplicadas.contains(_exercicioAtual);
+    _abrirInfoSheet(
+      title: 'Acoes do exercicio',
+      icon: Icons.more_horiz_rounded,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _QuickActionsRow(
+            onSwap: _trocarExercicioAtual,
+            onXp: _abrirXpSheet,
+            onCoach: () => _abrirCoachSheet(entries),
+            onProgression: _abrirProgressaoSheet,
+            onPerformance: () => _abrirPerformanceSheet(
+              entries: entries,
+              sessionEntries: sessionEntries,
+              exerciciosConcluidos: exerciciosConcluidos,
+            ),
+          ),
+          if (showSuggestion) ...[
+            const SizedBox(height: 14),
+            ExerciseNextProgressionCard(
+              future: _nextProgressionFuture!,
+              compact: true,
+              onApply: _aplicarProximaProgressao,
+              onKeep: _ignorarProximaProgressao,
+              onViewHistory: _abrirProgressaoSheet,
+            ),
+          ],
+          if (_emDescanso) ...[
+            const SizedBox(height: 14),
+            _RestCard(
+              seconds: _descansoRestante,
+              totalSeconds: _descansoTotal,
+              nextLabel: _proximoDescansoLabel(),
+              onSkip: _pularDescanso,
+              onAddTime: () => _ajustarDescanso(15),
+              onRemoveTime: () => _ajustarDescanso(-15),
+            ),
+          ],
+          const SizedBox(height: 14),
+          TextField(
+            controller: _comentarioController,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              labelText: 'Comentario da serie',
+              hintText: 'Anote tecnica, dor ou percepcao de esforco',
+            ),
+            onChanged: (value) {
+              _comentarios[_exercicioAtual] = value.trim();
+            },
+          ),
+          const SizedBox(height: 14),
+          _HistoryCard(entries: entries),
+          const SizedBox(height: 14),
+          _SecondaryActionButton(
+            label: 'Editar treino',
+            icon: Icons.tune_rounded,
+            onTap: () {
+              Navigator.pop(context);
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _abrirMenuEdicaoTreino();
+              });
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Mantido para o estado sem exercicios e para preservar os componentes
+  // especializados durante a migracao incremental.
+  Widget _buildLegacy(BuildContext context) {
     final exercicio = _exercicio;
     final concluidas = _seriesConcluidas[_exercicioAtual]?.length ?? 0;
     final historicoAtual = _historico[_exercicioAtual] ?? const [];

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../design_system/fit_design_system.dart';
 import '../../models/exercicio_model.dart';
 import '../../models/treino_model.dart';
 import '../../services/treino_service.dart';
 import '../../theme/app_theme.dart';
 import '../exercicios/biblioteca_exercicios_page.dart';
+import 'widgets/plans/plan_wizard_choice_tile.dart';
 
 class CriarTreinoPage extends StatefulWidget {
   const CriarTreinoPage({super.key});
@@ -47,7 +49,9 @@ class _CriarTreinoPageState extends State<CriarTreinoPage> {
   String nivel = "Iniciante";
   String divisao = "Full Body";
   int tempo = 45;
+  int frequencia = 3;
   bool salvando = false;
+  bool _showEditor = false;
   int proximoDiaId = 1;
 
   final List<_DiaManual> diasPlano = [];
@@ -74,6 +78,7 @@ class _CriarTreinoPageState extends State<CriarTreinoPage> {
   ];
 
   final tempos = const [30, 45, 60, 75, 90];
+  final frequencias = const [2, 3, 4, 5, 6];
 
   final diasSemana = const [
     "Segunda",
@@ -107,7 +112,9 @@ class _CriarTreinoPageState extends State<CriarTreinoPage> {
   @override
   void initState() {
     super.initState();
-    _adicionarDia(inicial: true);
+    for (var index = 0; index < frequencia; index++) {
+      _adicionarDiaInterno(inicial: index == 0);
+    }
   }
 
   @override
@@ -207,16 +214,31 @@ class _CriarTreinoPageState extends State<CriarTreinoPage> {
 
   void _adicionarDia({bool inicial = false}) {
     setState(() {
-      final numero = proximoDiaId++;
-      final index = diasPlano.length;
-      diasPlano.add(
-        _DiaManual(
-          id: numero,
-          diaSemana: diasSemana[index % diasSemana.length],
-          tituloInicial: inicial ? "Full Body" : "Dia $numero",
-        ),
-      );
+      _adicionarDiaInterno(inicial: inicial);
+      frequencia = diasPlano.length;
     });
+  }
+
+  void _adicionarDiaInterno({bool inicial = false}) {
+    final numero = proximoDiaId++;
+    final index = diasPlano.length;
+    diasPlano.add(
+      _DiaManual(
+        id: numero,
+        diaSemana: diasSemana[index % diasSemana.length],
+        tituloInicial: inicial ? "Full Body" : "Dia $numero",
+      ),
+    );
+  }
+
+  void _setFrequency(int value) {
+    frequencia = value;
+    while (diasPlano.length < value) {
+      _adicionarDiaInterno(inicial: diasPlano.isEmpty);
+    }
+    while (diasPlano.length > value) {
+      diasPlano.removeLast().dispose();
+    }
   }
 
   void _removerDia(_DiaManual dia) {
@@ -229,6 +251,7 @@ class _CriarTreinoPageState extends State<CriarTreinoPage> {
 
     setState(() {
       diasPlano.remove(dia);
+      frequencia = diasPlano.length;
     });
 
     dia.dispose();
@@ -330,9 +353,225 @@ class _CriarTreinoPageState extends State<CriarTreinoPage> {
 
   @override
   Widget build(BuildContext context) {
+    return _showEditor ? _buildEditor(context) : _buildStructure(context);
+  }
+
+  Widget _buildStructure(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: Column(
+              children: [
+                FitHeader(
+                  title: 'Criar plano manual',
+                  showBackButton: true,
+                  onBack: () => Navigator.maybePop(context),
+                ),
+                Expanded(
+                  child: ListView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(
+                      FitSpacing.s20,
+                      FitSpacing.s16,
+                      FitSpacing.s20,
+                      FitSpacing.s24,
+                    ),
+                    children: [
+                      Text(
+                        'Monte seu plano do seu jeito',
+                        style: Theme.of(context).textTheme.headlineMedium,
+                      ),
+                      const SizedBox(height: FitSpacing.s8),
+                      Text(
+                        'Defina a estrutura inicial. Depois voce organiza os dias e escolhe cada exercicio.',
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                      const SizedBox(height: FitSpacing.s24),
+                      PlanWizardChoiceTile(
+                        index: 1,
+                        label: 'Objetivo',
+                        value: objetivo,
+                        onTap: () => _selectString(
+                          title: 'Objetivo',
+                          options: objetivos,
+                          selected: objetivo,
+                          onSelected: (value) => objetivo = value,
+                        ),
+                      ),
+                      const SizedBox(height: FitSpacing.s12),
+                      PlanWizardChoiceTile(
+                        index: 2,
+                        label: 'Nivel de experiencia',
+                        value: nivel,
+                        onTap: () => _selectString(
+                          title: 'Nivel de experiencia',
+                          options: niveis,
+                          selected: nivel,
+                          onSelected: (value) => nivel = value,
+                        ),
+                      ),
+                      const SizedBox(height: FitSpacing.s12),
+                      PlanWizardChoiceTile(
+                        index: 3,
+                        label: 'Frequencia semanal',
+                        value: '$frequencia dias por semana',
+                        onTap: () => _selectInt(
+                          title: 'Frequencia semanal',
+                          options: frequencias,
+                          selected: frequencia,
+                          suffix: 'dias por semana',
+                          onSelected: _setFrequency,
+                        ),
+                      ),
+                      const SizedBox(height: FitSpacing.s12),
+                      PlanWizardChoiceTile(
+                        index: 4,
+                        label: 'Duracao do treino',
+                        value: '$tempo minutos',
+                        onTap: () => _selectInt(
+                          title: 'Duracao do treino',
+                          options: tempos,
+                          selected: tempo,
+                          suffix: 'minutos',
+                          onSelected: (value) => tempo = value,
+                        ),
+                      ),
+                      const SizedBox(height: FitSpacing.s20),
+                      Text(
+                        'Divisao do treino',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: FitSpacing.s12),
+                      FitCard(
+                        variant: FitCardVariant.clickable,
+                        onTap: () => _selectString(
+                          title: 'Divisao do treino',
+                          options: divisoes,
+                          selected: divisao,
+                          onSelected: (value) => divisao = value,
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.account_tree_outlined,
+                              color: FitColors.primary,
+                            ),
+                            const SizedBox(width: FitSpacing.s12),
+                            Expanded(
+                              child: Text(
+                                divisaoSelecionada,
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                            ),
+                            const Icon(Icons.expand_more_rounded),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(
+          FitSpacing.s20,
+          FitSpacing.s8,
+          FitSpacing.s20,
+          FitSpacing.s16,
+        ),
+        child: Center(
+          heightFactor: 1,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: FitButton(
+              label: 'Continuar',
+              trailingIcon: Icons.arrow_forward_rounded,
+              onPressed: () => setState(() => _showEditor = true),
+              expand: true,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _selectString({
+    required String title,
+    required List<String> options,
+    required String selected,
+    required ValueChanged<String> onSelected,
+  }) async {
+    final value = await FitBottomSheet.show<String>(
+      context: context,
+      title: title,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: options
+            .map((option) {
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                minTileHeight: 52,
+                title: Text(option),
+                trailing: option == selected
+                    ? const Icon(Icons.check_rounded, color: FitColors.primary)
+                    : null,
+                onTap: () => Navigator.pop(context, option),
+              );
+            })
+            .toList(growable: false),
+      ),
+    );
+    if (!mounted || value == null) return;
+    setState(() => onSelected(value));
+  }
+
+  Future<void> _selectInt({
+    required String title,
+    required List<int> options,
+    required int selected,
+    required String suffix,
+    required ValueChanged<int> onSelected,
+  }) async {
+    final value = await FitBottomSheet.show<int>(
+      context: context,
+      title: title,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: options
+            .map((option) {
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                minTileHeight: 52,
+                title: Text('$option $suffix'),
+                trailing: option == selected
+                    ? const Icon(Icons.check_rounded, color: FitColors.primary)
+                    : null,
+                onTap: () => Navigator.pop(context, option),
+              );
+            })
+            .toList(growable: false),
+      ),
+    );
+    if (!mounted || value == null) return;
+    setState(() => onSelected(value));
+  }
+
+  Widget _buildEditor(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text("Criar treino manual")),
+      appBar: AppBar(
+        title: const Text("Criar treino manual"),
+        leading: IconButton(
+          tooltip: 'Voltar para estrutura',
+          onPressed: () => setState(() => _showEditor = false),
+          icon: const Icon(Icons.arrow_back_rounded),
+        ),
+      ),
       body: Form(
         key: formKey,
         child: ListView(

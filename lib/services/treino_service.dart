@@ -10,14 +10,47 @@ class TreinoService extends ChangeNotifier {
   static final TreinoService instance = TreinoService._();
 
   final List<TreinoModel> _treinos = [];
+  bool _initialized = false;
+  bool _isLoading = false;
+  Object? _loadError;
 
   List<TreinoModel> get treinos => List.unmodifiable(_treinos);
+  bool get isInitialized => _initialized;
+  bool get isLoading => _isLoading;
+  Object? get loadError => _loadError;
+
+  Future<void> initialize({bool force = false}) async {
+    if (_isLoading || (_initialized && !force)) return;
+
+    _isLoading = true;
+    _loadError = null;
+    notifyListeners();
+
+    try {
+      final saved = await StorageService.carregarTreinos();
+      final byId = <String, TreinoModel>{
+        for (final workout in _treinos) workout.id: workout,
+        for (final workout in saved) workout.id: workout,
+      };
+      _treinos
+        ..clear()
+        ..addAll(byId.values);
+      _initialized = true;
+    } catch (error) {
+      _loadError = error;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
 
   void adicionarTreino(TreinoModel treino) {
     unawaited(adicionarTreinoComPersistencia(treino));
   }
 
   Future<void> adicionarTreinoComPersistencia(TreinoModel treino) async {
+    _initialized = true;
+    _loadError = null;
     final index = _treinos.indexWhere((item) => item.id == treino.id);
 
     if (index >= 0) {

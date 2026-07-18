@@ -1,12 +1,21 @@
 import 'package:fitai/screens/treinos/treinos_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   testWidgets('abre sem RangeError quando nao existem planos pessoais', (
     tester,
   ) async {
-    await tester.pumpWidget(const MaterialApp(home: TreinosPage()));
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TreinosPage(
+          useDeveloperFallback: false,
+          checkBackend: () async => false,
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Meus Planos'), findsOneWidget);
