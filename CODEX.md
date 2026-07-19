@@ -2,6 +2,10 @@
 
 Leia primeiro o guia completo em [..\docs\CODEX_RULES.md](..\docs\CODEX_RULES.md).
 
+## Leitura obrigatoria para sprints visuais
+
+Antes de alterar uma tela, leia [OFFICIAL_UI_RULES.md](..\designs\OFFICIAL_UI_RULES.md), [CODEX_IMPLEMENTATION_RULES.md](..\docs\CODEX_IMPLEMENTATION_RULES.md) e [NO_CREATIVE_UI.md](..\docs\NO_CREATIVE_UI.md). Os PNGs em `designs/official-ui` sao contratos visuais, nao inspiracao.
+
 - Preserve Android, Web e Windows, alem de navegacao, scroll e estados atuais.
 - Nao altere logica quando o pedido for somente UI, nem altere `StorageService` ou IA sem pedido explicito.
 - Nao crie dependencias novas e nao sobrescreva telas inteiras sem necessidade comprovada.
