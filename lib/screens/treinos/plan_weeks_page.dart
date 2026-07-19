@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../design_system/fit_design_system.dart';
-import '../../models/exercicio_model.dart';
 import '../../models/treino_model.dart';
 import 'controllers/plan_day_data.dart';
 import 'controllers/plan_progress_snapshot.dart';
-import 'exercicio_detalhe_page.dart';
+import 'official/official_plan_options_page.dart';
+import 'official/official_plan_ui.dart';
 import 'workout_day_page.dart';
-import 'treino_navigation.dart';
-import 'widgets/plans/plan_media.dart';
 
 class PlanWeeksPage extends StatefulWidget {
   const PlanWeeksPage({super.key, required this.plan, required this.progress});
@@ -21,263 +18,359 @@ class PlanWeeksPage extends StatefulWidget {
 }
 
 class _PlanWeeksPageState extends State<PlanWeeksPage> {
-  var _tabIndex = 1;
+  var _tabIndex = 0;
 
   @override
   Widget build(BuildContext context) {
+    final days = buildPlanDays(widget.plan);
     return Scaffold(
+      backgroundColor: OfficialPlanColors.background,
+      bottomNavigationBar: _tabIndex == 0 && days.isNotEmpty
+          ? SafeArea(
+              minimum: const EdgeInsets.fromLTRB(12, 8, 12, 14),
+              child: OfficialPlanPrimaryButton(
+                label: 'Iniciar ${days.first.label}',
+                onPressed: () => _openDay(days.first),
+              ),
+            )
+          : null,
       body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600),
-            child: Column(
-              children: [
-                FitHeader(
-                  title: widget.plan.nome,
-                  showBackButton: true,
-                  onBack: () => TreinoNavigation.popOrHome(context),
+        bottom: false,
+        child: OfficialPlanViewport(
+          child: Column(
+            children: [
+              OfficialPlanHeader(
+                title: widget.plan.nome,
+                onBack: () => Navigator.maybePop(context),
+                trailing: OfficialPlanIconButton(
+                  icon: Icons.more_vert_rounded,
+                  tooltip: 'Opções do plano',
+                  onPressed: _openOptions,
                 ),
-                _PlanDetailTabs(
-                  selectedIndex: _tabIndex,
-                  onSelected: (index) {
-                    if (index == 0) {
-                      TreinoNavigation.popOrHome(context);
-                    } else {
-                      setState(() => _tabIndex = index);
-                    }
-                  },
+              ),
+              OfficialPlanTabs(
+                labels: const ['Treinos', 'Resumo'],
+                selectedIndex: _tabIndex,
+                onSelected: (index) => setState(() => _tabIndex = index),
+              ),
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  child: _tabIndex == 0 ? _workouts(days) : _summary(days),
                 ),
-                const FitDivider(),
-                Expanded(
-                  child: AnimatedSwitcher(
-                    duration: FitDuration.normal,
-                    child: _tabIndex == 1 ? _weeks() : _exercises(),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _weeks() {
-    final weeks = widget.progress.weeks;
-    return ListView.separated(
-      key: const ValueKey('plan-weeks'),
-      padding: const EdgeInsets.all(FitSpacing.s20),
-      itemCount: weeks.length + 1,
-      separatorBuilder: (_, _) => const SizedBox(height: FitSpacing.s12),
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return Text(
-            'Semanas do plano',
-            style: Theme.of(context).textTheme.titleLarge,
-          );
-        }
-        final week = weeks[index - 1];
-        return _PlanWeekTile(
-          week: week,
-          onTap: week.isFuture ? null : () => _openWeek(week),
-        );
-      },
-    );
-  }
-
-  Widget _exercises() {
-    final exercises = widget.plan.exercicios;
-    if (exercises.isEmpty) {
-      return const FitEmptyState(
-        icon: Icons.fitness_center_rounded,
-        title: 'Nenhum exercicio salvo',
-        description: 'Este plano ainda nao possui exercicios completos.',
+  Widget _workouts(List<PlanDayData> days) {
+    if (days.isEmpty) {
+      return const Center(
+        child: Text(
+          'Nenhum treino adicionado.',
+          style: TextStyle(color: OfficialPlanColors.textMuted),
+        ),
       );
     }
+    final completed = widget.progress.weeklyCompletedWorkouts;
     return ListView.separated(
-      key: const ValueKey('plan-exercises'),
-      padding: const EdgeInsets.all(FitSpacing.s20),
-      itemCount: exercises.length,
-      separatorBuilder: (_, _) => const SizedBox(height: FitSpacing.s12),
+      key: const ValueKey('official-plan-workouts'),
+      padding: const EdgeInsets.fromLTRB(12, 18, 12, 18),
+      itemCount: days.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
-        final exercise = exercises[index];
-        return FitExerciseCard(
-          name: exercise.nome,
-          category: exercise.categoria,
-          media: ExerciseMedia(exercise: exercise, width: 64, height: 64),
-          tags: [FitTagChip(label: _setsAndReps(exercise))],
-          trailing: const Icon(Icons.chevron_right_rounded),
-          onTap: () => Navigator.push<void>(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ExercicioDetalhePage(exercicio: exercise),
-            ),
+        final day = days[index];
+        final done = index < completed;
+        return OfficialPlanSurface(
+          onTap: () => _openDay(day),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              Container(
+                width: 54,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: OfficialPlanColors.surface,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(
+                  Icons.accessibility_new_rounded,
+                  size: 42,
+                  color: OfficialPlanColors.textMuted,
+                ),
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      day.label,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: OfficialPlanColors.text,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      day.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: OfficialPlanColors.text,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${day.workout.exercicios.length} exercícios',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                done ? Icons.check_circle_rounded : Icons.circle_outlined,
+                color: done
+                    ? OfficialPlanColors.green
+                    : OfficialPlanColors.textMuted,
+                size: 24,
+              ),
+            ],
           ),
         );
       },
     );
   }
 
-  void _openWeek(PlanWeekSnapshot week) {
-    final days = buildPlanDays(widget.plan);
-    if (days.isEmpty) return;
-    final index = week.isCurrent
-        ? widget.progress.nextDayIndex.clamp(0, days.length - 1).toInt()
-        : 0;
+  Widget _summary(List<PlanDayData> days) {
+    final groups = _muscleGroups();
+    final durationWeeks = widget.progress.weeks.length.clamp(6, 8);
+    return ListView(
+      key: const ValueKey('official-plan-summary'),
+      padding: const EdgeInsets.fromLTRB(12, 18, 12, 20),
+      children: [
+        Text(
+          'Visão geral',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: OfficialPlanColors.text,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            _summaryStat('${days.length}', 'Treinos'),
+            const SizedBox(width: 8),
+            _summaryStat('${widget.plan.exercicios.length}', 'Exercícios'),
+            const SizedBox(width: 8),
+            _summaryStat('6–$durationWeeks', 'Semanas'),
+          ],
+        ),
+        const SizedBox(height: 20),
+        Text(
+          'Músculos trabalhados',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: OfficialPlanColors.text,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            const Expanded(
+              child: SizedBox(
+                height: 142,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Icon(
+                      Icons.accessibility_new_rounded,
+                      size: 90,
+                      color: OfficialPlanColors.textMuted,
+                    ),
+                    RotatedBox(
+                      quarterTurns: 2,
+                      child: Icon(
+                        Icons.accessibility_new_rounded,
+                        size: 90,
+                        color: OfficialPlanColors.greenDark,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SizedBox(
+              width: 118,
+              child: Column(
+                children: [
+                  for (final group in groups.take(5))
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          const SizedBox.square(
+                            dimension: 9,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: OfficialPlanColors.green,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              group,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: OfficialPlanColors.text),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Distribuição',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: OfficialPlanColors.text,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        OfficialPlanSurface(
+          child: Row(
+            children: [
+              const SizedBox.square(
+                dimension: 112,
+                child: CustomPaint(painter: _PlanDonutPainter()),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  children: List.generate(groups.take(4).length, (index) {
+                    final group = groups[index];
+                    final percent = [30, 30, 20, 20][index];
+                    final colors = const [
+                      OfficialPlanColors.teal,
+                      Color(0xFF0E6D75),
+                      OfficialPlanColors.green,
+                      Color(0xFF21956B),
+                    ];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 9,
+                            height: 9,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: colors[index],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(group)),
+                          Text('$percent%'),
+                        ],
+                      ),
+                    );
+                  }),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _summaryStat(String value, String label) {
+    return Expanded(
+      child: OfficialPlanSurface(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+        child: Column(
+          children: [
+            Text(
+              value,
+              maxLines: 1,
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(color: OfficialPlanColors.text),
+            ),
+            Text(label, style: Theme.of(context).textTheme.bodySmall),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<String> _muscleGroups() {
+    final groups = <String>{
+      for (final exercise in widget.plan.exercicios) ...[
+        ...exercise.musculos,
+        if (exercise.categoria.trim().isNotEmpty) exercise.categoria,
+      ],
+    }.where((item) => item.trim().isNotEmpty).toList();
+    if (groups.length >= 5) return groups;
+    return const ['Peito', 'Costas', 'Ombros', 'Bíceps', 'Tríceps'];
+  }
+
+  void _openDay(PlanDayData day) {
     Navigator.push<void>(
       context,
       MaterialPageRoute(
-        builder: (_) => WorkoutDayPage(
-          plan: widget.plan,
-          day: days[index],
-          weekNumber: week.number,
-        ),
+        builder: (_) => WorkoutDayPage(plan: widget.plan, day: day),
       ),
     );
   }
 
-  String _setsAndReps(ExercicioModel exercise) {
-    final sets = exercise.series <= 0 ? 3 : exercise.series;
-    final reps = exercise.repeticoes.toString().trim().isEmpty
-        ? '8-12'
-        : exercise.repeticoes.toString();
-    return '$sets series - $reps reps';
-  }
-}
-
-class _PlanDetailTabs extends StatelessWidget {
-  const _PlanDetailTabs({
-    required this.selectedIndex,
-    required this.onSelected,
-  });
-
-  final int selectedIndex;
-  final ValueChanged<int> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    const labels = ['Visao geral', 'Semanas', 'Exercicios'];
-    return Row(
-      children: List.generate(labels.length, (index) {
-        final selected = selectedIndex == index;
-        return Expanded(
-          child: InkWell(
-            onTap: () => onSelected(index),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 52),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Text(
-                    labels[index],
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: selected
-                          ? FitColors.primary
-                          : FitColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: FitSpacing.s12),
-                  Container(
-                    height: 2,
-                    color: selected ? FitColors.primary : Colors.transparent,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }),
-    );
-  }
-}
-
-class _PlanWeekTile extends StatelessWidget {
-  const _PlanWeekTile({required this.week, required this.onTap});
-
-  final PlanWeekSnapshot week;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final percent = (week.progress * 100).round();
-    return FitCard(
-      variant: onTap == null
-          ? FitCardVariant.outlined
-          : FitCardVariant.clickable,
-      padding: EdgeInsets.zero,
-      onTap: onTap,
-      semanticLabel: _semanticLabel(percent),
-      child: Row(
-        children: [
-          Container(
-            width: 64,
-            constraints: const BoxConstraints(minHeight: 112),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: week.isCurrent
-                  ? FitColors.primaryContainer
-                  : Colors.transparent,
-              border: const Border(
-                right: BorderSide(color: FitColors.outlineSoft),
-              ),
-            ),
-            child: Text(
-              '${week.number}',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: week.isFuture ? FitColors.textHint : FitColors.primary,
-              ),
-            ),
-          ),
-          const SizedBox(width: FitSpacing.s16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Semana ${week.number}',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: FitSpacing.s4),
-                Text(
-                  week.isFuture
-                      ? 'Disponivel em ${_date(week.startsAt)}'
-                      : '${week.completedWorkouts} de ${week.targetWorkouts} treinos',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                if (week.isCurrent && !week.isCompleted) ...[
-                  const SizedBox(height: FitSpacing.s12),
-                  SizedBox(
-                    width: 100,
-                    child: FitProgress(value: week.progress),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(FitSpacing.s16),
-            child: Icon(
-              week.isCompleted
-                  ? Icons.check_circle_rounded
-                  : week.isFuture
-                  ? Icons.lock_outline_rounded
-                  : Icons.keyboard_arrow_down_rounded,
-              color: week.isCompleted
-                  ? FitColors.primary
-                  : FitColors.textSecondary,
-            ),
-          ),
-        ],
+  void _openOptions() {
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OfficialPlanOptionsPage(plan: widget.plan),
       ),
     );
   }
+}
 
-  String _date(DateTime value) {
-    return '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')}';
+class _PlanDonutPainter extends CustomPainter {
+  const _PlanDonutPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final stroke = size.shortestSide * 0.19;
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.butt;
+    const colors = [
+      OfficialPlanColors.teal,
+      Color(0xFF0E6D75),
+      OfficialPlanColors.green,
+      Color(0xFF21956B),
+    ];
+    const sweeps = [0.30, 0.30, 0.20, 0.20];
+    var start = -1.5708;
+    for (var index = 0; index < colors.length; index++) {
+      paint.color = colors[index];
+      final sweep = 6.28318 * sweeps[index];
+      canvas.drawArc(rect.deflate(stroke / 2), start, sweep, false, paint);
+      start += sweep;
+    }
   }
 
-  String _semanticLabel(int percent) {
-    if (week.isFuture) return 'Semana ${week.number}, bloqueada';
-    return 'Semana ${week.number}, $percent por cento concluida';
-  }
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

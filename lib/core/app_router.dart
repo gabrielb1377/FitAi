@@ -109,6 +109,7 @@ class AppRouter {
       TreinosPage(
         key: const PageStorageKey('tab-planos'),
         onXpAtualizado: state.carregarDados,
+        onBack: () => state.onSelectTab(0),
       ),
       const BibliotecaExerciciosPage(key: PageStorageKey('tab-biblioteca')),
       AtividadesPage(

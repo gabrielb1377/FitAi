@@ -3,32 +3,37 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../../../design_system/fit_design_system.dart';
 import '../../../models/fitai_memory_model.dart';
 import '../../../models/ready_plan_model.dart';
+import '../../../screens/treinos/official/official_plan_ui.dart';
 import '../../../services/fitai_memory_service.dart';
 import '../../../services/ready_plan_favorites_service.dart';
 import '../../../services/ready_plan_recommendation_reason_service.dart';
 import '../../../services/ready_plans_service.dart';
-import '../../../theme/app_theme.dart';
 import 'ready_plan_preview_page.dart';
 import 'widgets/ready_plan_card.dart';
 import 'widgets/ready_plans_empty_state.dart';
-import 'widgets/ready_plans_filters.dart';
-import 'widgets/ready_plans_header.dart';
 import 'widgets/ready_plans_loading.dart';
-import 'widgets/ready_plans_search.dart';
-import 'widgets/recommended_plan_card.dart';
 
 class ReadyPlansLibraryPage extends StatefulWidget {
-  const ReadyPlansLibraryPage({super.key});
+  const ReadyPlansLibraryPage({
+    super.key,
+    this.embedded = false,
+    this.onShowMyPlans,
+    this.service,
+  });
+
+  final bool embedded;
+  final VoidCallback? onShowMyPlans;
+  final ReadyPlansService? service;
 
   @override
   State<ReadyPlansLibraryPage> createState() => _ReadyPlansLibraryPageState();
 }
 
 class _ReadyPlansLibraryPageState extends State<ReadyPlansLibraryPage> {
-  final _readyPlansService = ReadyPlansService();
+  late final ReadyPlansService _readyPlansService =
+      widget.service ?? ReadyPlansService();
   final _memoryService = const FitAIMemoryService();
   final _favoritesService = ReadyPlanFavoritesService.instance;
   final _recommendationService = const ReadyPlanRecommendationReasonService();
@@ -41,7 +46,6 @@ class _ReadyPlansLibraryPageState extends State<ReadyPlansLibraryPage> {
   bool _loading = true;
   bool _hasError = false;
   bool _usingCache = false;
-  DateTime? _cacheUpdatedAt;
 
   @override
   void initState() {
@@ -83,7 +87,6 @@ class _ReadyPlansLibraryPageState extends State<ReadyPlansLibraryPage> {
         _plans = plans;
         _recommendations = _recommend(plans, memory);
         _usingCache = result.isFromCache;
-        _cacheUpdatedAt = result.updatedAt;
         _loading = false;
       });
     } on ReadyPlansException catch (error) {
@@ -238,89 +241,93 @@ class _ReadyPlansLibraryPageState extends State<ReadyPlansLibraryPage> {
 
   @override
   Widget build(BuildContext context) {
+    final content = Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+          child: Row(
+            children: [
+              Expanded(child: OfficialPlanSearch(onChanged: _onSearchChanged)),
+              const SizedBox(width: 8),
+              OfficialPlanIconButton(
+                icon: Icons.filter_alt_outlined,
+                tooltip: 'Filtros',
+                outlined: true,
+                onPressed: _showFilters,
+              ),
+            ],
+          ),
+        ),
+        _buildCacheStatus(context),
+        Expanded(child: _buildContent()),
+      ],
+    );
+    if (widget.embedded) return content;
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: OfficialPlanColors.background,
       body: SafeArea(
         bottom: false,
-        child: Column(
-          children: [
-            const ReadyPlansHeader(
-              title: 'Planos prontos',
-              subtitle: 'Encontre uma rotina para o seu momento.',
-            ),
-            ReadyPlansSearch(onChanged: _onSearchChanged),
-            ReadyPlansFilters(
-              selected: _selectedFilter,
-              onSelected: (filter) => setState(() => _selectedFilter = filter),
-            ),
-            _buildCacheStatus(context),
-            Expanded(child: _buildContent()),
-          ],
+        child: OfficialPlanViewport(
+          child: Column(
+            children: [
+              OfficialPlanHeader(
+                title: 'Planos',
+                onBack: () => Navigator.maybePop(context),
+                trailing: OfficialPlanIconButton(
+                  icon: Icons.more_vert_rounded,
+                  tooltip: 'Mais opções',
+                  onPressed: _showFilters,
+                ),
+              ),
+              OfficialPlanTabs(
+                labels: const ['Meus planos', 'Explorar'],
+                selectedIndex: 1,
+                onSelected: (index) {
+                  if (index == 0) {
+                    if (widget.onShowMyPlans != null) {
+                      widget.onShowMyPlans!();
+                    } else {
+                      Navigator.maybePop(context);
+                    }
+                  }
+                },
+              ),
+              Expanded(child: content),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildCacheStatus(BuildContext context) {
-    if (_usingCache) {
-      return Container(
-        width: double.infinity,
-        margin: const EdgeInsets.fromLTRB(20, 4, 20, 4),
-        padding: const EdgeInsets.symmetric(
-          horizontal: FitSpacing.s12,
-          vertical: FitSpacing.s8,
-        ),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          borderRadius: FitRadius.mediumBorder,
-        ),
-        child: Row(
-          children: [
-            const FitBadge.offline(),
-            const SizedBox(width: FitSpacing.s8),
-            Expanded(
-              child: Text(
-                'Mostrando planos salvos no dispositivo.',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ),
-            IconButton(
-              tooltip: 'Atualizar biblioteca',
-              onPressed: _loading ? null : _loadPlans,
-              icon: const Icon(Icons.refresh_rounded, size: 18),
-            ),
-          ],
-        ),
-      );
-    }
-
-    final status = _usingCache
-        ? 'Dados salvos no dispositivo'
-        : _cacheUpdatedAt == null
-        ? 'Planos prontos FitIA'
-        : 'Biblioteca atualizada agora';
+    if (!_usingCache) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 2, 14, 2),
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
       child: Row(
         children: [
-          Expanded(
+          const Icon(
+            Icons.cloud_off_outlined,
+            size: 15,
+            color: OfficialPlanColors.textMuted,
+          ),
+          const SizedBox(width: 6),
+          const Expanded(
             child: Text(
-              status,
+              'Mostrando planos salvos no dispositivo.',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: _usingCache
-                    ? AppColors.textSecondary
-                    : AppColors.textHint,
+              style: TextStyle(
+                color: OfficialPlanColors.textMuted,
+                fontSize: 11,
               ),
             ),
           ),
-          TextButton.icon(
+          IconButton(
+            tooltip: 'Atualizar biblioteca',
             onPressed: _loading ? null : _loadPlans,
+            visualDensity: VisualDensity.compact,
             icon: const Icon(Icons.refresh_rounded, size: 17),
-            label: const Text('Atualizar'),
           ),
         ],
       ),
@@ -340,6 +347,7 @@ class _ReadyPlansLibraryPageState extends State<ReadyPlansLibraryPage> {
       builder: (context, query, _) {
         final plans = _filteredPlans(query);
         if (plans.isEmpty) return _buildEmptyFilter();
+        final featuredCount = plans.length.clamp(0, 3);
 
         return RefreshIndicator(
           onRefresh: _loadPlans,
@@ -347,23 +355,28 @@ class _ReadyPlansLibraryPageState extends State<ReadyPlansLibraryPage> {
             physics: const AlwaysScrollableScrollPhysics(
               parent: BouncingScrollPhysics(),
             ),
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 104),
-            itemCount: plans.length + 2,
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+            itemCount: featuredCount + 2,
             itemBuilder: (context, index) {
-              if (index == 0) return _buildRecommendations(context);
-              if (index == 1) {
+              if (index == 0) {
                 return Padding(
-                  padding: const EdgeInsets.fromLTRB(0, 24, 0, 12),
+                  padding: const EdgeInsets.fromLTRB(0, 2, 0, 8),
                   child: Text(
-                    'Todos os planos',
-                    style: Theme.of(context).textTheme.headlineSmall,
+                    'Em alta',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: OfficialPlanColors.text,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 );
               }
+              if (index == featuredCount + 1) {
+                return _objectiveFilters();
+              }
 
-              final plan = plans[index - 2];
+              final plan = plans[index - 1];
               return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.only(bottom: 9),
                 child: ReadyPlanCard(
                   plan: plan,
                   onTap: () => _openPlan(plan),
@@ -388,7 +401,7 @@ class _ReadyPlansLibraryPageState extends State<ReadyPlansLibraryPage> {
           children: [
             const Icon(
               Icons.favorite_border_rounded,
-              color: AppColors.textHint,
+              color: OfficialPlanColors.textDim,
               size: 42,
             ),
             const SizedBox(height: 12),
@@ -408,38 +421,77 @@ class _ReadyPlansLibraryPageState extends State<ReadyPlansLibraryPage> {
     );
   }
 
-  Widget _buildRecommendations(BuildContext context) {
-    if (_recommendations.isEmpty) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Recomendado para você',
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 184,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: _recommendations.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 12),
-            itemBuilder: (context, index) {
-              final item = _recommendations[index];
-              return RecommendedPlanCard(
-                plan: item.plan,
-                reason: item.reasons.isEmpty
-                    ? 'Uma opcao recomendada para voce.'
-                    : item.reasons.first,
-                onTap: () => _openPlan(item.plan),
-                isFavorite: _favoritesService.isFavorite(item.plan.id),
-                onFavoriteToggle: () => _toggleFavorite(item.plan),
-              );
-            },
+  Widget _objectiveFilters() {
+    const objective = 'Hipertrofia';
+    return Padding(
+      padding: const EdgeInsets.only(top: 14, bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Por objetivo',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: OfficialPlanColors.text,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-        ),
-      ],
+          const SizedBox(height: 8),
+          OfficialPlanSurface(
+            padding: const EdgeInsets.all(6),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: OfficialPlanChoiceChip(
+                label: objective,
+                selected: _selectedFilter == objective,
+                onSelected: () => setState(() {
+                  _selectedFilter = _selectedFilter == objective
+                      ? 'Todos'
+                      : objective;
+                }),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
+  }
+
+  Future<void> _showFilters() async {
+    const filters = [
+      'Todos',
+      'Recomendados',
+      'Em destaque',
+      'Favoritos',
+      'Mais populares',
+      'Novos',
+    ];
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: OfficialPlanColors.surface,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.only(bottom: 12),
+          children: [
+            for (final filter in filters)
+              ListTile(
+                minTileHeight: 48,
+                title: Text(filter),
+                trailing: _selectedFilter == filter
+                    ? const Icon(
+                        Icons.check_rounded,
+                        color: OfficialPlanColors.green,
+                      )
+                    : null,
+                onTap: () => Navigator.pop(sheetContext, filter),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || selected == null) return;
+    setState(() => _selectedFilter = selected);
   }
 
   static bool _matches(String source, String value) {

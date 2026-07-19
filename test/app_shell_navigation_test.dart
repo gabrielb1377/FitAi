@@ -67,6 +67,22 @@ void main() {
     expect(find.text('Contador Home: 1'), findsOneWidget);
   });
 
+  testWidgets('barra inferior permanece compacta em viewport mobile', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const _ShellHost());
+
+    final navigationRect = tester.getRect(find.byType(FitBottomNavigation));
+    expect(navigationRect.height, lessThanOrEqualTo(72));
+    expect(navigationRect.bottom, closeTo(844, 1));
+    expect(find.text('Conteudo Home'), findsOneWidget);
+  });
+
   testWidgets('voltar em uma aba raiz retorna para Home antes de fechar', (
     tester,
   ) async {

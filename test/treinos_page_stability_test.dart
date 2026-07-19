@@ -18,7 +18,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Meus Planos'), findsOneWidget);
+    expect(find.text('Planos'), findsOneWidget);
+    expect(find.text('Meus planos'), findsWidgets);
     expect(find.text('Seu proximo plano comeca aqui.'), findsOneWidget);
     expect(find.text('Criar com IA'), findsOneWidget);
     expect(find.text('Criar manualmente'), findsOneWidget);

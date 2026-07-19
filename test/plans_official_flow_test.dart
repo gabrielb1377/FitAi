@@ -17,51 +17,47 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('PLAN-002 oferece os tres fluxos e abre o manual', (
-    tester,
-  ) async {
+  testWidgets('PLAN-002 exibe o formulario oficial de criacao', (tester) async {
     await tester.pumpWidget(_app(const CreatePlanPage()));
 
-    expect(find.text('Plano com IA'), findsOneWidget);
-    expect(find.text('Plano Manual'), findsOneWidget);
-    expect(find.text('Importar Plano'), findsOneWidget);
-
-    await tester.tap(find.text('Plano Manual'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Criar plano manual'), findsOneWidget);
-    expect(find.text('Monte seu plano do seu jeito'), findsOneWidget);
-    expect(find.text('Continuar'), findsOneWidget);
+    expect(find.text('Criar novo plano'), findsOneWidget);
+    expect(find.text('Nome do plano'), findsOneWidget);
+    expect(find.text('Objetivo'), findsOneWidget);
+    expect(find.text('Nível'), findsOneWidget);
+    expect(find.text('Divisão'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Descrição (opcional)'),
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Descrição (opcional)'), findsOneWidget);
+    expect(find.byTooltip('Salvar plano'), findsOneWidget);
   });
 
-  testWidgets('PLAN-005 ate PLAN-008 preservam a hierarquia do plano', (
+  testWidgets('PLAN-003 ate PLAN-005 preservam a hierarquia do plano', (
     tester,
   ) async {
     final plan = _plan();
     await tester.pumpWidget(_app(TreinoDetalhesPage(treino: plan)));
 
     expect(find.text('Plano Upper Lower'), findsOneWidget);
-    expect(find.text('Proximo treino'), findsOneWidget);
+    expect(find.text('Treinos do plano'), findsOneWidget);
+    expect(find.text('Iniciar Dia A'), findsOneWidget);
 
-    await tester.tap(find.text('Ver plano completo'));
+    await tester.tap(find.text('Treinos do plano'));
     await tester.pumpAndSettle();
-    expect(find.text('Semanas do plano'), findsOneWidget);
-
-    await tester.tap(find.text('Semana 1'));
-    await tester.pumpAndSettle();
+    expect(find.text('Treinos'), findsOneWidget);
+    expect(find.text('Resumo'), findsOneWidget);
     expect(find.text('Costas e Biceps'), findsOneWidget);
-    expect(find.text('Remada curvada'), findsOneWidget);
-    expect(find.text('Iniciar treino'), findsOneWidget);
 
-    await tester.tap(find.text('Remada curvada'));
-    await tester.pumpAndSettle(const Duration(milliseconds: 100));
-    expect(find.byType(ExercicioDetalhePage), findsOneWidget);
-    expect(find.text('Execucao'), findsOneWidget);
-    expect(find.text('Musculos'), findsOneWidget);
-    expect(find.text('Dicas'), findsOneWidget);
+    await tester.tap(find.text('Resumo'));
+    await tester.pumpAndSettle();
+    expect(find.text('Visão geral'), findsOneWidget);
+    expect(find.text('Músculos trabalhados'), findsOneWidget);
+    expect(find.text('Distribuição'), findsOneWidget);
   });
 
-  testWidgets('PLAN-009 e PLAN-010 exibem os controles oficiais', (
+  testWidgets('sessao e finalizacao exibem os controles oficiais', (
     tester,
   ) async {
     final plan = _plan().somenteDia(_plan().planoDias.first);
@@ -105,7 +101,7 @@ void main() {
     expect(find.text('Compartilhar'), findsOneWidget);
   });
 
-  testWidgets('PLAN-008 volta para a rota anterior quando ela existe', (
+  testWidgets('detalhe do exercicio volta para a rota anterior', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -131,7 +127,7 @@ void main() {
     expect(find.text('Abrir exercicio'), findsOneWidget);
   });
 
-  testWidgets('PLAN-009 preserva a serie atual configurada no exercicio', (
+  testWidgets('sessao preserva a serie atual configurada no exercicio', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -152,9 +148,7 @@ void main() {
     expect(find.text('2 de 4'), findsOneWidget);
   });
 
-  testWidgets('PLAN-009 pede confirmacao antes de encerrar uma sessao', (
-    tester,
-  ) async {
+  testWidgets('sessao pede confirmacao antes de encerrar', (tester) async {
     await tester.pumpWidget(_app(TreinoEmAndamentoPage(treino: _plan())));
     await tester.pump();
 
@@ -165,7 +159,7 @@ void main() {
     expect(find.text('Sair sem salvar'), findsOneWidget);
   });
 
-  testWidgets('PLAN-009 abre o Coach pelo atalho compacto', (tester) async {
+  testWidgets('sessao abre o Coach pelo atalho compacto', (tester) async {
     await tester.pumpWidget(_app(TreinoEmAndamentoPage(treino: _plan())));
     await tester.pump();
     await _scrollToQuickAction(tester, 'Coach IA');
@@ -175,7 +169,7 @@ void main() {
     expect(find.text('Coach FitIA'), findsOneWidget);
   });
 
-  testWidgets('PLAN-009 abre o histórico pelo atalho compacto', (tester) async {
+  testWidgets('sessao abre o histórico pelo atalho compacto', (tester) async {
     await tester.pumpWidget(_app(TreinoEmAndamentoPage(treino: _plan())));
     await tester.pump();
     await _scrollToQuickAction(tester, 'Histórico');
@@ -185,7 +179,7 @@ void main() {
     expect(find.text('Performance'), findsWidgets);
   });
 
-  testWidgets('PLAN-009 abre o GIF pelo atalho compacto', (tester) async {
+  testWidgets('sessao abre o GIF pelo atalho compacto', (tester) async {
     await tester.pumpWidget(_app(TreinoEmAndamentoPage(treino: _plan())));
     await tester.pump();
     await _scrollToQuickAction(tester, 'Ver GIF');
@@ -195,7 +189,7 @@ void main() {
     expect(find.text('Execução de Remada curvada'), findsOneWidget);
   });
 
-  testWidgets('PLAN-009 abre substituição sem alterar a série atual', (
+  testWidgets('sessao abre substituição sem alterar a série atual', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -216,7 +210,7 @@ void main() {
     expect(find.byType(BibliotecaExerciciosPage), findsOneWidget);
   });
 
-  testWidgets('PLAN-009 concentra ações secundárias em Mais opções', (
+  testWidgets('sessao concentra ações secundárias em Mais opções', (
     tester,
   ) async {
     await tester.pumpWidget(_app(TreinoEmAndamentoPage(treino: _plan())));
@@ -238,7 +232,7 @@ void main() {
     expect(find.text('Sair do treino?'), findsOneWidget);
   });
 
-  testWidgets('PLAN-009 nao apresenta overflow em Android pequeno', (
+  testWidgets('sessao nao apresenta overflow em Android pequeno', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(360, 640);
@@ -256,7 +250,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('PLAN-009 salva historico uma unica vez ao concluir a sessao', (
+  testWidgets('sessao salva historico uma unica vez ao concluir', (
     tester,
   ) async {
     final plan = _plan(sets: 1);
@@ -279,7 +273,7 @@ void main() {
     expect(history.executions.single.sets, hasLength(1));
   });
 
-  testWidgets('PLAN-010 abre resumo e retorna pelo comando explicito', (
+  testWidgets('finalizacao abre resumo e retorna pelo comando explicito', (
     tester,
   ) async {
     var returnedToPlan = false;

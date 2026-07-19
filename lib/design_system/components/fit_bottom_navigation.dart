@@ -50,30 +50,33 @@ class FitBottomNavigation extends StatelessWidget {
         FitSpacing.s12,
         FitSpacing.s8,
       ),
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          borderRadius: FitRadius.largeBorder,
-          boxShadow: FitElevation.level1,
-        ),
-        child: Material(
-          color: colors.surface,
-          shape: RoundedRectangleBorder(
+      child: SizedBox(
+        height: 64,
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
             borderRadius: FitRadius.largeBorder,
-            side: BorderSide(color: colors.outlineVariant),
+            boxShadow: FitElevation.level1,
           ),
-          child: ClipRRect(
-            borderRadius: FitRadius.largeBorder,
-            child: Row(
-              children: [
-                for (var index = 0; index < destinations.length; index++)
-                  Expanded(
-                    child: _Destination(
-                      destination: destinations[index],
-                      selected: index == selectedIndex,
-                      onTap: () => onSelected(index),
+          child: Material(
+            color: colors.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: FitRadius.largeBorder,
+              side: BorderSide(color: colors.outlineVariant),
+            ),
+            child: ClipRRect(
+              borderRadius: FitRadius.largeBorder,
+              child: Row(
+                children: [
+                  for (var index = 0; index < destinations.length; index++)
+                    Expanded(
+                      child: _Destination(
+                        destination: destinations[index],
+                        selected: index == selectedIndex,
+                        onTap: () => onSelected(index),
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
