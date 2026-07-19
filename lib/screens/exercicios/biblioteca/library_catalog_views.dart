@@ -1,0 +1,305 @@
+import 'package:flutter/material.dart';
+
+import '../../../design_system/components/fit_empty_state.dart';
+import '../../../design_system/tokens/fit_spacing.dart';
+import '../../../models/exercicio_model.dart';
+import 'library_catalog_controller.dart';
+import 'library_official_widgets.dart';
+
+typedef LibraryExerciseCallback = void Function(ExercicioModel exercise);
+
+class LibraryHomeView extends StatelessWidget {
+  const LibraryHomeView({
+    super.key,
+    required this.controller,
+    required this.searchController,
+    required this.onOpenFilters,
+    required this.onOpenExercise,
+    required this.onToggleFavorite,
+  });
+
+  final LibraryCatalogController controller;
+  final TextEditingController searchController;
+  final VoidCallback onOpenFilters;
+  final LibraryExerciseCallback onOpenExercise;
+  final LibraryExerciseCallback onToggleFavorite;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      bottom: false,
+      child: LibraryContentFrame(
+        child: CustomScrollView(
+          key: const PageStorageKey('LIB-001'),
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            const SliverToBoxAdapter(
+              child: LibraryCenteredHeader(title: 'Biblioteca'),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: LibrarySearchRow(
+                  key: const ValueKey('library-home-search'),
+                  controller: searchController,
+                  onChanged: controller.updateQuery,
+                  onFilter: onOpenFilters,
+                  filterCount: controller.activeFilterCount,
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 14),
+                child: LibrarySectionHeader(
+                  title: 'Grupos musculares',
+                  actionLabel: 'Ver todos',
+                  actionKey: const ValueKey('library-groups-see-all'),
+                  onAction: controller.showExplore,
+                ),
+              ),
+            ),
+            SliverLayoutBuilder(
+              builder: (context, constraints) {
+                final columns = constraints.crossAxisExtent >= 620
+                    ? 8
+                    : constraints.crossAxisExtent >= 500
+                    ? 6
+                    : 4;
+                return SliverGrid.builder(
+                  itemCount: LibraryCatalogController.muscleGroups.length,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: columns,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
+                    childAspectRatio: .92,
+                  ),
+                  itemBuilder: (context, index) {
+                    final group = LibraryCatalogController.muscleGroups[index];
+                    return LibraryMuscleTile(
+                      group: group,
+                      onTap: () =>
+                          controller.showExplore(muscleGroup: group.label),
+                    );
+                  },
+                );
+              },
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: LibrarySectionHeader(
+                  title: 'Exercícios em destaque',
+                  actionLabel: 'Ver todos',
+                  actionKey: const ValueKey('library-featured-see-all'),
+                  onAction: controller.showExplore,
+                ),
+              ),
+            ),
+            SliverList.separated(
+              itemCount: controller.featuredExercises.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                final exercise = controller.featuredExercises[index];
+                return LibraryExerciseTile(
+                  exercise: exercise,
+                  favorite: controller.isFavorite(exercise),
+                  compact: true,
+                  onTap: () => onOpenExercise(exercise),
+                  onFavorite: () => onToggleFavorite(exercise),
+                );
+              },
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 8)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class LibraryExploreView extends StatelessWidget {
+  const LibraryExploreView({
+    super.key,
+    required this.controller,
+    required this.searchController,
+    required this.onOpenFilters,
+    required this.onOpenExercise,
+    required this.onToggleFavorite,
+  });
+
+  final LibraryCatalogController controller;
+  final TextEditingController searchController;
+  final VoidCallback onOpenFilters;
+  final LibraryExerciseCallback onOpenExercise;
+  final LibraryExerciseCallback onToggleFavorite;
+
+  @override
+  Widget build(BuildContext context) {
+    final exercises = controller.visibleExercises;
+    return SafeArea(
+      bottom: false,
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 680),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+            child: Column(
+              children: [
+                const LibraryCenteredHeader(title: 'Explorar'),
+                const SizedBox(height: 8),
+                LibrarySearchRow(
+                  key: const ValueKey('library-explore-search'),
+                  controller: searchController,
+                  onChanged: controller.updateQuery,
+                  onFilter: onOpenFilters,
+                  filterCount: controller.activeFilterCount,
+                ),
+                const SizedBox(height: 8),
+                LibrarySegmentTabs<LibrarySort>(
+                  values: const [
+                    LibrarySort.all,
+                    LibrarySort.popular,
+                    LibrarySort.recent,
+                    LibrarySort.alphabetical,
+                  ],
+                  selected: controller.filters.sort,
+                  labelFor: _sortLabel,
+                  onSelected: controller.setExploreSort,
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: exercises.isEmpty
+                      ? FitEmptyState(
+                          icon: Icons.search_off_rounded,
+                          title: 'Nenhum exercício encontrado',
+                          description:
+                              'Ajuste a busca ou limpe os filtros para continuar.',
+                          actionLabel: 'Limpar filtros',
+                          onAction: () {
+                            searchController.clear();
+                            controller.clearQuery();
+                            controller.clearFilters();
+                          },
+                        )
+                      : ListView.separated(
+                          key: const PageStorageKey('LIB-002'),
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: exercises.length,
+                          separatorBuilder: (_, _) => const SizedBox(height: 6),
+                          itemBuilder: (context, index) {
+                            final exercise = exercises[index];
+                            return LibraryExerciseTile(
+                              exercise: exercise,
+                              favorite: controller.isFavorite(exercise),
+                              compact: true,
+                              onTap: () => onOpenExercise(exercise),
+                              onFavorite: () => onToggleFavorite(exercise),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  static String _sortLabel(LibrarySort value) => switch (value) {
+    LibrarySort.all => 'Todos',
+    LibrarySort.popular => 'Populares',
+    LibrarySort.recent => 'Recentes',
+    LibrarySort.alphabetical => 'A-Z',
+  };
+}
+
+class LibraryFavoritesView extends StatelessWidget {
+  const LibraryFavoritesView({
+    super.key,
+    required this.controller,
+    required this.searchController,
+    required this.onOpenExercise,
+    required this.onToggleFavorite,
+  });
+
+  final LibraryCatalogController controller;
+  final TextEditingController searchController;
+  final LibraryExerciseCallback onOpenExercise;
+  final LibraryExerciseCallback onToggleFavorite;
+
+  @override
+  Widget build(BuildContext context) {
+    final exercises = controller.visibleExercises;
+    return SafeArea(
+      bottom: false,
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 680),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+            child: Column(
+              children: [
+                const LibraryCenteredHeader(title: 'Favoritos'),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 44,
+                  child: TextField(
+                    controller: searchController,
+                    onChanged: controller.updateQuery,
+                    textInputAction: TextInputAction.search,
+                    decoration: InputDecoration(
+                      hintText: 'Buscar favoritos...',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: searchController.text.isEmpty
+                          ? null
+                          : IconButton(
+                              tooltip: 'Limpar busca',
+                              onPressed: () {
+                                searchController.clear();
+                                controller.clearQuery();
+                              },
+                              icon: const Icon(Icons.close_rounded),
+                            ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: FitSpacing.s12),
+                Expanded(
+                  child: exercises.isEmpty
+                      ? FitEmptyState(
+                          icon: Icons.star_border_rounded,
+                          title: 'Nenhum favorito',
+                          description:
+                              'Marque exercícios com a estrela para encontrá-los aqui.',
+                          actionLabel: 'Explorar exercícios',
+                          onAction: controller.showExplore,
+                        )
+                      : ListView.separated(
+                          key: const PageStorageKey('LIB-008'),
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: exercises.length,
+                          separatorBuilder: (_, _) => const SizedBox(height: 7),
+                          itemBuilder: (context, index) {
+                            final exercise = exercises[index];
+                            return LibraryExerciseTile(
+                              exercise: exercise,
+                              favorite: true,
+                              compact: true,
+                              onTap: () => onOpenExercise(exercise),
+                              onFavorite: () => onToggleFavorite(exercise),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
