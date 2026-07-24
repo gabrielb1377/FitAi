@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../tokens/fit_radius.dart';
+import '../tokens/fit_spacing.dart';
 
 /// Campo base controlado externamente. Controllers e foco pertencem ao
 /// chamador, nunca sao criados dentro do componente.
@@ -70,7 +71,7 @@ class FitTextField extends StatelessWidget {
           prefixIcon: prefixIcon,
           suffixIcon: isLoading
               ? const Padding(
-                  padding: EdgeInsets.all(12),
+                  padding: EdgeInsets.all(FitSpacing.s12),
                   child: SizedBox(
                     width: 18,
                     height: 18,
@@ -210,7 +211,7 @@ class FitDropdownField<T> extends StatelessWidget {
           errorText: errorText,
           suffixIcon: isLoading
               ? const Padding(
-                  padding: EdgeInsets.all(12),
+                  padding: EdgeInsets.all(FitSpacing.s12),
                   child: SizedBox(
                     width: 18,
                     height: 18,

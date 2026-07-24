@@ -1,59 +1,66 @@
-# FitIA Design System
+# FitIA Design System Flutter
 
-Esta pasta contém a infraestrutura visual usada gradualmente pelo Flutter. Ela
-não autoriza a migração automática das telas existentes.
+Esta pasta contém o mapeamento Flutter das foundations do FitIA Design System
+3.0. A fonte de decisão continua em `D:\FitIA\designs\design-system`; o código
+daqui oferece tokens, tema e APIs reutilizáveis sem incorporar regras de
+negócio.
 
 ## Estrutura
 
-- `tokens/`: cores, tipografia, espaçamento, raios, sombras, opacidade,
-  durações e breakpoints.
-- `theme/`: `FitTheme` e extensões semânticas que complementam o `ColorScheme`.
-- `extensions/`: atalhos seguros de `BuildContext` para tema, tokens e viewport.
-- `components/`: widgets `Fit*` reutilizáveis.
-- `animations/`: helpers de movimento curto e acessível.
-- `catalog/`: página compilável de demonstração, sem rota de produção.
+- `tokens/`: cores, tipografia, números, spacing, radius, layout, estados,
+  elevação, sombras, opacidade, motion, gradientes, ícones e breakpoints.
+- `theme/`: `FitTheme` e `ThemeExtension`s para cores de domínio e gradientes.
+- `extensions/`: atalhos seguros de `BuildContext` para tema e viewport.
+- `components/`: widgets `Fit*` existentes; não foram redesenhados no M02.
+- `animations/`: helpers existentes que consomem tokens de motion.
+- `catalog/`: demonstração compilável sem rota de produção.
 
-## Uso em novos componentes
-
-Importe o ponto único de entrada:
+## Ponto de entrada
 
 ```dart
 import 'package:fitai/design_system/fit_design_system.dart';
 ```
 
-Use `FitColors`, `FitSpacing`, `FitRadius`, `FitTypography` e `FitDuration`.
-Quando houver contexto, `context.fitColors`, `context.fitText` e os helpers de
-breakpoint evitam valores locais e leituras ambíguas.
+O barrel exporta somente as APIs públicas do Design System. Componentes devem
+consumir nomes semânticos como `FitColors.primary`,
+`FitSpacing.sectionGap`, `FitRadius.card`, `FitTypography.heading` e
+`FitDuration.feedback`.
 
-O barrel dos componentes está em `components/components.dart`; o ponto de
-entrada `fit_design_system.dart` também o exporta.
+Quando houver contexto:
 
-## Categorias principais
+```dart
+final colors = context.colors;
+final domainColors = context.fitColors;
+final gradients = context.fitGradients;
+final textTheme = context.fitText;
+```
 
-- Ações: `FitButton`, `FitIconButton` e `FitFeedback`.
-- Superfícies: `FitCard`, cards especializados e `FitStatCard`.
-- Entrada: `FitSearchField`, `FitTextField`, `FitNumberField`,
-  `FitPasswordField` e `FitDropdownField`.
-- Estado: `FitLoading`, `FitSkeleton`, `FitEmptyState`, `FitErrorState`,
-  `FitOfflineState` e `FitSuccessState`.
-- Feedback e overlays: `FitDialog`, `FitConfirmDialog`, `FitBottomSheet` e
-  `FitActionSheet`.
-- Métricas e progresso: `FitMetric`, `FitMetricRow`, `FitProgressBar`,
-  `FitCircularProgress`, `FitStepProgress` e `FitGoalProgress`.
+## Tema global
 
-## Catálogo de desenvolvimento
+`FitTheme.dark()` é o tema oficial. `AppTheme.dark` aponta para essa mesma
+factory para manter os imports existentes. `AppTheme.legacyDark` preserva
+temporariamente a configuração estrutural anterior para migração. Como ela
+consome aliases atuais, não representa um snapshot visual bit a bit.
 
-`catalog/design_system_catalog_page.dart` pode ser aberto apenas por uma rota
-de desenvolvimento criada em sprint específica. Não o inclua na Bottom
-Navigation ou em fluxos de produção. O catálogo não acessa backend, providers
-ou serviços de domínio.
+Um tema claro não foi inferido. A factory permite adicioná-lo futuramente
+quando houver paleta e especificação oficiais.
 
-## Migração gradual
+## Maturidade
 
-`AppTheme`, `AppColors`, `AppGradientCard` e demais componentes legados
-continuam sendo compatíveis. O app permanece em `AppTheme.dark` até uma sprint
-visual aprovada migrar a entrada de tema e cada módulo consumidor.
+- neutros, papéis cromáticos, estados e escala tipográfica são sustentados
+  pelo DS3;
+- valores cromáticos de domínio permanecem provisórios;
+- spacing, radius, grid, elevation, opacidade e motion reutilizam valores
+  anteriores como candidatos provisórios;
+- gradientes possuem papéis confirmados, porém stops e alpha continuam
+  provisórios;
+- nenhuma tela foi migrada em massa neste marco.
 
-`FitTheme.dark()` é o tema oficial preparado para as próximas sprints e deve
-ser usado em testes e componentes novos, sem alterar telas existentes nesta
-etapa.
+## Compatibilidade
+
+`AppColors`, `AppRadii`, `AppSpacing`, `AppMotion`, `AppTheme` e widgets
+legados continuam disponíveis. Novos arquivos devem usar as APIs `Fit*`.
+
+O mapeamento completo está em
+`docs/design_system/FLUTTER_MAPPING.md`; divergências e aliases temporários
+estão em `docs/design_system/MIGRATION_NOTES.md`.

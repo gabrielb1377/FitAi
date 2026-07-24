@@ -11,7 +11,7 @@ Widget _app(Widget child) {
 
 void main() {
   test('tokens preservam papeis semanticos oficiais', () {
-    expect(FitColors.ai, FitColors.info);
+    expect(FitColors.ai, isNot(FitColors.info));
     expect(FitColors.energy, FitColors.running);
     expect(FitColors.achievement, isNot(FitColors.primary));
     expect(FitElevation.level1, FitShadows.low);

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../tokens/fit_radius.dart';
 import '../tokens/fit_spacing.dart';
 import 'fit_button.dart';
 
@@ -63,7 +64,7 @@ class FitOfflineState extends StatelessWidget {
         padding: const EdgeInsets.all(FitSpacing.s12),
         decoration: BoxDecoration(
           color: colors.secondaryContainer,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: FitRadius.mediumBorder,
           border: Border.all(color: colors.outlineVariant),
         ),
         child: Column(

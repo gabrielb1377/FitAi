@@ -1,213 +1,403 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../tokens/fit_colors.dart';
+import '../tokens/fit_elevation.dart';
+import '../tokens/fit_layout.dart';
 import '../tokens/fit_radius.dart';
 import '../tokens/fit_spacing.dart';
+import '../tokens/fit_states.dart';
 import '../tokens/fit_typography.dart';
 import 'fit_theme_extensions.dart';
 
-/// Tema opcional do Design System para adocao gradual.
+/// Tema global oficial do FitIA Design System 3.0.
 ///
-/// Ele nao substitui `AppTheme` nesta sprint. Telas futuras poderao adota-lo
-/// quando a migracao visual for planejada.
+/// Somente o tema escuro está especificado. A API em forma de factory permite
+/// adicionar um tema claro no futuro sem inferir valores ausentes hoje.
 abstract final class FitTheme {
   static ThemeData dark() {
+    final inputBorder = OutlineInputBorder(
+      borderRadius: FitRadius.mediumBorder,
+      borderSide: const BorderSide(
+        color: FitColors.outlineSoft,
+        width: FitLayout.borderThin,
+      ),
+    );
+
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
       colorScheme: FitColors.colorScheme,
       scaffoldBackgroundColor: FitColors.background,
       textTheme: FitTypography.textTheme,
-      extensions: const [FitSemanticColors.dark()],
-      iconTheme: const IconThemeData(color: FitColors.textSecondary, size: 22),
+      visualDensity: VisualDensity.standard,
+      extensions: const [FitSemanticColors.dark(), FitThemeGradients.dark()],
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+          TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+          TargetPlatform.fuchsia: FadeUpwardsPageTransitionsBuilder(),
+        },
+      ),
+      iconTheme: const IconThemeData(
+        color: FitColors.textSecondary,
+        size: FitLayout.iconSize,
+      ),
       appBarTheme: const AppBarTheme(
         backgroundColor: FitColors.background,
+        foregroundColor: FitColors.textPrimary,
         surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
+        elevation: FitElevation.materialBackground,
+        scrolledUnderElevation: FitElevation.materialBackground,
+        centerTitle: false,
         iconTheme: IconThemeData(color: FitColors.textPrimary),
         titleTextStyle: FitTypography.title,
       ),
       dividerTheme: const DividerThemeData(
         color: FitColors.divider,
-        thickness: 1,
-        space: 1,
+        thickness: FitLayout.borderThin,
+        space: FitLayout.borderThin,
       ),
       cardTheme: const CardThemeData(
-        color: FitColors.surface,
+        color: FitColors.card,
         surfaceTintColor: Colors.transparent,
-        elevation: 0,
+        elevation: FitElevation.materialCard,
         shape: RoundedRectangleBorder(
           borderRadius: FitRadius.largeBorder,
-          side: BorderSide(color: FitColors.outlineSoft),
+          side: BorderSide(
+            color: FitColors.outlineSoft,
+            width: FitLayout.borderThin,
+          ),
         ),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: FitColors.surfaceElevated,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: FitSpacing.s16,
-          vertical: FitSpacing.s12,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: FitRadius.mediumBorder,
-          borderSide: const BorderSide(color: FitColors.outlineSoft),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: FitRadius.mediumBorder,
-          borderSide: const BorderSide(color: FitColors.outlineSoft),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: FitRadius.mediumBorder,
-          borderSide: const BorderSide(color: FitColors.primary, width: 1.5),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: FitRadius.mediumBorder,
-          borderSide: const BorderSide(color: FitColors.error),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: FitRadius.mediumBorder,
-          borderSide: const BorderSide(color: FitColors.error, width: 1.5),
-        ),
-        labelStyle: FitTypography.body,
-        hintStyle: FitTypography.caption,
+        margin: EdgeInsets.symmetric(vertical: FitSpacing.legacyXs),
       ),
       filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          backgroundColor: FitColors.primary,
-          foregroundColor: FitColors.onPrimary,
-          disabledBackgroundColor: FitColors.surfaceElevated,
-          disabledForegroundColor: FitColors.textDisabled,
-          minimumSize: const Size(0, 48),
-          shape: const RoundedRectangleBorder(
-            borderRadius: FitRadius.mediumBorder,
+        style: ButtonStyle(
+          minimumSize: const WidgetStatePropertyAll(
+            Size(0, FitLayout.minimumTouchTarget),
           ),
-          textStyle: FitTypography.label,
+          tapTargetSize: MaterialTapTargetSize.padded,
+          backgroundColor: WidgetStateProperty.resolveWith(
+            FitStateTokens.primaryControlBackground,
+          ),
+          foregroundColor: WidgetStateProperty.resolveWith(
+            FitStateTokens.primaryControlForeground,
+          ),
+          overlayColor: const WidgetStatePropertyAll(
+            FitColors.primaryContainer,
+          ),
+          elevation: const WidgetStatePropertyAll(
+            FitElevation.materialBackground,
+          ),
+          textStyle: const WidgetStatePropertyAll(FitTypography.button),
+          shape: const WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: FitRadius.mediumBorder),
+          ),
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ButtonStyle(
+          minimumSize: const WidgetStatePropertyAll(
+            Size(0, FitLayout.minimumTouchTarget),
+          ),
+          tapTargetSize: MaterialTapTargetSize.padded,
+          backgroundColor: WidgetStateProperty.resolveWith(
+            FitStateTokens.primaryControlBackground,
+          ),
+          foregroundColor: WidgetStateProperty.resolveWith(
+            FitStateTokens.primaryControlForeground,
+          ),
+          overlayColor: const WidgetStatePropertyAll(
+            FitColors.primaryContainer,
+          ),
+          elevation: const WidgetStatePropertyAll(
+            FitElevation.materialBackground,
+          ),
+          textStyle: const WidgetStatePropertyAll(FitTypography.button),
+          shape: const WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: FitRadius.mediumBorder),
+          ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: FitColors.primary,
-          minimumSize: const Size(0, 48),
-          side: const BorderSide(color: FitColors.outline),
+          disabledForegroundColor: FitColors.textDisabled,
+          minimumSize: const Size(0, FitLayout.minimumTouchTarget),
+          tapTargetSize: MaterialTapTargetSize.padded,
+          side: const BorderSide(
+            color: FitColors.outline,
+            width: FitLayout.borderThin,
+          ),
           shape: const RoundedRectangleBorder(
             borderRadius: FitRadius.mediumBorder,
           ),
-          textStyle: FitTypography.label,
+          textStyle: FitTypography.button,
+          overlayColor: FitColors.primaryContainer,
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: FitColors.primary,
-          minimumSize: const Size(44, 44),
-          textStyle: FitTypography.label,
+          disabledForegroundColor: FitColors.textDisabled,
+          minimumSize: const Size(
+            FitLayout.compactTouchTarget,
+            FitLayout.compactTouchTarget,
+          ),
+          tapTargetSize: MaterialTapTargetSize.padded,
+          shape: const RoundedRectangleBorder(
+            borderRadius: FitRadius.mediumBorder,
+          ),
+          textStyle: FitTypography.button,
+          overlayColor: FitColors.primaryContainer,
         ),
       ),
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
           foregroundColor: FitColors.textPrimary,
-          minimumSize: const Size(44, 44),
-          overlayColor: FitColors.primaryContainer,
+          disabledForegroundColor: FitColors.textDisabled,
+          backgroundColor: Colors.transparent,
+          minimumSize: const Size(
+            FitLayout.compactTouchTarget,
+            FitLayout.compactTouchTarget,
+          ),
+          tapTargetSize: MaterialTapTargetSize.padded,
+          shape: const RoundedRectangleBorder(
+            borderRadius: FitRadius.mediumBorder,
+          ),
+          hoverColor: FitColors.primaryContainer,
+          focusColor: FitColors.primaryContainer,
+          highlightColor: FitColors.primaryContainer,
         ),
       ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: FitColors.surfaceRaised,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: FitSpacing.s16,
+          vertical: FitSpacing.s12,
+        ),
+        border: inputBorder,
+        enabledBorder: inputBorder,
+        disabledBorder: inputBorder.copyWith(
+          borderSide: const BorderSide(
+            color: FitColors.borderSubtle,
+            width: FitLayout.borderThin,
+          ),
+        ),
+        focusedBorder: inputBorder.copyWith(
+          borderSide: const BorderSide(
+            color: FitColors.focus,
+            width: FitLayout.borderFocused,
+          ),
+        ),
+        errorBorder: inputBorder.copyWith(
+          borderSide: const BorderSide(
+            color: FitColors.error,
+            width: FitLayout.borderThin,
+          ),
+        ),
+        focusedErrorBorder: inputBorder.copyWith(
+          borderSide: const BorderSide(
+            color: FitColors.error,
+            width: FitLayout.borderFocused,
+          ),
+        ),
+        labelStyle: FitTypography.label,
+        hintStyle: FitTypography.caption,
+        helperStyle: FitTypography.caption,
+        errorStyle: FitTypography.caption.copyWith(color: FitColors.error),
+        prefixIconColor: FitColors.textSecondary,
+        suffixIconColor: FitColors.textSecondary,
+      ),
       chipTheme: const ChipThemeData(
-        backgroundColor: FitColors.surfaceVariant,
-        selectedColor: FitColors.primaryContainer,
-        side: BorderSide(color: FitColors.outlineSoft),
+        backgroundColor: FitColors.card,
+        selectedColor: FitColors.surfaceSelected,
+        disabledColor: FitColors.surfaceDisabled,
+        side: BorderSide(
+          color: FitColors.outlineSoft,
+          width: FitLayout.borderThin,
+        ),
         shape: RoundedRectangleBorder(borderRadius: FitRadius.pillBorder),
-        labelStyle: FitTypography.caption,
+        labelStyle: FitTypography.chip,
         padding: EdgeInsets.symmetric(horizontal: FitSpacing.s8),
       ),
       dialogTheme: const DialogThemeData(
-        backgroundColor: FitColors.surface,
+        backgroundColor: FitColors.surfaceRaised,
         surfaceTintColor: Colors.transparent,
-        elevation: 0,
+        elevation: FitElevation.materialDialog,
         shape: RoundedRectangleBorder(
           borderRadius: FitRadius.xLargeBorder,
-          side: BorderSide(color: FitColors.outline),
+          side: BorderSide(
+            color: FitColors.outline,
+            width: FitLayout.borderThin,
+          ),
         ),
+        titleTextStyle: FitTypography.heading,
+        contentTextStyle: FitTypography.body,
       ),
       bottomSheetTheme: const BottomSheetThemeData(
-        backgroundColor: FitColors.surface,
-        modalBackgroundColor: FitColors.surface,
-        elevation: 0,
-        modalElevation: 0,
+        backgroundColor: FitColors.surfaceRaised,
+        modalBackgroundColor: FitColors.surfaceRaised,
         surfaceTintColor: Colors.transparent,
+        elevation: FitElevation.materialBottomSheet,
+        modalElevation: FitElevation.materialBottomSheet,
+        showDragHandle: true,
+        dragHandleColor: FitColors.textTertiary,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(FitRadius.large),
-          ),
+          borderRadius: FitRadius.bottomSheetBorder,
         ),
       ),
       snackBarTheme: const SnackBarThemeData(
-        backgroundColor: FitColors.surfaceElevated,
+        backgroundColor: FitColors.surfaceRaised,
         contentTextStyle: FitTypography.body,
+        actionTextColor: FitColors.primary,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: FitRadius.mediumBorder),
+        elevation: FitElevation.materialFloatingControl,
+        insetPadding: EdgeInsets.fromLTRB(
+          FitSpacing.s16,
+          0,
+          FitSpacing.s16,
+          FitSpacing.s20,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: FitRadius.mediumBorder,
+          side: BorderSide(
+            color: FitColors.outline,
+            width: FitLayout.borderThin,
+          ),
+        ),
       ),
       progressIndicatorTheme: const ProgressIndicatorThemeData(
         color: FitColors.primary,
         linearTrackColor: FitColors.outlineSoft,
-        linearMinHeight: 8,
+        circularTrackColor: FitColors.outlineSoft,
+        linearMinHeight: FitLayout.progressThickness,
+      ),
+      sliderTheme: const SliderThemeData(
+        activeTrackColor: FitColors.primary,
+        inactiveTrackColor: FitColors.outlineSoft,
+        thumbColor: FitColors.primary,
+        overlayColor: FitColors.primaryContainer,
+        valueIndicatorColor: FitColors.surfaceRaised,
+        valueIndicatorTextStyle: FitTypography.label,
+        trackHeight: FitLayout.sliderTrackHeight,
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return FitColors.textDisabled;
+          }
+          if (states.contains(WidgetState.selected)) return FitColors.primary;
+          return FitColors.textSecondary;
+        }),
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return FitColors.surfaceDisabled;
+          }
+          if (states.contains(WidgetState.selected)) {
+            return FitColors.primaryContainer;
+          }
+          return FitColors.surfaceRaised;
+        }),
+        trackOutlineColor: const WidgetStatePropertyAll(FitColors.outlineSoft),
+      ),
+      checkboxTheme: CheckboxThemeData(
+        fillColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return FitColors.surfaceDisabled;
+          }
+          if (states.contains(WidgetState.selected)) return FitColors.primary;
+          return FitColors.surfaceRaised;
+        }),
+        checkColor: const WidgetStatePropertyAll(FitColors.onPrimary),
+        side: const BorderSide(
+          color: FitColors.outline,
+          width: FitLayout.borderThin,
+        ),
+        shape: const RoundedRectangleBorder(
+          borderRadius: FitRadius.smallBorder,
+        ),
+      ),
+      radioTheme: RadioThemeData(
+        fillColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return FitColors.textDisabled;
+          }
+          if (states.contains(WidgetState.selected)) return FitColors.primary;
+          return FitColors.textSecondary;
+        }),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        height: 68,
-        elevation: 0,
+        height: FitLayout.navigationBarHeight,
+        elevation: FitElevation.materialSurface,
         backgroundColor: FitColors.surface,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: FitColors.primaryContainer,
+        indicatorColor: FitColors.surfaceSelected,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         iconTheme: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return IconThemeData(
-            color: selected ? FitColors.primary : FitColors.textHint,
-            size: selected ? 24 : 22,
+            color: selected ? FitColors.primary : FitColors.textTertiary,
+            size: selected ? FitLayout.selectedIconSize : FitLayout.iconSize,
           );
         }),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
-          return FitTypography.caption.copyWith(
-            color: selected ? FitColors.primary : FitColors.textHint,
+          return FitTypography.navigation.copyWith(
+            color: selected ? FitColors.primary : FitColors.textTertiary,
           );
         }),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: Colors.transparent,
         selectedItemColor: FitColors.primary,
-        unselectedItemColor: FitColors.textHint,
+        unselectedItemColor: FitColors.textTertiary,
         showSelectedLabels: true,
         showUnselectedLabels: true,
         type: BottomNavigationBarType.fixed,
-        elevation: 0,
+        elevation: FitElevation.materialSurface,
+        selectedLabelStyle: FitTypography.navigation,
+        unselectedLabelStyle: FitTypography.navigation,
+      ),
+      navigationRailTheme: const NavigationRailThemeData(
+        backgroundColor: FitColors.surface,
+        elevation: FitElevation.materialSurface,
+        selectedIconTheme: IconThemeData(
+          color: FitColors.primary,
+          size: FitLayout.selectedIconSize,
+        ),
+        unselectedIconTheme: IconThemeData(
+          color: FitColors.textTertiary,
+          size: FitLayout.iconSize,
+        ),
+        selectedLabelTextStyle: FitTypography.navigation,
+        unselectedLabelTextStyle: FitTypography.navigation,
+        indicatorColor: FitColors.surfaceSelected,
+        useIndicator: true,
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: FitColors.primary,
         foregroundColor: FitColors.onPrimary,
-        elevation: 0,
+        elevation: FitElevation.materialFloatingControl,
+        focusElevation: FitElevation.materialFloatingControl,
+        hoverElevation: FitElevation.materialFloatingControl,
+        highlightElevation: FitElevation.materialFloatingControl,
         shape: RoundedRectangleBorder(borderRadius: FitRadius.largeBorder),
       ),
-      checkboxTheme: CheckboxThemeData(
-        fillColor: WidgetStateProperty.resolveWith((states) {
-          return states.contains(WidgetState.selected)
-              ? FitColors.primary
-              : FitColors.surfaceElevated;
-        }),
-        checkColor: const WidgetStatePropertyAll(FitColors.onPrimary),
-        side: const BorderSide(color: FitColors.outline),
-        shape: const RoundedRectangleBorder(
-          borderRadius: FitRadius.smallBorder,
+      listTileTheme: const ListTileThemeData(
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: FitSpacing.s16,
+          vertical: FitSpacing.s4,
         ),
-      ),
-      switchTheme: SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith((states) {
-          return states.contains(WidgetState.selected)
-              ? FitColors.primary
-              : FitColors.textSecondary;
-        }),
-        trackColor: WidgetStateProperty.resolveWith((states) {
-          return states.contains(WidgetState.selected)
-              ? FitColors.primaryContainer
-              : FitColors.surfaceElevated;
-        }),
+        minVerticalPadding: FitSpacing.s8,
+        iconColor: FitColors.textSecondary,
+        textColor: FitColors.textPrimary,
+        titleTextStyle: FitTypography.title,
+        subtitleTextStyle: FitTypography.subtitle,
       ),
       disabledColor: FitColors.textDisabled,
       hoverColor: FitColors.primaryContainer,

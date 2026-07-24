@@ -9,6 +9,7 @@ extension ContextExtensions on BuildContext {
   ThemeData get theme => Theme.of(this);
   ColorScheme get colors => theme.colorScheme;
   FitSemanticColors get fitColors => theme.fitSemanticColors;
+  FitThemeGradients get fitGradients => theme.fitGradients;
   FitSpacingValues get spacing => FitSpacing.values;
   TextTheme get textTheme => theme.textTheme;
   TextTheme get fitText => theme.textTheme;

@@ -1,4 +1,7 @@
-/// Opacidades semanticas para estados e superficies do Design System FitIA.
+/// Opacidades semânticas provisórias para estados e superfícies.
+///
+/// Screenshots achatados não permitem confirmar alpha; estes valores preservam
+/// o comportamento anterior até validação controlada.
 abstract final class FitOpacity {
   static const transparent = 0.0;
   static const subtle = 0.08;
@@ -7,4 +10,8 @@ abstract final class FitOpacity {
   static const pressed = 0.16;
   static const disabled = 0.38;
   static const scrim = 0.60;
+
+  static const contentDisabled = disabled;
+  static const overlayScrim = scrim;
+  static const mediaScrim = scrim;
 }

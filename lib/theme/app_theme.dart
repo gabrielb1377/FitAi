@@ -3,7 +3,12 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 
+import '../design_system/theme/fit_theme.dart';
 import '../design_system/tokens/fit_colors.dart';
+import '../design_system/tokens/fit_duration.dart';
+import '../design_system/tokens/fit_gradients.dart';
+import '../design_system/tokens/fit_radius.dart';
+import '../design_system/tokens/fit_spacing.dart';
 
 // ─────────────────────────────────────────────
 //  PALETA DE CORES
@@ -28,7 +33,7 @@ class AppColors {
   static const surface = FitColors.surface;
   static const surfaceVariant = FitColors.surfaceVariant;
   static const surfaceElevated = FitColors.surfaceElevated;
-  static const card = Color(0xFF151917);
+  static const card = FitColors.card;
   static const outline = FitColors.outline;
   static const outlineSoft = FitColors.outlineSoft;
 
@@ -38,54 +43,20 @@ class AppColors {
   static const textHint = FitColors.textHint;
 
   // Acentos
-  static const accent1 = FitColors.ai; // azul
-  static const accent2 = Color(0xFFFF6D00); // laranja
-  static const accent3 = Color(0xFFE040FB); // roxo
+  static const accent1 = FitColors.ai;
+  static const accent2 = FitColors.energy;
+  static const accent3 = FitColors.xp;
   static const danger = FitColors.danger;
   static const warning = FitColors.warning;
 
   // Gradientes
-  static const gradientPrimary = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0xFF00E676), Color(0xFF00BCD4)],
-  );
-
-  static const gradientRun = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0xFFFF6D00), Color(0xFFFFAB40)],
-  );
-
-  static const gradientXp = LinearGradient(
-    begin: Alignment.centerLeft,
-    end: Alignment.centerRight,
-    colors: [Color(0xFF00E676), Color(0xFF00BCD4)],
-  );
-
-  static const gradientCard = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0xFF202622), Color(0xFF111512)],
-  );
-
-  static const gradientCardSoft = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0xFF1B211E), Color(0xFF0F1210)],
-  );
-
-  static const gradientSteps = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0xFF448AFF), Color(0xFF7C4DFF)],
-  );
-
-  static const gradientWorkout = LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [Color(0xFFE040FB), Color(0xFF7C4DFF)],
-  );
+  static const gradientPrimary = FitGradients.primary;
+  static const gradientRun = FitGradients.legacyRun;
+  static const gradientXp = FitGradients.legacyXp;
+  static const gradientCard = FitGradients.legacyCard;
+  static const gradientCardSoft = FitGradients.legacyCardSoft;
+  static const gradientSteps = FitGradients.legacySteps;
+  static const gradientWorkout = FitGradients.legacyWorkout;
 }
 
 // ─────────────────────────────────────────────
@@ -94,31 +65,31 @@ class AppColors {
 class AppRadii {
   AppRadii._();
 
-  static const double sm = 12;
-  static const double md = 16;
-  static const double lg = 20;
-  static const double xl = 24;
-  static const double pill = 999;
+  static const double sm = FitRadius.input;
+  static const double md = FitRadius.card;
+  static const double lg = FitRadius.cardHighlighted;
+  static const double xl = FitRadius.dialog;
+  static const double pill = FitRadius.pill;
 }
 
 class AppSpacing {
   AppSpacing._();
 
-  static const double xs = 6;
-  static const double sm = 10;
-  static const double md = 14;
-  static const double lg = 20;
-  static const double xl = 28;
-  static const double xxl = 36;
+  static const double xs = FitSpacing.legacyXs;
+  static const double sm = FitSpacing.legacySm;
+  static const double md = FitSpacing.legacyMd;
+  static const double lg = FitSpacing.legacyLg;
+  static const double xl = FitSpacing.legacyXl;
+  static const double xxl = FitSpacing.legacyXxl;
 }
 
 class AppMotion {
   AppMotion._();
 
-  static const fast = Duration(milliseconds: 160);
-  static const normal = Duration(milliseconds: 240);
-  static const slow = Duration(milliseconds: 320);
-  static const curve = Curves.easeOutCubic;
+  static const fast = FitDuration.legacyAppFast;
+  static const normal = FitDuration.legacyAppNormal;
+  static const slow = FitDuration.legacyAppSlow;
+  static const curve = FitDuration.standardCurve;
 }
 
 class AppScrollBehavior extends MaterialScrollBehavior {
@@ -145,7 +116,14 @@ class AppScrollBehavior extends MaterialScrollBehavior {
 class AppTheme {
   AppTheme._();
 
-  static ThemeData get dark {
+  /// Alias de compatibilidade para o tema oficial do Design System 3.0.
+  static ThemeData get dark => FitTheme.dark();
+
+  /// Configuração estrutural legada preservada para migração.
+  ///
+  /// Ela consome os aliases cromáticos atuais e não é um snapshot visual.
+  /// Não deve ser usada por novas telas.
+  static ThemeData get legacyDark {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
