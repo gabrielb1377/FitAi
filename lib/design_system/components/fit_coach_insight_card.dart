@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../tokens/fit_spacing.dart';
+import '../tokens/fit_layout.dart';
 import 'fit_badge.dart';
 import 'fit_button.dart';
 import 'fit_coach_card.dart';
@@ -32,7 +33,7 @@ class FitCoachInsightCard extends StatelessWidget {
         children: [
           Text(
             insight,
-            maxLines: 4,
+            maxLines: FitLayout.domainCoachInsightMaxLines,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodyMedium,
           ),

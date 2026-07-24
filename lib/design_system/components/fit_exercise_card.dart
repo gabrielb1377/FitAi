@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../tokens/fit_icons.dart';
+import '../tokens/fit_layout.dart';
 import 'internal/fit_content_card.dart';
 
 /// Item de exercicio com midia opcional, categoria e ate tres tags.
@@ -31,7 +32,7 @@ class FitExerciseCard extends StatelessWidget {
           media ??
           Icon(FitIcons.exercise, color: Theme.of(context).colorScheme.primary),
       trailing: trailing,
-      tags: tags.take(3).toList(growable: false),
+      tags: tags.take(FitLayout.domainExerciseTagLimit).toList(growable: false),
       onTap: onTap,
       semanticLabel: 'Exercicio $name',
     );

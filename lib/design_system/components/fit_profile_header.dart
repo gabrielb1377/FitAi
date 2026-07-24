@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../tokens/fit_radius.dart';
+import '../tokens/fit_layout.dart';
 import '../tokens/fit_spacing.dart';
 
 /// Identidade do usuario fora de card, com avatar, contexto e acao opcional.
@@ -34,8 +35,8 @@ class FitProfileHeader extends StatelessWidget {
           children: [
             avatar ??
                 Container(
-                  width: 56,
-                  height: 56,
+                  width: FitLayout.domainProfileAvatar,
+                  height: FitLayout.domainProfileAvatar,
                   decoration: BoxDecoration(
                     color: colors.primaryContainer,
                     borderRadius: FitRadius.largeBorder,

@@ -56,4 +56,23 @@ abstract final class FitLayout {
   static const navigationLabelHeight = 16.0;
   static const navigationBadgeOffsetTop = 6.0;
   static const navigationBadgeOffsetEnd = 8.0;
+
+  /// Dimensões provisórias para composições de domínio.
+  static const domainThumbnailSmall = compactTouchTarget;
+  static const domainThumbnail = avatarLarge;
+  static const domainAvatarHero = 72.0;
+  static const domainMetricMinWidth = 88.0;
+  static const domainMetricMaxWidth = 160.0;
+  static const domainChartHeight = 128.0;
+  static const domainChartBarMinHeight = 4.0;
+  static const domainMediaAspectRatio = 16 / 9;
+  static const domainCompactMediaAspectRatio = 3 / 2;
+  static const domainMapAspectRatio = 4 / 3;
+  static const domainProgressRingLarge = 136.0;
+  static const domainProgressRingStroke = 10.0;
+  static const domainTimelineMarker = 12.0;
+  static const domainProfileAvatar = 56.0;
+  static const domainQuickActionMinHeight = 112.0;
+  static const domainCoachInsightMaxLines = 4;
+  static const domainExerciseTagLimit = 3;
 }

@@ -230,6 +230,31 @@ const FitStatistic(
 );
 ```
 
+## Componentes de domínio
+
+O M04 adiciona uma camada de composições específicas para Home, Planos,
+Treino, Atividades, Corridas, Passos, Biblioteca, Nutrição, Perfil, Premium e
+Configurações.
+
+O catálogo possui 149 APIs: 143 classes novas e seis componentes existentes
+reutilizados. Ele está documentado em
+[DOMAIN_COMPONENTS.md](./DOMAIN_COMPONENTS.md), com migração incremental em
+[DOMAIN_COMPONENT_MIGRATION_MAP.md](./DOMAIN_COMPONENT_MIGRATION_MAP.md) e
+auditoria em [DOMAIN_COMPONENT_AUDIT.md](./DOMAIN_COMPONENT_AUDIT.md).
+
+```dart
+FitRunControlBar(
+  active: session.isActive,
+  paused: session.isPaused,
+  onStart: controller.start,
+  onTogglePause: controller.togglePause,
+  onFinish: controller.requestFinish,
+);
+```
+
+Componentes de domínio organizam apresentação. Eles não acessam sensores,
+serviços, modelos persistentes ou rotas.
+
 ## Acessibilidade
 
 - Tooltips são obrigatórios em ações somente com ícone.
@@ -263,7 +288,8 @@ Execute sem integrar ao app principal:
 flutter run -t lib/debug/design_system_showcase/main.dart
 ```
 
-As rotas locais cobrem Buttons, Inputs, Cards, Navigation, Feedback e Common.
+As rotas locais cobrem Buttons, Inputs, Cards, Navigation, Feedback, Common e
+os onze domínios do M04.
 
 ## Como criar um componente
 
@@ -292,7 +318,9 @@ Os testes da biblioteca ficam em:
 
 ```text
 test/design_system/component_library_m03_test.dart
+test/design_system/domain_components_m04_test.dart
 ```
 
-Eles validam interações essenciais, containers contextuais e ausência de
-overflow no showcase em largura de `320 px`.
+Eles validam interações essenciais, containers contextuais, componentes
+representativos de todos os domínios e ausência de overflow no showcase em
+largura de `320 px`.

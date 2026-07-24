@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../tokens/fit_radius.dart';
+import '../tokens/fit_layout.dart';
+import '../tokens/fit_opacity.dart';
 import '../tokens/fit_spacing.dart';
 
 /// Atalho compacto para uma acao clara como IA, manual ou biblioteca.
@@ -31,7 +33,9 @@ class FitQuickActionCard extends StatelessWidget {
       selected: selected,
       label: label,
       child: Material(
-        color: selected ? accent.withAlpha(24) : colors.surface,
+        color: selected
+            ? accent.withValues(alpha: FitOpacity.selected)
+            : colors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: FitRadius.largeBorder,
           side: BorderSide(color: selected ? accent : colors.outlineVariant),
@@ -40,7 +44,9 @@ class FitQuickActionCard extends StatelessWidget {
           onTap: onTap,
           borderRadius: FitRadius.largeBorder,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 112),
+            constraints: const BoxConstraints(
+              minHeight: FitLayout.domainQuickActionMinHeight,
+            ),
             child: Padding(
               padding: const EdgeInsets.all(FitSpacing.s16),
               child: Column(

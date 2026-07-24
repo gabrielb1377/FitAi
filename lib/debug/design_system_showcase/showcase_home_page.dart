@@ -14,6 +14,57 @@ class ShowcaseHomePage extends StatelessWidget {
     _ShowcaseEntry('Navigation', ShowcaseRoutes.navigation, FitIcons.home),
     _ShowcaseEntry('Feedback', ShowcaseRoutes.feedback, FitIcons.info),
     _ShowcaseEntry('Common', ShowcaseRoutes.common, FitIcons.more),
+    _ShowcaseEntry('Home · domínio', ShowcaseRoutes.homeDomain, FitIcons.home),
+    _ShowcaseEntry(
+      'Planos · domínio',
+      ShowcaseRoutes.plansDomain,
+      FitIcons.plans,
+    ),
+    _ShowcaseEntry(
+      'Treino · domínio',
+      ShowcaseRoutes.workoutDomain,
+      FitIcons.workout,
+    ),
+    _ShowcaseEntry(
+      'Atividades · domínio',
+      ShowcaseRoutes.activitiesDomain,
+      FitIcons.activities,
+    ),
+    _ShowcaseEntry(
+      'Corridas · domínio',
+      ShowcaseRoutes.runningDomain,
+      FitIcons.running,
+    ),
+    _ShowcaseEntry(
+      'Passos · domínio',
+      ShowcaseRoutes.stepsDomain,
+      FitIcons.steps,
+    ),
+    _ShowcaseEntry(
+      'Biblioteca · domínio',
+      ShowcaseRoutes.libraryDomain,
+      FitIcons.library,
+    ),
+    _ShowcaseEntry(
+      'Nutrição · domínio',
+      ShowcaseRoutes.nutritionDomain,
+      FitIcons.nutrition,
+    ),
+    _ShowcaseEntry(
+      'Perfil · domínio',
+      ShowcaseRoutes.profileDomain,
+      FitIcons.profile,
+    ),
+    _ShowcaseEntry(
+      'Premium · domínio',
+      ShowcaseRoutes.premiumDomain,
+      FitIcons.premium,
+    ),
+    _ShowcaseEntry(
+      'Configurações · domínio',
+      ShowcaseRoutes.settingsDomain,
+      FitIcons.settings,
+    ),
   ];
 
   @override
