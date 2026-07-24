@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../../design_system/fit_design_system.dart';
 import '../../../../models/fitai_meta_model.dart';
 import '../widgets/home_detail_scaffold.dart';
-import '../widgets/home_goal_tile.dart';
+import '../widgets/home_official_components.dart';
 
 class HomeGoalsPage extends StatefulWidget {
   const HomeGoalsPage({
@@ -27,6 +27,7 @@ class _HomeGoalsPageState extends State<HomeGoalsPage> {
   late FitaiMetasResumo _summary;
   bool _loading = false;
   String? _error;
+  var _selectedFilter = 0;
 
   @override
   void initState() {
@@ -60,14 +61,13 @@ class _HomeGoalsPageState extends State<HomeGoalsPage> {
   Widget build(BuildContext context) {
     return HomeDetailScaffold(
       title: 'Metas',
-      subtitle: 'Acompanhe objetivos calculados com seus dados reais.',
+      subtitle: '',
+      actions: [
+        TextButton(onPressed: _showUnavailable, child: const Text('Editar')),
+      ],
       child: RefreshIndicator(
         onRefresh: _reload,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(
-            parent: BouncingScrollPhysics(),
-          ),
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
+        child: HomePageBody(
           children: [
             if (widget.isOffline) ...[
               FitOfflineState(
@@ -97,40 +97,115 @@ class _HomeGoalsPageState extends State<HomeGoalsPage> {
       );
     }
     final primary = _primaryGoal(goals);
+    final visible = goals.where(_matchesFilter).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        HomeFilterStrip(
+          labels: const ['Todas', 'Treino', 'Corpo', 'Performance'],
+          selectedIndex: _selectedFilter,
+          onSelected: (value) => setState(() => _selectedFilter = value),
+        ),
+        const SizedBox(height: FitSpacing.s16),
         FitCard(
           title: 'Meta principal',
-          subtitle: primary.titulo,
-          leading: const Icon(Icons.flag_rounded, color: FitColors.primary),
           variant: FitCardVariant.outlined,
           child: Row(
             children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(primary.titulo, style: context.textTheme.titleLarge),
+                    const SizedBox(height: FitSpacing.s4),
+                    Text(
+                      primary.statusLabel,
+                      style: context.textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: FitSpacing.s12),
+                    FitProgressBar(
+                      value: primary.progresso,
+                      label:
+                          '${_value(primary.valorAtual)} / ${_value(primary.valorObjetivo)} ${primary.unidade}',
+                      trailing: primary.progressoPercentual,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: FitSpacing.s16),
               FitCircularProgress(
                 value: primary.progresso,
                 showPercentage: true,
-                size: 88,
-              ),
-              const SizedBox(width: FitSpacing.s16),
-              Expanded(
-                child: Text(
-                  primary.descricao,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
+                size: FitLayout.progressRingSize,
               ),
             ],
           ),
         ),
         const SizedBox(height: FitSpacing.s24),
-        Text('Todas as metas', style: Theme.of(context).textTheme.titleLarge),
+        const FitSectionHeader(title: 'Suas metas'),
         const SizedBox(height: FitSpacing.s12),
-        for (final goal in goals) ...[
-          HomeGoalTile(goal: goal),
+        if (visible.isEmpty)
+          const FitEmptyState(
+            icon: FitIcons.goal,
+            title: 'Nenhuma meta nesta categoria',
+            description: 'Escolha outro filtro para continuar.',
+          ),
+        for (final goal in visible) ...[
+          HomeListAction(
+            title: goal.titulo,
+            subtitle: goal.statusLabel,
+            value: goal.progressoPercentual,
+            icon: _icon(goal.categoria),
+            color: _color(goal.categoria),
+            progress: goal.progresso,
+          ),
           const SizedBox(height: FitSpacing.s12),
         ],
+        FitOutlinedButton(
+          label: 'Adicionar meta',
+          icon: FitIcons.add,
+          fullWidth: true,
+          onPressed: _showUnavailable,
+        ),
       ],
     );
+  }
+
+  bool _matchesFilter(FitaiMetaModel goal) => switch (_selectedFilter) {
+    0 => true,
+    1 => goal.categoria == FitaiMetaCategoria.treinos,
+    2 => goal.categoria == FitaiMetaCategoria.corpo,
+    _ =>
+      goal.categoria == FitaiMetaCategoria.forca ||
+          goal.categoria == FitaiMetaCategoria.corridas ||
+          goal.categoria == FitaiMetaCategoria.passos,
+  };
+
+  IconData _icon(FitaiMetaCategoria category) => switch (category) {
+    FitaiMetaCategoria.treinos => FitIcons.workout,
+    FitaiMetaCategoria.corridas => FitIcons.running,
+    FitaiMetaCategoria.passos => FitIcons.steps,
+    FitaiMetaCategoria.forca => FitIcons.weight,
+    FitaiMetaCategoria.corpo => FitIcons.goal,
+  };
+
+  Color _color(FitaiMetaCategoria category) => switch (category) {
+    FitaiMetaCategoria.corridas => FitColors.running,
+    FitaiMetaCategoria.passos => FitColors.steps,
+    FitaiMetaCategoria.corpo => FitColors.ai,
+    _ => FitColors.primary,
+  };
+
+  String _value(double value) {
+    if (value == value.roundToDouble()) return value.round().toString();
+    return value.toStringAsFixed(1).replaceAll('.', ',');
+  }
+
+  void _showUnavailable() {
+    const FitSnackBar(
+      message: 'A edição manual de metas ainda não está disponível.',
+      tone: FitSnackBarTone.info,
+    ).show(context);
   }
 
   FitaiMetaModel _primaryGoal(List<FitaiMetaModel> goals) {

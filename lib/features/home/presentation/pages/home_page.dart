@@ -5,12 +5,14 @@ import 'package:flutter/material.dart';
 import '../../../../core/navigation/app_section.dart';
 import '../../../../design_system/fit_design_system.dart';
 import '../../../../models/fitai_notification_model.dart';
+import '../../../../models/historico_treino_model.dart';
 import '../../../../models/treino_model.dart';
 import '../../../../screens/corridas/corridas_page.dart';
 import '../../../../screens/passos_page.dart';
 import '../../../../screens/perfil/agenda_treinos_page.dart';
 import '../../../../screens/perfil/evolucao_page.dart';
 import '../../../../screens/treinos/criar_treino_page.dart';
+import '../../../../screens/treinos/treino_detalhes_page.dart';
 import '../../../../screens/treinos/treino_em_andamento_page.dart';
 import '../../../../services/achievement_service.dart';
 import '../../../../services/coach_insight_service.dart';
@@ -19,13 +21,27 @@ import '../../../../services/notification_service.dart';
 import '../../../../services/storage_service.dart';
 import '../../../../services/treino_service.dart';
 import '../controllers/home_controller.dart';
+import '../routes/home_routes.dart';
 import '../widgets/home_dashboard_content.dart';
 import 'home_achievements_page.dart';
+import 'home_calendar_page.dart';
 import 'home_coach_page.dart';
+import 'home_customize_page.dart';
+import 'home_daily_summary_page.dart';
 import 'home_goals_page.dart';
 import 'home_notifications_page.dart';
+import 'home_overview_page.dart';
+import 'home_progress_page.dart';
+import 'home_recent_activity_page.dart';
+import 'home_records_page.dart';
+import 'home_reminders_page.dart';
+import 'home_suggested_plans_page.dart';
+import 'home_today_workout_page.dart';
+import 'home_upcoming_workouts_page.dart';
+import 'home_weekly_challenges_page.dart';
 
 part 'home_page_navigation.dart';
+part 'home_page_detail_navigation.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({
@@ -124,8 +140,11 @@ class _HomePageState extends State<HomePage> {
           onOpenGoals: () => unawaited(_openGoals()),
           onOpenAchievements: () => unawaited(_openAchievements()),
           onOpenNotifications: () => unawaited(_openNotifications()),
-          onOpenProfile: () =>
-              widget.onSelectTab?.call(AppShellSection.profile.index),
+          onCustomize: () => unawaited(_openCustomize()),
+          onOpenOverview: () => unawaited(_openOverview()),
+          onOpenTodayWorkout: () => unawaited(_openTodayWorkout()),
+          onOpenRecentActivity: () => unawaited(_openRecentActivity()),
+          onOpenProgress: () => unawaited(_openProgress()),
         ),
       ),
     );

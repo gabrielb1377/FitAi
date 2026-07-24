@@ -18,21 +18,57 @@ class HomeCoachInsight extends StatelessWidget {
     final insight = insights.isEmpty ? null : insights.first;
     return FitSection(
       title: 'Coach FitIA',
-      child: insight == null
-          ? FitEmptyState(
-              icon: Icons.auto_awesome_outlined,
-              title: 'Ainda sem insights',
-              description:
-                  'Registre atividades para o Coach analisar sua evolucao.',
-              actionLabel: 'Abrir Coach',
-              onAction: onOpenCoach,
-            )
-          : FitCoachInsightCard(
-              title: insight.titulo,
-              insight: insight.descricao,
-              actionLabel: 'Ver detalhes',
-              onAction: onOpenCoach,
+      child: FitCard(
+        onTap: onOpenCoach,
+        variant: FitCardVariant.clickable,
+        padding: const EdgeInsets.all(FitSpacing.s12),
+        semanticLabel: 'Abrir Coach FitIA',
+        child: Row(
+          children: [
+            Container(
+              width: FitLayout.avatarMedium,
+              height: FitLayout.avatarMedium,
+              decoration: const BoxDecoration(
+                color: FitColors.aiContainer,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                FitIcons.coach,
+                color: FitColors.ai,
+                size: FitLayout.iconSizeMedium,
+              ),
             ),
+            const SizedBox(width: FitSpacing.s12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    insight?.titulo ?? 'Ainda sem insights',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: FitSpacing.s2),
+                  Text(
+                    insight?.descricao ??
+                        'Registre atividades para receber orientações.',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: FitSpacing.s8),
+            const Icon(
+              FitIcons.forward,
+              color: FitColors.textSecondary,
+              size: FitLayout.iconSizeCompact,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

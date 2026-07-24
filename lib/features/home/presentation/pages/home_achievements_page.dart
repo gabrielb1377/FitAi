@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../design_system/fit_design_system.dart';
 import '../../../../models/achievement_model.dart';
-import '../widgets/home_achievement_tile.dart';
 import '../widgets/home_detail_scaffold.dart';
+import '../widgets/home_official_components.dart';
 
 class HomeAchievementsPage extends StatefulWidget {
   const HomeAchievementsPage({
@@ -33,6 +33,7 @@ class _HomeAchievementsPageState extends State<HomeAchievementsPage> {
   late List<AchievementModel> _achievements;
   bool _loading = false;
   String? _error;
+  var _selectedFilter = 0;
 
   @override
   void initState() {
@@ -64,14 +65,17 @@ class _HomeAchievementsPageState extends State<HomeAchievementsPage> {
   Widget build(BuildContext context) {
     return HomeDetailScaffold(
       title: 'Conquistas',
-      subtitle: 'Marcos desbloqueados pela sua evolucao real.',
+      subtitle: '',
+      actions: [
+        FitIconButton(
+          icon: Icons.filter_list_rounded,
+          tooltip: 'Filtrar conquistas',
+          onPressed: () => setState(() => _selectedFilter = 0),
+        ),
+      ],
       child: RefreshIndicator(
         onRefresh: _reload,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(
-            parent: BouncingScrollPhysics(),
-          ),
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
+        child: HomePageBody(
           children: [
             if (widget.isOffline) ...[
               FitOfflineState(
@@ -81,71 +85,20 @@ class _HomeAchievementsPageState extends State<HomeAchievementsPage> {
               ),
               const SizedBox(height: FitSpacing.s16),
             ],
-            _summary(context),
-            const SizedBox(height: FitSpacing.s24),
+            HomeFilterStrip(
+              labels: const ['Todas', 'Treino', 'Hábitos', 'Marcos'],
+              selectedIndex: _selectedFilter,
+              onSelected: (value) {
+                setState(() => _selectedFilter = value);
+              },
+            ),
+            const SizedBox(height: FitSpacing.s20),
             if (_loading) const FitListSkeleton(itemCount: 5),
             if (!_loading && _error != null)
               FitErrorState(error: _error!, onRetry: () => _reload()),
             if (!_loading && _error == null) _content(context),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _summary(BuildContext context) {
-    final unlocked = _achievements.where((item) => item.desbloqueada).length;
-    return FitCard(
-      variant: FitCardVariant.outlined,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final columns = constraints.maxWidth < 500 ? 2 : 4;
-          final width =
-              (constraints.maxWidth - (columns - 1) * FitSpacing.s12) / columns;
-          return FitMetricRow(
-            spacing: FitSpacing.s12,
-            runSpacing: FitSpacing.s16,
-            children: [
-              SizedBox(
-                width: width,
-                child: FitMetric(
-                  label: 'Nivel',
-                  value: '${widget.level}',
-                  icon: Icons.workspace_premium_rounded,
-                  color: FitColors.achievement,
-                ),
-              ),
-              SizedBox(
-                width: width,
-                child: FitMetric(
-                  label: 'XP',
-                  value: '${widget.xp}',
-                  icon: Icons.bolt_rounded,
-                  color: FitColors.achievement,
-                ),
-              ),
-              SizedBox(
-                width: width,
-                child: FitMetric(
-                  label: 'Sequencia',
-                  value: '${widget.streak}',
-                  unit: 'dias',
-                  icon: Icons.local_fire_department_rounded,
-                  color: FitColors.achievement,
-                ),
-              ),
-              SizedBox(
-                width: width,
-                child: FitMetric(
-                  label: 'Liberadas',
-                  value: '$unlocked',
-                  icon: Icons.emoji_events_rounded,
-                  color: FitColors.achievement,
-                ),
-              ),
-            ],
-          );
-        },
       ),
     );
   }
@@ -159,24 +112,91 @@ class _HomeAchievementsPageState extends State<HomeAchievementsPage> {
             'Continue registrando atividades para criar seu historico.',
       );
     }
-    final categories = <String>{
-      for (final achievement in _achievements) achievement.categoria,
-    };
+    final visible = _achievements.where(_matchesFilter).toList();
+    final unlocked = _achievements.where((item) => item.desbloqueada).length;
+    final recent = visible.where((item) => item.desbloqueada).take(3).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final category in categories) ...[
-          Text(category, style: Theme.of(context).textTheme.titleLarge),
+        FitCard(
+          variant: FitCardVariant.outlined,
+          child: FitProgressBar(
+            value: _achievements.isEmpty ? 0 : unlocked / _achievements.length,
+            label: 'Todas as conquistas',
+            trailing: '$unlocked / ${_achievements.length}',
+            color: FitColors.achievement,
+          ),
+        ),
+        if (recent.isNotEmpty) ...[
+          const SizedBox(height: FitSpacing.s20),
+          const FitSectionHeader(
+            title: 'Conquistas recentes',
+            viewAllLabel: 'Ver todas',
+          ),
           const SizedBox(height: FitSpacing.s12),
-          for (final achievement in _achievements.where(
-            (item) => item.categoria == category,
-          )) ...[
-            HomeAchievementTile(achievement: achievement),
-            const SizedBox(height: FitSpacing.s12),
-          ],
-          const SizedBox(height: FitSpacing.s12),
+          HomeMetricGrid(
+            preferredColumns: 3,
+            items: [
+              for (final achievement in recent)
+                HomeMetricItem(
+                  label: achievement.nome,
+                  value: achievement.categoria,
+                  detail: achievement.data == null
+                      ? null
+                      : homeFormatDate(achievement.data!),
+                  icon: FitIcons.achievement,
+                  color: FitColors.achievement,
+                ),
+            ],
+          ),
+        ],
+        const SizedBox(height: FitSpacing.s20),
+        FitSectionHeader(
+          title: 'Todas as conquistas',
+          badge: FitBadge(label: '$unlocked / ${_achievements.length}'),
+        ),
+        const SizedBox(height: FitSpacing.s12),
+        if (visible.isEmpty)
+          const FitEmptyState(
+            icon: FitIcons.achievement,
+            title: 'Nenhuma conquista nesta categoria',
+            description: 'Escolha outro filtro para continuar.',
+          ),
+        for (final achievement in visible) ...[
+          HomeListAction(
+            title: achievement.nome,
+            subtitle: achievement.descricao,
+            value: achievement.desbloqueada ? 'Concluída' : 'Bloqueada',
+            icon: achievement.desbloqueada
+                ? FitIcons.achievement
+                : FitIcons.lock,
+            color: achievement.desbloqueada
+                ? FitColors.achievement
+                : FitColors.textTertiary,
+            progress: achievement.desbloqueada ? 1 : 0,
+          ),
+          const SizedBox(height: FitSpacing.s8),
         ],
       ],
     );
+  }
+
+  bool _matchesFilter(AchievementModel item) {
+    if (_selectedFilter == 0) return true;
+    final category = item.categoria.toLowerCase();
+    return switch (_selectedFilter) {
+      1 =>
+        category.contains('treino') ||
+            category.contains('força') ||
+            category.contains('volume'),
+      2 =>
+        category.contains('consist') ||
+            category.contains('hábito') ||
+            category.contains('passo'),
+      _ =>
+        category.contains('record') ||
+            category.contains('marco') ||
+            category.contains('corrida'),
+    };
   }
 }

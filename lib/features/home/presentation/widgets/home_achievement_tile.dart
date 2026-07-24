@@ -25,10 +25,10 @@ class HomeAchievementTile extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 48,
-              height: 48,
+              width: FitLayout.avatarMedium,
+              height: FitLayout.avatarMedium,
               decoration: BoxDecoration(
-                color: accent.withAlpha(24),
+                color: accent.withValues(alpha: FitOpacity.subtle),
                 borderRadius: FitRadius.mediumBorder,
               ),
               child: Icon(

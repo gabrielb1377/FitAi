@@ -21,7 +21,9 @@ class HomeNotificationTile extends StatelessWidget {
       label:
           '${notification.lida ? '' : 'Nao lida. '}${notification.titulo}. ${notification.descricao}',
       child: Material(
-        color: notification.lida ? Colors.transparent : accent.withAlpha(10),
+        color: accent.withValues(
+          alpha: notification.lida ? FitOpacity.transparent : FitOpacity.subtle,
+        ),
         borderRadius: FitRadius.mediumBorder,
         child: InkWell(
           onTap: onTap,
@@ -58,8 +60,8 @@ class HomeNotificationTile extends StatelessWidget {
                     if (!notification.lida) ...[
                       const SizedBox(height: FitSpacing.s8),
                       Container(
-                        width: 7,
-                        height: 7,
+                        width: FitSpacing.s8,
+                        height: FitSpacing.s8,
                         decoration: BoxDecoration(
                           color: accent,
                           shape: BoxShape.circle,

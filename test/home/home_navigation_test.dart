@@ -4,7 +4,6 @@ import 'package:fitai/core/config/dev_fixtures.dart';
 import 'package:fitai/features/home/presentation/pages/home_coach_page.dart';
 import 'package:fitai/features/home/presentation/pages/home_goals_page.dart';
 import 'package:fitai/features/home/presentation/pages/home_page.dart';
-import 'package:fitai/design_system/fit_design_system.dart';
 import 'package:fitai/models/fitai_meta_model.dart';
 import 'package:fitai/screens/corridas/corridas_page.dart';
 import 'package:fitai/screens/passos_page.dart';
@@ -20,7 +19,7 @@ void main() {
   testWidgets('abre o Coach a partir da Home', (tester) async {
     await _pumpHome(tester);
 
-    await _tapVisible(tester, find.text('Abrir Coach'));
+    await _tapVisible(tester, find.text('Ainda sem insights'));
 
     expect(find.byType(HomeCoachPage), findsOneWidget);
   });
@@ -28,7 +27,8 @@ void main() {
   testWidgets('abre Metas a partir da Home', (tester) async {
     await _pumpHome(tester);
 
-    await _tapVisible(tester, find.text('Ver metas').first);
+    await _tapVisible(tester, find.text('XP do dia'));
+    await _tapVisible(tester, find.text('Editar metas'));
 
     expect(find.byType(HomeGoalsPage), findsOneWidget);
   });
@@ -36,10 +36,7 @@ void main() {
   testWidgets('abre Corridas pelo acesso rapido', (tester) async {
     await _pumpHome(tester);
 
-    await _tapVisible(
-      tester,
-      find.widgetWithText(FitQuickActionCard, 'Corridas'),
-    );
+    await _tapVisible(tester, find.text('Iniciar corrida'));
 
     expect(find.byType(CorridasPage), findsOneWidget);
   });
@@ -47,10 +44,7 @@ void main() {
   testWidgets('abre Passos pelo acesso rapido', (tester) async {
     await _pumpHome(tester);
 
-    await _tapVisible(
-      tester,
-      find.widgetWithText(FitQuickActionCard, 'Passos'),
-    );
+    await _tapVisible(tester, find.text('Passos'));
 
     expect(find.byType(PassosPage), findsOneWidget);
   });

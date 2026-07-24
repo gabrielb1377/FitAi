@@ -8,15 +8,17 @@ class HomeLoadingState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        FitSkeleton(height: 210),
-        SizedBox(height: FitSpacing.s24),
-        FitSkeleton(height: 18, width: 96),
-        SizedBox(height: FitSpacing.s12),
-        FitSkeleton(height: 118),
-        SizedBox(height: FitSpacing.s24),
-        FitSkeleton(height: 150),
+        FitSkeleton(height: 132),
+        SizedBox(height: FitSpacing.s16),
+        FitSkeleton(height: 112),
+        SizedBox(height: FitSpacing.s16),
+        FitSkeleton(height: 168),
+        SizedBox(height: FitSpacing.s16),
+        FitSkeleton(height: 76),
+        SizedBox(height: FitSpacing.s16),
+        FitSkeleton(height: 76),
       ],
     );
   }

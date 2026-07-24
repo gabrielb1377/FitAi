@@ -6,8 +6,9 @@ import '../../../../design_system/fit_design_system.dart';
 import '../../../../models/fitai_notification_model.dart';
 import '../widgets/home_detail_scaffold.dart';
 import '../widgets/home_notification_tile.dart';
+import '../widgets/home_official_components.dart';
 
-enum HomeNotificationFilter { all, workout, coach, running, steps, system }
+enum HomeNotificationFilter { all, workout, system, social }
 
 class HomeNotificationsPage extends StatefulWidget {
   const HomeNotificationsPage({
@@ -17,6 +18,7 @@ class HomeNotificationsPage extends StatefulWidget {
     this.onMarkRead,
     this.onMarkAllRead,
     this.onOpenAction,
+    this.onOpenSettings,
     this.isOffline = false,
   });
 
@@ -26,6 +28,7 @@ class HomeNotificationsPage extends StatefulWidget {
   final Future<void> Function()? onMarkAllRead;
   final Future<void> Function(FitaiNotificationModel notification)?
   onOpenAction;
+  final VoidCallback? onOpenSettings;
   final bool isOffline;
 
   @override
@@ -91,18 +94,20 @@ class _HomeNotificationsPageState extends State<HomeNotificationsPage> {
     final visible = _notifications.where(_matchesFilter).toList();
     return HomeDetailScaffold(
       title: 'Notificacoes',
-      subtitle: 'Atualizacoes relevantes do seu dia.',
+      subtitle: '',
       actions: [
+        if (widget.onOpenSettings != null)
+          FitIconButton(
+            icon: FitIcons.settings,
+            tooltip: 'Abrir lembretes',
+            onPressed: widget.onOpenSettings,
+          ),
         if (_notifications.any((item) => !item.lida))
           TextButton(onPressed: _markAll, child: const Text('Marcar todas')),
       ],
       child: RefreshIndicator(
         onRefresh: _reload,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(
-            parent: BouncingScrollPhysics(),
-          ),
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
+        child: HomePageBody(
           children: [
             if (widget.isOffline) ...[
               FitOfflineState(
@@ -159,23 +164,20 @@ class _HomeNotificationsPageState extends State<HomeNotificationsPage> {
       HomeNotificationFilter.workout =>
         notification.categoria == FitaiNotificationCategoria.treinos ||
             notification.categoria == FitaiNotificationCategoria.agenda,
-      HomeNotificationFilter.coach =>
-        notification.categoria == FitaiNotificationCategoria.coach ||
+      HomeNotificationFilter.system =>
+        notification.categoria == FitaiNotificationCategoria.recordes ||
             notification.categoria == FitaiNotificationCategoria.evolucao,
-      HomeNotificationFilter.running =>
-        notification.categoria == FitaiNotificationCategoria.corridas,
-      HomeNotificationFilter.steps =>
-        notification.categoria == FitaiNotificationCategoria.metas,
-      HomeNotificationFilter.system => false,
+      HomeNotificationFilter.social =>
+        notification.categoria == FitaiNotificationCategoria.coach ||
+            notification.categoria == FitaiNotificationCategoria.corridas ||
+            notification.categoria == FitaiNotificationCategoria.metas,
     };
   }
 
   String _label(HomeNotificationFilter filter) => switch (filter) {
     HomeNotificationFilter.all => 'Todas',
     HomeNotificationFilter.workout => 'Treino',
-    HomeNotificationFilter.coach => 'Coach',
-    HomeNotificationFilter.running => 'Corridas',
-    HomeNotificationFilter.steps => 'Passos',
     HomeNotificationFilter.system => 'Sistema',
+    HomeNotificationFilter.social => 'Social',
   };
 }

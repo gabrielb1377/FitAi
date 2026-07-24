@@ -2,85 +2,90 @@ import 'package:flutter/material.dart';
 
 import '../../../../design_system/fit_design_system.dart';
 
+/// Cabeçalho compacto do HOME-001.
 class HomeHeader extends StatelessWidget {
   const HomeHeader({
     super.key,
     required this.name,
-    required this.level,
-    required this.xp,
+    required this.currentStreak,
     required this.unreadNotifications,
     required this.onOpenNotifications,
-    required this.onOpenProfile,
+    required this.onCustomize,
   });
 
   final String name;
-  final int level;
-  final int xp;
+  final int currentStreak;
   final int unreadNotifications;
   final VoidCallback onOpenNotifications;
-  final VoidCallback onOpenProfile;
+  final VoidCallback onCustomize;
 
   @override
   Widget build(BuildContext context) {
     final firstName = name.trim().isEmpty
         ? 'Atleta'
-        : name.trim().split(' ').first;
+        : name.trim().split(RegExp(r'\s+')).first;
+    final compact =
+        FitBreakpoints.isSmallMobile(MediaQuery.sizeOf(context).width) ||
+        MediaQuery.textScalerOf(context).scale(1) > 1.25;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        FitSpacing.s20,
+      padding: EdgeInsets.fromLTRB(
+        _horizontalPadding(context),
+        FitSpacing.s12,
+        _horizontalPadding(context),
         FitSpacing.s16,
-        FitSpacing.s20,
-        FitSpacing.s20,
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${_greeting()}, $firstName',
-                  maxLines: 2,
+          Row(
+            children: [
+              const Icon(
+                Icons.bolt_rounded,
+                color: FitColors.primary,
+                size: FitLayout.iconSizeMedium,
+              ),
+              const SizedBox(width: FitSpacing.s4),
+              Expanded(
+                child: Text(
+                  'FitIA',
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: context.textTheme.headlineMedium,
-                ),
-                const SizedBox(height: FitSpacing.s4),
-                Text(
-                  'Nivel $level  -  $xp XP',
-                  style: context.textTheme.bodyMedium,
-                ),
-              ],
-            ),
-          ),
-          _NotificationButton(
-            count: unreadNotifications,
-            onTap: onOpenNotifications,
-          ),
-          const SizedBox(width: FitSpacing.s8),
-          Tooltip(
-            message: 'Abrir perfil',
-            child: Semantics(
-              button: true,
-              label: 'Abrir perfil de $firstName',
-              child: InkWell(
-                onTap: onOpenProfile,
-                customBorder: const CircleBorder(),
-                child: CircleAvatar(
-                  radius: 23,
-                  backgroundColor: context.colors.primaryContainer,
-                  child: Text(
-                    firstName.characters.first.toUpperCase(),
-                    style: context.textTheme.titleLarge?.copyWith(
-                      color: context.colors.primary,
-                    ),
-                  ),
+                  style: context.textTheme.headlineSmall,
                 ),
               ),
-            ),
+              const SizedBox(width: FitSpacing.s8),
+              _StreakPill(days: currentStreak, showLabel: !compact),
+              SizedBox(width: compact ? FitSpacing.s8 : FitSpacing.s12),
+              _NotificationAvatar(
+                name: firstName,
+                count: unreadNotifications,
+                onTap: onOpenNotifications,
+                onLongPress: onCustomize,
+              ),
+            ],
+          ),
+          const SizedBox(height: FitSpacing.s20),
+          Text(
+            '${_greeting()}, $firstName!',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: context.textTheme.headlineMedium,
+          ),
+          const SizedBox(height: FitSpacing.s4),
+          Text(
+            'Pronto para evoluir hoje?',
+            style: context.textTheme.bodyMedium,
           ),
         ],
       ),
     );
+  }
+
+  double _horizontalPadding(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (width >= FitBreakpoints.largeTablet) return FitSpacing.s64;
+    if (width >= FitBreakpoints.tablet) return FitSpacing.s32;
+    return FitSpacing.s20;
   }
 
   String _greeting() {
@@ -91,41 +96,92 @@ class HomeHeader extends StatelessWidget {
   }
 }
 
-class _NotificationButton extends StatelessWidget {
-  const _NotificationButton({required this.count, required this.onTap});
+class _StreakPill extends StatelessWidget {
+  const _StreakPill({required this.days, required this.showLabel});
 
-  final int count;
-  final VoidCallback onTap;
+  final int days;
+  final bool showLabel;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        FitIconButton(
-          icon: Icons.notifications_none_rounded,
-          tooltip: 'Abrir notificacoes',
-          onPressed: onTap,
-          variant: FitIconButtonVariant.outlined,
-        ),
-        if (count > 0)
-          Positioned(
-            right: 1,
-            top: 1,
-            child: Semantics(
-              label: '$count notificacoes nao lidas',
-              child: Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: context.colors.primary,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: context.colors.surface, width: 2),
-                ),
-              ),
+    return Semantics(
+      label: '$days dias de sequência',
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            FitIcons.streak,
+            size: FitLayout.iconSizeCompact,
+            color: FitColors.achievement,
+          ),
+          const SizedBox(width: FitSpacing.s4),
+          Text(
+            '$days',
+            style: context.textTheme.labelLarge?.copyWith(
+              color: FitColors.textPrimary,
             ),
           ),
-      ],
+          if (showLabel) ...[
+            const SizedBox(width: FitSpacing.s4),
+            Text('dias', style: context.textTheme.labelSmall),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _NotificationAvatar extends StatelessWidget {
+  const _NotificationAvatar({
+    required this.name,
+    required this.count,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  final String name;
+  final int count;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Notificações. Pressione e segure para personalizar.',
+      child: Semantics(
+        button: true,
+        label: count > 0
+            ? 'Abrir notificações, $count não lidas'
+            : 'Abrir notificações',
+        child: InkWell(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          customBorder: const CircleBorder(),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              FitAvatar(name: name, size: FitAvatarSize.medium),
+              if (count > 0)
+                Positioned(
+                  top: FitLayout.none,
+                  right: FitLayout.none,
+                  child: Container(
+                    width: FitSpacing.s12,
+                    height: FitSpacing.s12,
+                    decoration: BoxDecoration(
+                      color: FitColors.primary,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: FitColors.background,
+                        width: FitLayout.borderThin,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

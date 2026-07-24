@@ -6,6 +6,7 @@ import '../../../../design_system/fit_design_system.dart';
 import '../../../../models/coach_insight_model.dart';
 import '../../../../services/ia_evolutiva_service.dart';
 import '../widgets/home_detail_scaffold.dart';
+import '../widgets/home_official_components.dart';
 
 class HomeCoachPage extends StatefulWidget {
   const HomeCoachPage({
@@ -14,12 +15,14 @@ class HomeCoachPage extends StatefulWidget {
     this.recommendation,
     this.onReload,
     this.isOffline = false,
+    this.onOpenDailySummary,
   });
 
   final List<CoachInsightModel>? initialInsights;
   final IaEvolutivaRecomendacao? recommendation;
   final Future<List<CoachInsightModel>> Function()? onReload;
   final bool isOffline;
+  final VoidCallback? onOpenDailySummary;
 
   @override
   State<HomeCoachPage> createState() => _HomeCoachPageState();
@@ -58,19 +61,20 @@ class _HomeCoachPageState extends State<HomeCoachPage> {
   Widget build(BuildContext context) {
     return HomeDetailScaffold(
       title: 'Coach FitIA',
-      subtitle: 'Orientacao baseada na sua evolucao.',
+      subtitle: '',
+      actions: [
+        FitIconButton(
+          icon: FitIcons.more,
+          tooltip: 'Mais opções do Coach',
+          onPressed: () => const FitSnackBar(
+            message: 'O chat completo do Coach ainda não está disponível.',
+            tone: FitSnackBarTone.info,
+          ).show(context),
+        ),
+      ],
       child: RefreshIndicator(
         onRefresh: _reload,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(
-            parent: BouncingScrollPhysics(),
-          ),
-          padding: const EdgeInsets.fromLTRB(
-            FitSpacing.s20,
-            FitSpacing.s12,
-            FitSpacing.s20,
-            FitSpacing.s40,
-          ),
+        child: HomePageBody(
           children: [
             if (widget.isOffline) ...[
               FitOfflineState(
@@ -103,16 +107,66 @@ class _HomeCoachPageState extends State<HomeCoachPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        FitCoachCard(
-          title: 'Seu coach inteligente',
-          subtitle: 'Um insight por vez, baseado em dados disponiveis.',
-          action: const FitBadge.ai(),
-          child: Text(primary.acao.isEmpty ? primary.descricao : primary.acao),
+        FitCard(
+          color: FitColors.aiContainer,
+          borderColor: FitColors.ai,
+          showBorder: true,
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Bom dia!', style: context.textTheme.headlineSmall),
+                    const SizedBox(height: FitSpacing.s4),
+                    Text(
+                      primary.acao.isEmpty ? primary.descricao : primary.acao,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: FitSpacing.s12),
+              const Icon(
+                FitIcons.coach,
+                color: FitColors.ai,
+                size: FitLayout.iconSizeState,
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: FitSpacing.s20),
+        const FitSectionHeader(title: 'Resumo do seu dia'),
+        const SizedBox(height: FitSpacing.s12),
+        const HomeMetricGrid(
+          preferredColumns: 3,
+          items: [
+            HomeMetricItem(
+              label: 'Energia',
+              value: 'Alta',
+              icon: Icons.bolt_rounded,
+            ),
+            HomeMetricItem(
+              label: 'Recuperação',
+              value: 'Boa',
+              icon: Icons.favorite_rounded,
+            ),
+            HomeMetricItem(
+              label: 'Foco',
+              value: 'Força',
+              icon: FitIcons.goal,
+              color: FitColors.energy,
+            ),
+          ],
+        ),
+        const SizedBox(height: FitSpacing.s20),
+        const FitSectionHeader(title: 'Recomendação de hoje'),
+        const SizedBox(height: FitSpacing.s12),
         FitCoachInsightCard(title: primary.titulo, insight: primary.descricao),
         if (widget.recommendation != null) ...[
-          const SizedBox(height: FitSpacing.s16),
+          const SizedBox(height: FitSpacing.s12),
           FitActionTile(
             title: widget.recommendation!.titulo,
             description: widget.recommendation!.texto,
@@ -125,30 +179,32 @@ class _HomeCoachPageState extends State<HomeCoachPage> {
             ),
           ),
         ],
-        if (_insights.length > 1) ...[
-          const SizedBox(height: FitSpacing.s24),
-          Text(
-            'Outras recomendacoes',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: FitSpacing.s8),
-          for (final insight in _insights.skip(1))
-            FitActionTile(
-              title: insight.titulo,
-              description: insight.descricao,
-              icon: Icons.lightbulb_outline_rounded,
-              color: FitColors.ai,
-              onTap: null,
-            ),
-        ],
-        const SizedBox(height: FitSpacing.s24),
-        const FitActionTile(
-          title: 'Pergunte ao Coach',
-          description: 'O chat completo ainda nao esta disponivel.',
-          icon: Icons.chat_bubble_outline_rounded,
+        const SizedBox(height: FitSpacing.s12),
+        HomeListAction(
+          title: 'Dica do Coach',
+          subtitle: primary.acao.isEmpty ? primary.descricao : primary.acao,
+          icon: Icons.lightbulb_outline_rounded,
           color: FitColors.ai,
-          onTap: null,
-          trailing: FitBadge(label: 'Em breve'),
+        ),
+        const SizedBox(height: FitSpacing.s20),
+        if (widget.onOpenDailySummary != null) ...[
+          HomeListAction(
+            title: 'Resumo diário',
+            subtitle: 'Veja consistência, desempenho, recuperação e movimento.',
+            icon: Icons.insights_rounded,
+            color: FitColors.ai,
+            onTap: widget.onOpenDailySummary,
+          ),
+          const SizedBox(height: FitSpacing.s12),
+        ],
+        FitPrimaryButton(
+          label: 'Conversar com Coach',
+          icon: Icons.chat_bubble_outline_rounded,
+          fullWidth: true,
+          onPressed: () => const FitSnackBar(
+            message: 'O chat completo do Coach ainda não está disponível.',
+            tone: FitSnackBarTone.info,
+          ).show(context),
         ),
       ],
     );

@@ -3,6 +3,7 @@ import '../../../../models/coach_insight_model.dart';
 import '../../../../models/fitai_meta_model.dart';
 import '../../../../models/fitai_notification_model.dart';
 import '../../../../models/historico_treino_model.dart';
+import '../../../../models/treino_model.dart';
 import '../../../../services/ia_evolutiva_service.dart';
 import '../../../../services/treino_do_dia_service.dart';
 
@@ -17,6 +18,7 @@ class HomeState {
     this.goals = const FitaiMetasResumo(metas: []),
     this.achievements = const [],
     this.notifications = const [],
+    this.workouts = const [],
     this.recommendation,
     this.workoutsThisWeek = 0,
     this.weeklyXp = 0,
@@ -25,6 +27,7 @@ class HomeState {
     this.isRefreshing = false,
     this.errorMessage,
     this.lastUpdatedAt,
+    this.isUsingDeveloperData = false,
   });
 
   factory HomeState.initial(TreinoDoDiaSelecao selection) {
@@ -38,6 +41,7 @@ class HomeState {
   final FitaiMetasResumo goals;
   final List<AchievementModel> achievements;
   final List<FitaiNotificationModel> notifications;
+  final List<TreinoModel> workouts;
   final IaEvolutivaRecomendacao? recommendation;
   final int workoutsThisWeek;
   final int weeklyXp;
@@ -46,6 +50,7 @@ class HomeState {
   final bool isRefreshing;
   final String? errorMessage;
   final DateTime? lastUpdatedAt;
+  final bool isUsingDeveloperData;
 
   int get unreadNotifications =>
       notifications.where((notification) => !notification.lida).length;
@@ -74,7 +79,8 @@ class HomeState {
       coachInsights.isNotEmpty ||
       goals.metas.isNotEmpty ||
       achievements.isNotEmpty ||
-      notifications.isNotEmpty;
+      notifications.isNotEmpty ||
+      workouts.isNotEmpty;
 
   HomeState copyWith({
     HomeLoadStatus? status,
@@ -84,6 +90,7 @@ class HomeState {
     FitaiMetasResumo? goals,
     List<AchievementModel>? achievements,
     List<FitaiNotificationModel>? notifications,
+    List<TreinoModel>? workouts,
     IaEvolutivaRecomendacao? recommendation,
     int? workoutsThisWeek,
     int? weeklyXp,
@@ -93,6 +100,7 @@ class HomeState {
     String? errorMessage,
     bool clearError = false,
     DateTime? lastUpdatedAt,
+    bool? isUsingDeveloperData,
   }) {
     return HomeState(
       status: status ?? this.status,
@@ -102,6 +110,7 @@ class HomeState {
       goals: goals ?? this.goals,
       achievements: achievements ?? this.achievements,
       notifications: notifications ?? this.notifications,
+      workouts: workouts ?? this.workouts,
       recommendation: recommendation ?? this.recommendation,
       workoutsThisWeek: workoutsThisWeek ?? this.workoutsThisWeek,
       weeklyXp: weeklyXp ?? this.weeklyXp,
@@ -110,6 +119,7 @@ class HomeState {
       isRefreshing: isRefreshing ?? this.isRefreshing,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
       lastUpdatedAt: lastUpdatedAt ?? this.lastUpdatedAt,
+      isUsingDeveloperData: isUsingDeveloperData ?? this.isUsingDeveloperData,
     );
   }
 }

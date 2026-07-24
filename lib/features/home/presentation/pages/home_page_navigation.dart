@@ -51,11 +51,13 @@ extension _HomePageNavigation on _HomePageState {
     final state = _controller.state;
     return Navigator.of(context).push(
       MaterialPageRoute<void>(
+        settings: const RouteSettings(name: HomeRoutes.coach),
         builder: (_) => HomeCoachPage(
           initialInsights: state.coachInsights,
           recommendation: state.recommendation,
           isOffline: state.isOffline,
           onReload: const CoachInsightService().gerarInsightsGerais,
+          onOpenDailySummary: () => unawaited(_openDailySummary()),
         ),
       ),
     );
@@ -65,6 +67,7 @@ extension _HomePageNavigation on _HomePageState {
     final state = _controller.state;
     return Navigator.of(context).push(
       MaterialPageRoute<void>(
+        settings: const RouteSettings(name: HomeRoutes.goals),
         builder: (_) => HomeGoalsPage(
           initialGoals: state.goals,
           isOffline: state.isOffline,
@@ -78,6 +81,7 @@ extension _HomePageNavigation on _HomePageState {
     final state = _controller.state;
     return Navigator.of(context).push(
       MaterialPageRoute<void>(
+        settings: const RouteSettings(name: HomeRoutes.achievements),
         builder: (_) => HomeAchievementsPage(
           initialAchievements: state.achievements,
           level: widget.nivel,
@@ -95,6 +99,7 @@ extension _HomePageNavigation on _HomePageState {
     final state = _controller.state;
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
+        settings: const RouteSettings(name: HomeRoutes.notifications),
         builder: (_) => HomeNotificationsPage(
           initialNotifications: state.notifications,
           isOffline: state.isOffline,
@@ -102,6 +107,7 @@ extension _HomePageNavigation on _HomePageState {
           onMarkRead: (item) => service.marcarComoLida(item.id),
           onMarkAllRead: service.marcarTodasComoLidas,
           onOpenAction: _openNotificationAction,
+          onOpenSettings: () => unawaited(_openReminders()),
         ),
       ),
     );

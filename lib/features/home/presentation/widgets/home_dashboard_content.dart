@@ -27,7 +27,11 @@ class HomeDashboardContent extends StatelessWidget {
     required this.onOpenGoals,
     required this.onOpenAchievements,
     required this.onOpenNotifications,
-    required this.onOpenProfile,
+    required this.onCustomize,
+    required this.onOpenOverview,
+    required this.onOpenTodayWorkout,
+    required this.onOpenRecentActivity,
+    required this.onOpenProgress,
   });
 
   final HomeState state;
@@ -48,7 +52,11 @@ class HomeDashboardContent extends StatelessWidget {
   final VoidCallback onOpenGoals;
   final VoidCallback onOpenAchievements;
   final VoidCallback onOpenNotifications;
-  final VoidCallback onOpenProfile;
+  final VoidCallback onCustomize;
+  final VoidCallback onOpenOverview;
+  final VoidCallback onOpenTodayWorkout;
+  final VoidCallback onOpenRecentActivity;
+  final VoidCallback onOpenProgress;
 
   @override
   Widget build(BuildContext context) {
@@ -65,11 +73,10 @@ class HomeDashboardContent extends StatelessWidget {
             SliverToBoxAdapter(
               child: HomeHeader(
                 name: name,
-                level: level,
-                xp: xp,
+                currentStreak: state.currentStreak,
                 unreadNotifications: state.unreadNotifications,
                 onOpenNotifications: onOpenNotifications,
-                onOpenProfile: onOpenProfile,
+                onCustomize: onCustomize,
               ),
             ),
             SliverPadding(
@@ -111,24 +118,26 @@ class HomeDashboardContent extends StatelessWidget {
       steps: steps,
       distance: distance,
       xp: xp,
+      level: level,
       runningActive: runningActive,
-      runningSeconds: runningSeconds,
       onRefresh: () => onRefresh(),
       onOpenWorkout: onOpenWorkout,
       onCreatePlan: onCreatePlan,
-      onOpenLibrary: onOpenLibrary,
       onOpenRunning: onOpenRunning,
       onOpenSteps: onOpenSteps,
       onOpenCoach: onOpenCoach,
-      onOpenGoals: onOpenGoals,
       onOpenAchievements: onOpenAchievements,
+      onOpenOverview: onOpenOverview,
+      onOpenTodayWorkout: onOpenTodayWorkout,
+      onOpenRecentActivity: onOpenRecentActivity,
+      onOpenProgress: onOpenProgress,
     );
   }
 
   double _horizontalPadding(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
-    if (width >= 1100) return 72;
-    if (width >= 760) return 36;
+    if (FitBreakpoints.isLargeTablet(width)) return FitSpacing.s64;
+    if (FitBreakpoints.isTablet(width)) return FitSpacing.s32;
     return FitSpacing.s20;
   }
 }

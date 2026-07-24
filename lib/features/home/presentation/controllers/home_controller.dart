@@ -140,12 +140,14 @@ class HomeController extends ChangeNotifier {
         goals: results[1] as FitaiMetasResumo,
         achievements: results[2] as List<AchievementModel>,
         notifications: notifications,
+        workouts: availableWorkouts,
         recommendation: results[4] as IaEvolutivaRecomendacao,
         workoutsThisWeek: streakService.treinosNaSemana(history),
         weeklyXp: streakService.xpTreinosNaSemana(history),
         currentStreak: streakService.calcularStreak(history).atual,
         isOffline: !(results[3] as bool),
         lastUpdatedAt: DateTime.now(),
+        isUsingDeveloperData: false,
       );
     } on Object catch (error) {
       _debugLog('Falha ao carregar Home: $error');
@@ -213,6 +215,7 @@ class HomeController extends ChangeNotifier {
       notifications: devData.useFakeNotifications
           ? DevFixtures.notifications
           : const [],
+      workouts: workouts,
       recommendation: selectedWorkout == null || !devData.useFakeCoach
           ? null
           : DevFixtures.recommendation(selectedWorkout),
@@ -220,6 +223,7 @@ class HomeController extends ChangeNotifier {
       weeklyXp: streakService.xpTreinosNaSemana(history),
       currentStreak: streakService.calcularStreak(history).atual,
       lastUpdatedAt: DateTime.now(),
+      isUsingDeveloperData: true,
     );
   }
 

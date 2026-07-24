@@ -19,9 +19,10 @@ void main() {
   ) async {
     await tester.pumpWidget(_host(_content(_state(HomeLoadStatus.ready))));
 
-    expect(find.text('Crie seu primeiro plano'), findsOneWidget);
+    expect(find.text('Novo plano'), findsOneWidget);
+    expect(find.text('Criar plano'), findsOneWidget);
     expect(find.text('Ainda sem insights'), findsOneWidget);
-    expect(find.text('Nenhuma meta disponivel'), findsOneWidget);
+    expect(find.text('Suas conquistas'), findsOneWidget);
   });
 
   testWidgets('mantem conteudo local e informa modo offline', (tester) async {
@@ -38,10 +39,10 @@ void main() {
     );
 
     expect(find.text('Voce esta offline'), findsOneWidget);
-    expect(find.text('Crie seu primeiro plano'), findsOneWidget);
+    expect(find.text('Novo plano'), findsOneWidget);
   });
 
-  testWidgets('prioriza corrida ativa sobre o treino do dia', (tester) async {
+  testWidgets('mantem treino e destaca corrida ativa', (tester) async {
     await tester.pumpWidget(
       _host(
         _content(
@@ -51,8 +52,8 @@ void main() {
       ),
     );
 
-    expect(find.text('Corrida em andamento'), findsOneWidget);
-    expect(find.text('Upper A'), findsNothing);
+    expect(find.text('Continuar'), findsOneWidget);
+    expect(find.text('Upper A'), findsOneWidget);
   });
 
   testWidgets('mostra treino real quando nao existe corrida ativa', (
@@ -64,7 +65,7 @@ void main() {
 
     expect(find.text('Upper A'), findsOneWidget);
     expect(find.text('Iniciar treino'), findsOneWidget);
-    expect(find.text('1234'), findsOneWidget);
+    expect(find.text('1.2k'), findsOneWidget);
   });
 }
 
@@ -93,7 +94,11 @@ Widget _content(HomeState state, {bool runningActive = false}) =>
       onOpenGoals: () {},
       onOpenAchievements: () {},
       onOpenNotifications: () {},
-      onOpenProfile: () {},
+      onCustomize: () {},
+      onOpenOverview: () {},
+      onOpenTodayWorkout: () {},
+      onOpenRecentActivity: () {},
+      onOpenProgress: () {},
     );
 
 HomeState _state(
