@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../tokens/fit_icons.dart';
+import '../tokens/fit_layout.dart';
 import '../tokens/fit_radius.dart';
 import '../tokens/fit_spacing.dart';
 
@@ -25,8 +28,19 @@ class FitTextField extends StatelessWidget {
     this.prefixIcon,
     this.suffixIcon,
     this.maxLines = 1,
+    this.minLines,
+    this.maxLength,
+    this.inputFormatters,
+    this.autofillHints,
+    this.textCapitalization = TextCapitalization.none,
+    this.autocorrect = true,
+    this.enableSuggestions = true,
+    this.onTap,
     this.semanticLabel,
-  });
+  }) : assert(maxLines > 0),
+       assert(minLines == null || minLines > 0),
+       assert(minLines == null || minLines <= maxLines),
+       assert(maxLength == null || maxLength > 0);
 
   final TextEditingController controller;
   final String label;
@@ -45,6 +59,14 @@ class FitTextField extends StatelessWidget {
   final Widget? prefixIcon;
   final Widget? suffixIcon;
   final int maxLines;
+  final int? minLines;
+  final int? maxLength;
+  final List<TextInputFormatter>? inputFormatters;
+  final Iterable<String>? autofillHints;
+  final TextCapitalization textCapitalization;
+  final bool autocorrect;
+  final bool enableSuggestions;
+  final VoidCallback? onTap;
   final String? semanticLabel;
 
   @override
@@ -62,7 +84,15 @@ class FitTextField extends StatelessWidget {
         textInputAction: textInputAction,
         onChanged: onChanged,
         onSubmitted: onSubmitted,
+        onTap: onTap,
         maxLines: obscureText ? 1 : maxLines,
+        minLines: obscureText ? 1 : minLines,
+        maxLength: maxLength,
+        inputFormatters: inputFormatters,
+        autofillHints: autofillHints,
+        textCapitalization: textCapitalization,
+        autocorrect: autocorrect,
+        enableSuggestions: enableSuggestions,
         decoration: InputDecoration(
           labelText: label,
           hintText: hintText,
@@ -73,9 +103,11 @@ class FitTextField extends StatelessWidget {
               ? const Padding(
                   padding: EdgeInsets.all(FitSpacing.s12),
                   child: SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    width: FitLayout.loadingSizeSmall,
+                    height: FitLayout.loadingSizeSmall,
+                    child: CircularProgressIndicator(
+                      strokeWidth: FitLayout.loadingStrokeThin,
+                    ),
                   ),
                 )
               : suffixIcon,
@@ -156,20 +188,19 @@ class _FitPasswordFieldState extends State<FitPasswordField> {
       enabled: widget.enabled,
       isLoading: widget.isLoading,
       obscureText: _obscureText,
+      autofillHints: const [AutofillHints.password],
+      autocorrect: false,
+      enableSuggestions: false,
       textInputAction: TextInputAction.done,
       onChanged: widget.onChanged,
       onSubmitted: widget.onSubmitted,
-      prefixIcon: const Icon(Icons.lock_outline_rounded),
+      prefixIcon: const Icon(FitIcons.lock),
       suffixIcon: IconButton(
         tooltip: _obscureText ? 'Mostrar senha' : 'Ocultar senha',
         onPressed: widget.enabled && !widget.isLoading
             ? () => setState(() => _obscureText = !_obscureText)
             : null,
-        icon: Icon(
-          _obscureText
-              ? Icons.visibility_outlined
-              : Icons.visibility_off_outlined,
-        ),
+        icon: Icon(_obscureText ? FitIcons.visibility : FitIcons.visibilityOff),
       ),
     );
   }
@@ -213,9 +244,11 @@ class FitDropdownField<T> extends StatelessWidget {
               ? const Padding(
                   padding: EdgeInsets.all(FitSpacing.s12),
                   child: SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    width: FitLayout.loadingSizeSmall,
+                    height: FitLayout.loadingSizeSmall,
+                    child: CircularProgressIndicator(
+                      strokeWidth: FitLayout.loadingStrokeThin,
+                    ),
                   ),
                 )
               : null,

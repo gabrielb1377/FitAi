@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../tokens/fit_duration.dart';
 import '../tokens/fit_elevation.dart';
+import '../tokens/fit_layout.dart';
+import '../tokens/fit_opacity.dart';
 import '../tokens/fit_radius.dart';
 import '../tokens/fit_spacing.dart';
 
@@ -46,12 +48,12 @@ class FitBottomNavigation extends StatelessWidget {
       top: false,
       minimum: const EdgeInsets.fromLTRB(
         FitSpacing.s12,
-        0,
+        FitLayout.none,
         FitSpacing.s12,
         FitSpacing.s8,
       ),
       child: SizedBox(
-        height: 64,
+        height: FitLayout.navigationContentHeight,
         child: DecoratedBox(
           decoration: const BoxDecoration(
             borderRadius: FitRadius.largeBorder,
@@ -101,7 +103,7 @@ class _Destination extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final enabled = destination.enabled;
     final color = !enabled
-        ? colors.onSurfaceVariant.withAlpha(96)
+        ? colors.onSurfaceVariant.withValues(alpha: FitOpacity.disabled)
         : selected
         ? colors.primary
         : colors.onSurfaceVariant;
@@ -115,14 +117,18 @@ class _Destination extends StatelessWidget {
         onTap: enabled ? onTap : null,
         borderRadius: FitRadius.mediumBorder,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 64),
+          constraints: const BoxConstraints(
+            minHeight: FitLayout.navigationContentHeight,
+          ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: FitSpacing.s4),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 AnimatedScale(
-                  scale: selected ? 1 : .94,
+                  scale: selected
+                      ? FitLayout.navigationSelectedScale
+                      : FitLayout.navigationUnselectedScale,
                   duration: FitDuration.fast,
                   curve: FitDuration.curve,
                   child: Stack(
@@ -133,12 +139,12 @@ class _Destination extends StatelessWidget {
                             ? destination.selectedIcon ?? destination.icon
                             : destination.icon,
                         color: color,
-                        size: 22,
+                        size: FitLayout.iconSize,
                       ),
                       if (destination.badge != null)
                         Positioned(
-                          top: -6,
-                          right: -8,
+                          top: -FitLayout.navigationBadgeOffsetTop,
+                          right: -FitLayout.navigationBadgeOffsetEnd,
                           child: Semantics(
                             label: destination.badgeSemanticLabel,
                             child: destination.badge!,
@@ -149,7 +155,7 @@ class _Destination extends StatelessWidget {
                 ),
                 const SizedBox(height: FitSpacing.s4),
                 SizedBox(
-                  height: 16,
+                  height: FitLayout.navigationLabelHeight,
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     child: AnimatedDefaultTextStyle(

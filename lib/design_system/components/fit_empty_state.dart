@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../tokens/fit_layout.dart';
 import '../tokens/fit_spacing.dart';
 import 'fit_button.dart';
 
@@ -45,7 +46,11 @@ class FitEmptyState extends StatelessWidget {
               if (image != null)
                 image!
               else if (icon != null)
-                Icon(icon, size: 40, color: colors.primary),
+                Icon(
+                  icon,
+                  size: FitLayout.iconSizeState,
+                  color: colors.primary,
+                ),
               if (image != null || icon != null)
                 const SizedBox(height: FitSpacing.s16),
               Text(

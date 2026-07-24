@@ -1,8 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../tokens/fit_layout.dart';
+import '../tokens/fit_opacity.dart';
 import '../tokens/fit_radius.dart';
+import '../tokens/fit_spacing.dart';
+import 'fit_button.dart';
 
 /// Acao apenas com icone. [tooltip] e obrigatorio para que a acao seja clara
 /// para leitores de tela e para interacoes por mouse/web.
@@ -18,6 +23,9 @@ class FitIconButton extends StatefulWidget {
     this.isLoading = false,
     this.badge,
     this.semanticLabel,
+    this.size = FitButtonSize.medium,
+    this.fullWidth = false,
+    this.enableHapticFeedback = false,
   }) : assert(onPressed == null || onPressedAsync == null);
 
   final IconData icon;
@@ -29,6 +37,9 @@ class FitIconButton extends StatefulWidget {
   final bool isLoading;
   final Widget? badge;
   final String? semanticLabel;
+  final FitButtonSize size;
+  final bool fullWidth;
+  final bool enableHapticFeedback;
 
   @override
   State<FitIconButton> createState() => _FitIconButtonState();
@@ -45,6 +56,9 @@ class _FitIconButtonState extends State<FitIconButton> {
 
   Future<void> _handlePressed() async {
     if (!_enabled) return;
+    if (widget.enableHapticFeedback) {
+      unawaited(HapticFeedback.selectionClick());
+    }
     final asyncCallback = widget.onPressedAsync;
     if (asyncCallback == null) {
       widget.onPressed?.call();
@@ -68,7 +82,9 @@ class _FitIconButtonState extends State<FitIconButton> {
     };
     final background = switch (widget.variant) {
       FitIconButtonVariant.subtle => colors.primaryContainer,
-      FitIconButtonVariant.danger => colors.error.withAlpha(24),
+      FitIconButtonVariant.danger => colors.error.withValues(
+        alpha: FitOpacity.selected,
+      ),
       _ => Colors.transparent,
     };
     final border = widget.variant == FitIconButtonVariant.outlined
@@ -81,8 +97,10 @@ class _FitIconButtonState extends State<FitIconButton> {
       style: IconButton.styleFrom(
         foregroundColor: foreground,
         backgroundColor: background,
-        disabledForegroundColor: colors.onSurface.withAlpha(38),
-        minimumSize: const Size(44, 44),
+        disabledForegroundColor: colors.onSurface.withValues(
+          alpha: FitOpacity.disabled,
+        ),
+        minimumSize: Size.square(widget.size.minimumHeight),
         shape: RoundedRectangleBorder(
           borderRadius: FitRadius.mediumBorder,
           side: border,
@@ -90,16 +108,16 @@ class _FitIconButtonState extends State<FitIconButton> {
       ),
       icon: loading
           ? SizedBox(
-              width: 18,
-              height: 18,
+              width: FitLayout.loadingSizeSmall,
+              height: FitLayout.loadingSizeSmall,
               child: CircularProgressIndicator(
-                strokeWidth: 2,
+                strokeWidth: FitLayout.loadingStrokeThin,
                 color: foreground,
               ),
             )
-          : Icon(widget.icon),
+          : Icon(widget.icon, size: widget.size.iconSize),
     );
-    return Semantics(
+    final semanticButton = Semantics(
       button: true,
       enabled: _enabled,
       label: widget.semanticLabel ?? widget.tooltip,
@@ -110,10 +128,17 @@ class _FitIconButtonState extends State<FitIconButton> {
               clipBehavior: Clip.none,
               children: [
                 button,
-                Positioned(top: -2, right: -2, child: widget.badge!),
+                Positioned(
+                  top: -FitSpacing.s2,
+                  right: -FitSpacing.s2,
+                  child: widget.badge!,
+                ),
               ],
             ),
     );
+    return widget.fullWidth
+        ? SizedBox(width: double.infinity, child: semanticButton)
+        : semanticButton;
   }
 }
 

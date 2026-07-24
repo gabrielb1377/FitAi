@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../tokens/fit_layout.dart';
 import '../tokens/fit_radius.dart';
 import '../tokens/fit_spacing.dart';
 
@@ -49,7 +50,7 @@ class FitFilterChip extends StatelessWidget {
       label: Text(label),
       selected: selected,
       onSelected: enabled ? onSelected : null,
-      avatar: icon == null ? null : Icon(icon, size: 16),
+      avatar: icon == null ? null : Icon(icon, size: FitLayout.iconSizeSmall),
       showCheckmark: false,
       materialTapTargetSize: MaterialTapTargetSize.padded,
       shape: const RoundedRectangleBorder(borderRadius: FitRadius.pillBorder),

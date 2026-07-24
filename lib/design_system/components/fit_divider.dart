@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../tokens/fit_layout.dart';
 import '../tokens/fit_spacing.dart';
 
 /// Divisor FitIA com espaco vertical consistente e personalizacao pontual.
@@ -12,9 +13,9 @@ class FitDivider extends StatelessWidget {
 
   const FitDivider({
     super.key,
-    this.indent = 0,
-    this.endIndent = 0,
-    this.thickness = 1,
+    this.indent = FitLayout.none,
+    this.endIndent = FitLayout.none,
+    this.thickness = FitLayout.borderThin,
     this.verticalSpacing = FitSpacing.s16,
     this.color,
   });

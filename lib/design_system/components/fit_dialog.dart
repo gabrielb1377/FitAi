@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../tokens/fit_radius.dart';
+import '../tokens/fit_layout.dart';
 import '../tokens/fit_spacing.dart';
 import 'fit_button.dart';
 
@@ -51,7 +52,7 @@ class FitDialog extends StatelessWidget {
         side: BorderSide(color: colors.outlineVariant),
       ),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
+        constraints: const BoxConstraints(maxWidth: FitLayout.dialogMaxWidth),
         child: Padding(
           padding: const EdgeInsets.all(FitSpacing.s20),
           child: Column(

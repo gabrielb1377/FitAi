@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../tokens/fit_icons.dart';
+import '../tokens/fit_layout.dart';
 import '../tokens/fit_radius.dart';
 import '../tokens/fit_spacing.dart';
 
@@ -26,7 +28,7 @@ class FitSearchField extends StatefulWidget {
     this.enabled = true,
     this.isLoading = false,
     this.errorText,
-    this.prefixIcon = Icons.search_rounded,
+    this.prefixIcon = FitIcons.search,
     this.showClearButton = true,
     this.semanticLabel,
   }) : assert(
@@ -89,16 +91,18 @@ class _FitSearchFieldState extends State<FitSearchField> {
             ? const Padding(
                 padding: EdgeInsets.all(FitSpacing.s12),
                 child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  width: FitLayout.loadingSizeSmall,
+                  height: FitLayout.loadingSizeSmall,
+                  child: CircularProgressIndicator(
+                    strokeWidth: FitLayout.loadingStrokeThin,
+                  ),
                 ),
               )
             : widget.showClearButton && hasText
             ? IconButton(
                 tooltip: 'Limpar busca',
                 onPressed: widget.enabled ? _clear : null,
-                icon: const Icon(Icons.close_rounded),
+                icon: const Icon(FitIcons.close),
               )
             : null;
         return Semantics(

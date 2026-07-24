@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../tokens/fit_layout.dart';
 import '../tokens/fit_radius.dart';
 import '../tokens/fit_spacing.dart';
 
@@ -25,6 +27,7 @@ class FitButton extends StatefulWidget {
     this.enabled = true,
     this.semanticLabel,
     this.tooltip,
+    this.enableHapticFeedback = false,
   }) : assert(
          onPressed == null || onPressedAsync == null,
          'Use onPressed ou onPressedAsync, nunca ambos.',
@@ -49,6 +52,7 @@ class FitButton extends StatefulWidget {
   final bool enabled;
   final String? semanticLabel;
   final String? tooltip;
+  final bool enableHapticFeedback;
 
   @override
   State<FitButton> createState() => _FitButtonState();
@@ -65,6 +69,9 @@ class _FitButtonState extends State<FitButton> {
 
   Future<void> _handlePressed() async {
     if (!_isEnabled) return;
+    if (widget.enableHapticFeedback) {
+      unawaited(HapticFeedback.selectionClick());
+    }
 
     final asyncCallback = widget.onPressedAsync;
     if (asyncCallback == null) {
@@ -83,7 +90,7 @@ class _FitButtonState extends State<FitButton> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final height = widget.size == FitButtonSize.compact ? 40.0 : 48.0;
+    final height = widget.size.minimumHeight;
     final foreground = switch (widget.variant) {
       FitButtonVariant.danger => colors.onError,
       FitButtonVariant.success || FitButtonVariant.primary => colors.onPrimary,
@@ -96,7 +103,7 @@ class _FitButtonState extends State<FitButton> {
       _ => null,
     };
     final style = ButtonStyle(
-      minimumSize: WidgetStatePropertyAll(Size(0, height)),
+      minimumSize: WidgetStatePropertyAll(Size(FitLayout.none, height)),
       padding: const WidgetStatePropertyAll(
         EdgeInsets.symmetric(horizontal: FitSpacing.s16),
       ),
@@ -153,9 +160,12 @@ class _FitButtonState extends State<FitButton> {
   Widget _content(Color foreground, bool isLoading) {
     if (isLoading) {
       return SizedBox(
-        width: 18,
-        height: 18,
-        child: CircularProgressIndicator(strokeWidth: 2, color: foreground),
+        width: FitLayout.loadingSizeSmall,
+        height: FitLayout.loadingSizeSmall,
+        child: CircularProgressIndicator(
+          strokeWidth: FitLayout.loadingStrokeThin,
+          color: foreground,
+        ),
       );
     }
 
@@ -164,7 +174,7 @@ class _FitButtonState extends State<FitButton> {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (leadingIcon != null) ...[
-          Icon(leadingIcon, size: 18),
+          Icon(leadingIcon, size: widget.size.iconSize),
           const SizedBox(width: FitSpacing.s8),
         ],
         Flexible(
@@ -176,7 +186,7 @@ class _FitButtonState extends State<FitButton> {
         ),
         if (widget.trailingIcon != null) ...[
           const SizedBox(width: FitSpacing.s8),
-          Icon(widget.trailingIcon, size: 18),
+          Icon(widget.trailingIcon, size: widget.size.iconSize),
         ],
       ],
     );
@@ -185,4 +195,19 @@ class _FitButtonState extends State<FitButton> {
 
 enum FitButtonVariant { primary, secondary, outlined, ghost, danger, success }
 
-enum FitButtonSize { compact, regular }
+enum FitButtonSize { small, medium, large, compact, regular }
+
+extension FitButtonSizeTokens on FitButtonSize {
+  double get minimumHeight => switch (this) {
+    FitButtonSize.small || FitButtonSize.compact => FitLayout.buttonHeightSmall,
+    FitButtonSize.medium ||
+    FitButtonSize.regular => FitLayout.buttonHeightMedium,
+    FitButtonSize.large => FitLayout.buttonHeightLarge,
+  };
+
+  double get iconSize => switch (this) {
+    FitButtonSize.small || FitButtonSize.compact => FitLayout.iconSizeSmall,
+    FitButtonSize.medium || FitButtonSize.regular => FitLayout.iconSizeButton,
+    FitButtonSize.large => FitLayout.iconSizeMedium,
+  };
+}

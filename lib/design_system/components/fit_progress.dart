@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../tokens/fit_duration.dart';
+import '../tokens/fit_layout.dart';
 import '../tokens/fit_radius.dart';
 import '../tokens/fit_spacing.dart';
 
@@ -12,7 +13,7 @@ class FitProgress extends StatelessWidget {
     this.label,
     this.trailing,
     this.color,
-    this.height = 6,
+    this.height = FitLayout.progressCompactThickness,
     this.animate = false,
   });
 
@@ -101,8 +102,8 @@ class FitCircularProgress extends StatelessWidget {
     this.label,
     this.showPercentage = false,
     this.color,
-    this.size = 72,
-    this.strokeWidth = 7,
+    this.size = FitLayout.progressRingSize,
+    this.strokeWidth = FitLayout.progressRingStroke,
   });
 
   final double? value;

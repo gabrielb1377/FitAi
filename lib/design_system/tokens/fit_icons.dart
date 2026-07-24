@@ -24,8 +24,25 @@ abstract final class FitIcons {
   static const back = Icons.arrow_back_rounded;
   static const forward = Icons.chevron_right_rounded;
   static const add = Icons.add_rounded;
+  static const remove = Icons.remove_rounded;
   static const check = Icons.check_rounded;
+  static const success = Icons.check_circle_outline_rounded;
   static const retry = Icons.refresh_rounded;
   static const offline = Icons.cloud_off_rounded;
   static const error = Icons.error_outline_rounded;
+  static const warning = Icons.warning_amber_rounded;
+  static const info = Icons.info_outline_rounded;
+  static const lock = Icons.lock_outline_rounded;
+  static const visibility = Icons.visibility_outlined;
+  static const visibilityOff = Icons.visibility_off_outlined;
+  static const email = Icons.email_outlined;
+  static const calendar = Icons.calendar_today_outlined;
+  static const time = Icons.schedule_rounded;
+  static const dropdown = Icons.keyboard_arrow_down_rounded;
+  static const person = Icons.person_outline_rounded;
+  static const edit = Icons.edit_outlined;
+  static const list = Icons.list_alt_rounded;
+  static const more = Icons.more_horiz_rounded;
+  static const delete = Icons.delete_outline_rounded;
+  static const settings = Icons.settings_outlined;
 }

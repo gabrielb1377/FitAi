@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../tokens/fit_radius.dart';
+import '../tokens/fit_layout.dart';
 import '../tokens/fit_spacing.dart';
 
 /// Estrutura visual para acoes contextuais e selecoes curtas.
@@ -71,8 +72,8 @@ class FitBottomSheet extends StatelessWidget {
               if (showHandle)
                 Align(
                   child: Container(
-                    width: 40,
-                    height: 4,
+                    width: FitLayout.bottomSheetHandleWidth,
+                    height: FitLayout.bottomSheetHandleHeight,
                     decoration: BoxDecoration(
                       color: colors.outline,
                       borderRadius: FitRadius.pillBorder,

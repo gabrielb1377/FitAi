@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../tokens/fit_radius.dart';
+import '../tokens/fit_spacing.dart';
 
 /// Helpers locais de feedback. Eles nao substituem SnackBars existentes nem
 /// criam estado global; cada chamada usa o [BuildContext] atual.
@@ -41,7 +42,7 @@ abstract final class FitFeedback {
           content: Row(
             children: [
               Icon(icon, color: color ?? colors.primary),
-              const SizedBox(width: 12),
+              const SizedBox(width: FitSpacing.s12),
               Expanded(child: Text(message)),
             ],
           ),

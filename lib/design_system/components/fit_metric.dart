@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../tokens/fit_layout.dart';
 import '../tokens/fit_spacing.dart';
 
 /// Metrica compacta para resumos horizontais sem criar um card por valor.
@@ -41,13 +42,15 @@ class FitMetric extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: alignment,
         children: [
-          Icon(icon, size: 18, color: accent),
+          Icon(icon, size: FitLayout.iconSizeCompact, color: accent),
           const SizedBox(height: FitSpacing.s8),
           if (isLoading)
             const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2),
+              width: FitLayout.iconSizeMedium,
+              height: FitLayout.iconSizeMedium,
+              child: CircularProgressIndicator(
+                strokeWidth: FitLayout.loadingStrokeThin,
+              ),
             )
           else
             Text(

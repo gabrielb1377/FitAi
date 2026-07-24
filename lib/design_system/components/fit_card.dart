@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../tokens/fit_elevation.dart';
+import '../tokens/fit_opacity.dart';
 import '../tokens/fit_radius.dart';
 import '../tokens/fit_spacing.dart';
 
@@ -57,7 +58,9 @@ class FitCard extends StatelessWidget {
         color ??
         switch (variant) {
           FitCardVariant.filled => colors.surfaceContainerHighest,
-          FitCardVariant.selected => colors.primary.withAlpha(18),
+          FitCardVariant.selected => colors.primary.withValues(
+            alpha: FitOpacity.selected,
+          ),
           _ => colors.surface,
         };
     final shouldShowBorder =

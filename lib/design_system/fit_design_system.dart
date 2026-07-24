@@ -1,6 +1,7 @@
 /// Entrada unica para tokens e componentes do Design System FitIA.
 library;
 
+export '../core/design_system/components/components.dart';
 export 'animations/fit_animations.dart';
 export 'components/components.dart';
 export 'extensions/context_extensions.dart';

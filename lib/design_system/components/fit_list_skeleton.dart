@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../tokens/fit_layout.dart';
 import '../tokens/fit_radius.dart';
 import '../tokens/fit_spacing.dart';
 import 'fit_skeleton.dart';
@@ -16,7 +17,7 @@ class FitListSkeleton extends StatelessWidget {
   const FitListSkeleton({
     super.key,
     this.itemCount = 3,
-    this.itemHeight = 72,
+    this.itemHeight = FitLayout.skeletonListItemHeight,
     this.padding = const EdgeInsets.all(FitSpacing.s16),
     this.spacing = FitSpacing.s12,
   }) : assert(itemCount > 0),

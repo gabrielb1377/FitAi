@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../tokens/fit_layout.dart';
 import '../tokens/fit_spacing.dart';
 import 'fit_button.dart';
 
@@ -41,7 +42,7 @@ class FitErrorState extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 40, color: colors.error),
+              Icon(icon, size: FitLayout.iconSizeState, color: colors.error),
               const SizedBox(height: FitSpacing.s16),
               Text(
                 title,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../tokens/fit_breakpoints.dart';
 import '../tokens/fit_radius.dart';
 import '../tokens/fit_spacing.dart';
 import 'fit_button.dart';
@@ -29,7 +30,7 @@ class FitOfflineState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final content = Row(
+    final message = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(Icons.cloud_off_rounded, color: colors.secondary),
@@ -52,35 +53,58 @@ class FitOfflineState extends StatelessWidget {
             ],
           ),
         ),
-        if (compact && onRetry != null)
-          TextButton(onPressed: onRetry, child: Text(retryLabel)),
       ],
     );
     return Semantics(
       liveRegion: true,
       label: '$title. $description',
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(FitSpacing.s12),
-        decoration: BoxDecoration(
-          color: colors.secondaryContainer,
-          borderRadius: FitRadius.mediumBorder,
-          border: Border.all(color: colors.outlineVariant),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            content,
-            if (!compact && onSecondaryAction != null) ...[
-              const SizedBox(height: FitSpacing.s8),
-              FitButton(
-                label: secondaryActionLabel!,
-                onPressed: onSecondaryAction,
-                variant: FitButtonVariant.ghost,
-              ),
-            ],
-          ],
-        ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final action = TextButton(
+            onPressed: onRetry,
+            child: Text(retryLabel),
+          );
+          final compactActionBelow =
+              compact &&
+              onRetry != null &&
+              FitBreakpoints.isSmallMobile(constraints.maxWidth);
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(FitSpacing.s12),
+            decoration: BoxDecoration(
+              color: colors.secondaryContainer,
+              borderRadius: FitRadius.mediumBorder,
+              border: Border.all(color: colors.outlineVariant),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (compact && onRetry != null && !compactActionBelow)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: message),
+                      action,
+                    ],
+                  )
+                else
+                  message,
+                if (compactActionBelow) ...[
+                  const SizedBox(height: FitSpacing.s8),
+                  Align(alignment: Alignment.centerRight, child: action),
+                ],
+                if (!compact && onSecondaryAction != null) ...[
+                  const SizedBox(height: FitSpacing.s8),
+                  FitButton(
+                    label: secondaryActionLabel!,
+                    onPressed: onSecondaryAction,
+                    variant: FitButtonVariant.ghost,
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
       ),
     );
   }

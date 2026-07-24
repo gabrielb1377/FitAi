@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../tokens/fit_layout.dart';
 import '../tokens/fit_spacing.dart';
 
 /// Indicador de carregamento FitIA para uso inline, pequeno ou em tela inteira.
@@ -10,15 +11,21 @@ class FitLoading extends StatelessWidget {
   final double size;
   final FitLoadingLayout layout;
 
-  const FitLoading.inline({super.key, this.label, this.size = 28})
-    : layout = FitLoadingLayout.inline;
+  const FitLoading.inline({
+    super.key,
+    this.label,
+    this.size = FitLayout.loadingSizeInline,
+  }) : layout = FitLoadingLayout.inline;
 
   const FitLoading.small({super.key, this.label})
-    : size = 18,
+    : size = FitLayout.loadingSizeSmall,
       layout = FitLoadingLayout.inline;
 
-  const FitLoading.fullScreen({super.key, this.label, this.size = 32})
-    : layout = FitLoadingLayout.fullScreen;
+  const FitLoading.fullScreen({
+    super.key,
+    this.label,
+    this.size = FitLayout.loadingSizeScreen,
+  }) : layout = FitLoadingLayout.fullScreen;
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +38,9 @@ class FitLoading extends StatelessWidget {
           SizedBox(
             width: size,
             height: size,
-            child: const CircularProgressIndicator(strokeWidth: 2.5),
+            child: const CircularProgressIndicator(
+              strokeWidth: FitLayout.loadingStroke,
+            ),
           ),
           if (label != null) ...[
             const SizedBox(height: FitSpacing.s12),

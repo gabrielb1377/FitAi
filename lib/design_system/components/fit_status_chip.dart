@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../tokens/fit_layout.dart';
+import '../tokens/fit_opacity.dart';
 import '../tokens/fit_radius.dart';
 import '../tokens/fit_spacing.dart';
 import 'fit_chip.dart';
@@ -29,11 +31,17 @@ class FitTagChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 14, color: colors.onSecondaryContainer),
+              Icon(
+                icon,
+                size: FitLayout.iconSizeBadge,
+                color: colors.onSecondaryContainer,
+              ),
               const SizedBox(width: FitSpacing.s4),
             ],
             ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 160),
+              constraints: const BoxConstraints(
+                maxWidth: FitLayout.tagMaxWidth,
+              ),
               child: Text(
                 label,
                 maxLines: 1,
@@ -74,7 +82,7 @@ class FitStatusChip extends StatelessWidget {
         vertical: FitSpacing.s4,
       ),
       decoration: BoxDecoration(
-        color: color.withAlpha(28),
+        color: color.withValues(alpha: FitOpacity.selected),
         borderRadius: FitRadius.pillBorder,
       ),
       child: Text(

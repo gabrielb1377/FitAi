@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../tokens/fit_radius.dart';
+import '../tokens/fit_spacing.dart';
 
 /// Bloco de skeleton leve para compor estados de carregamento especificos.
 class FitSkeleton extends StatelessWidget {
@@ -11,7 +12,7 @@ class FitSkeleton extends StatelessWidget {
 
   const FitSkeleton({
     super.key,
-    this.height = 12,
+    this.height = FitSpacing.s12,
     this.width,
     this.borderRadius = FitRadius.smallBorder,
     this.semanticLabel = 'Carregando conteudo',

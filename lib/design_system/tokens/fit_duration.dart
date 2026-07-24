@@ -26,6 +26,7 @@ abstract final class FitDuration {
   static const scale = fast;
   static const pressed = fast;
   static const progress = medium;
+  static const snackBar = Duration(seconds: 4);
 
   /// Compatibilidade com `AppMotion`; não usar em APIs novas.
   static const legacyAppFast = Duration(milliseconds: 160);

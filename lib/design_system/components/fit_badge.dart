@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../tokens/fit_layout.dart';
+import '../tokens/fit_opacity.dart';
 import '../tokens/fit_radius.dart';
 import '../tokens/fit_spacing.dart';
 
@@ -77,14 +79,14 @@ class FitBadge extends StatelessWidget {
           vertical: FitSpacing.s4,
         ),
         decoration: BoxDecoration(
-          color: color.withAlpha(28),
+          color: color.withValues(alpha: FitOpacity.selected),
           borderRadius: FitRadius.pillBorder,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 14, color: color),
+              Icon(icon, size: FitLayout.iconSizeBadge, color: color),
               const SizedBox(width: FitSpacing.s4),
             ],
             Text(
