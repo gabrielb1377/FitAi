@@ -5,16 +5,20 @@ import 'package:flutter/material.dart';
 import '../core/config/dev_data.dart';
 import '../core/config/dev_fixtures.dart';
 import '../core/widgets/dev_mode_banner.dart';
-import '../design_system/components/fit_bottom_navigation.dart';
 import '../services/running_session_service.dart';
 import '../services/steps_service.dart';
 import '../services/storage_service.dart';
-import '../theme/app_theme.dart';
 import 'app_router.dart';
-import 'navigation/side_navigation.dart';
+import 'navigation/app_section.dart';
+import 'navigation/main_scaffold.dart';
+import 'navigation/navigation_controller.dart';
+import 'navigation/section_router.dart';
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key});
+  const AppShell({super.key, this.navigationController, this.initialDeepLink});
+
+  final NavigationController? navigationController;
+  final Uri? initialDeepLink;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -24,7 +28,8 @@ class _AppShellState extends State<AppShell> {
   final runningSession = RunningSessionService.instance;
   final stepsService = StepsService.instance;
 
-  int currentIndex = 0;
+  late final NavigationController _navigationController;
+  late final bool _ownsNavigationController;
 
   String nome = "Atleta";
   String peso = "70 kg";
@@ -48,17 +53,27 @@ class _AppShellState extends State<AppShell> {
   @override
   void initState() {
     super.initState();
+    _ownsNavigationController = widget.navigationController == null;
+    _navigationController =
+        widget.navigationController ?? NavigationController();
     runningSession.addListener(_onRunningSessionChanged);
     stepsService.addListener(_onStepsChanged);
     unawaited(runningSession.initialize());
     unawaited(stepsService.initialize());
     unawaited(carregarDados());
+    final initialDeepLink = widget.initialDeepLink;
+    if (initialDeepLink != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(_navigationController.openDeepLink(initialDeepLink));
+      });
+    }
   }
 
   @override
   void dispose() {
     runningSession.removeListener(_onRunningSessionChanged);
     stepsService.removeListener(_onStepsChanged);
+    if (_ownsNavigationController) _navigationController.dispose();
     super.dispose();
   }
 
@@ -169,26 +184,21 @@ class _AppShellState extends State<AppShell> {
       iniciarCorrida: iniciarCorrida,
       pararCorrida: pararCorrida,
       carregarDados: carregarDados,
-      onSelectTab: _selectDestination,
+      onSelectTab: _navigationController.selectIndex,
     );
-    final pages = AppRouter.buildPages(routeState);
+    final sectionRouters = AppRouter.buildSectionRouters(routeState);
 
     return DevModeBanner(
-      child: AppNavigationFrame(
-        selectedIndex: currentIndex,
-        pages: pages,
-        destinations: AppRouter.destinations,
-        onDestinationSelected: _selectDestination,
+      child: MainScaffold(
+        navigationController: _navigationController,
+        sectionRouters: sectionRouters,
       ),
     );
   }
-
-  void _selectDestination(int index) {
-    if (index < 0 || index >= AppRouter.destinations.length) return;
-    setState(() => currentIndex = index);
-  }
 }
 
+/// Adapter compatível para consumidores da shell anterior.
+@Deprecated('Use MainScaffold com NavigationController e SectionRouter.')
 class AppNavigationFrame extends StatefulWidget {
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
@@ -208,107 +218,55 @@ class AppNavigationFrame extends StatefulWidget {
 }
 
 class _AppNavigationFrameState extends State<AppNavigationFrame> {
-  int previousIndex = 0;
+  late final NavigationController _navigationController;
+
+  @override
+  void initState() {
+    super.initState();
+    _navigationController = NavigationController(
+      initialSection:
+          AppShellSection.fromIndex(widget.selectedIndex) ??
+          AppShellSection.home,
+    )..addListener(_forwardSelection);
+  }
 
   @override
   void didUpdateWidget(covariant AppNavigationFrame oldWidget) {
     super.didUpdateWidget(oldWidget);
-
     if (oldWidget.selectedIndex != widget.selectedIndex) {
-      previousIndex = oldWidget.selectedIndex;
+      _navigationController.selectIndex(widget.selectedIndex);
     }
+  }
+
+  @override
+  void dispose() {
+    _navigationController
+      ..removeListener(_forwardSelection)
+      ..dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     assert(widget.pages.isNotEmpty);
     assert(widget.pages.length == widget.destinations.length);
-    final index = widget.selectedIndex.clamp(0, widget.pages.length - 1);
-    final navigationDestinations = [
-      for (final destination in widget.destinations)
-        FitNavigationDestination(
-          label: destination.label,
-          icon: destination.icon,
-          selectedIcon: destination.selectedIcon,
+    assert(widget.pages.length == AppShellSection.values.length);
+    final routers = [
+      for (var index = 0; index < AppShellSection.values.length; index++)
+        SectionRouter(
+          section: AppShellSection.values[index],
+          rootBuilder: (_) => widget.pages[index],
         ),
     ];
 
-    return PopScope<void>(
-      canPop: index == 0,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && index != 0) {
-          widget.onDestinationSelected(0);
-        }
-      },
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final useSideNavigation = constraints.maxWidth >= 840;
-          final page = IndexedStack(index: index, children: widget.pages);
-
-          if (useSideNavigation) {
-            return Scaffold(
-              backgroundColor: AppColors.background,
-              body: Row(
-                children: [
-                  AppSideNavigation(
-                    selectedIndex: index,
-                    destinations: widget.destinations,
-                    onDestinationSelected: widget.onDestinationSelected,
-                  ),
-                  const VerticalDivider(width: 1),
-                  Expanded(child: page),
-                ],
-              ),
-            );
-          }
-
-          return Scaffold(
-            backgroundColor: AppColors.background,
-            body: page,
-            bottomNavigationBar: FitBottomNavigation(
-              selectedIndex: index,
-              destinations: navigationDestinations,
-              onSelected: widget.onDestinationSelected,
-            ),
-          );
-        },
-      ),
+    return MainScaffold(
+      navigationController: _navigationController,
+      sectionRouters: routers,
     );
   }
-}
 
-// ignore: unused_element
-class _AnimatedShellPage extends StatelessWidget {
-  final int index;
-  final int previousIndex;
-  final Widget child;
-
-  const _AnimatedShellPage({
-    required this.index,
-    required this.previousIndex,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final forward = index >= previousIndex;
-
-    return AnimatedSwitcher(
-      duration: AppMotion.normal,
-      switchInCurve: AppMotion.curve,
-      switchOutCurve: Curves.easeInCubic,
-      transitionBuilder: (child, animation) {
-        final offset = Tween<Offset>(
-          begin: Offset(forward ? 0.035 : -0.035, 0),
-          end: Offset.zero,
-        ).animate(animation);
-
-        return FadeTransition(
-          opacity: animation,
-          child: SlideTransition(position: offset, child: child),
-        );
-      },
-      child: KeyedSubtree(key: ValueKey<int>(index), child: child),
-    );
+  void _forwardSelection() {
+    final index = _navigationController.selectedIndex;
+    if (index != widget.selectedIndex) widget.onDestinationSelected(index);
   }
 }

@@ -7,7 +7,9 @@ import '../services/running_session_service.dart';
 import '../services/sync_service.dart';
 
 class DashboardPage extends StatefulWidget {
-  const DashboardPage({super.key});
+  const DashboardPage({super.key, this.initialDeepLink});
+
+  final Uri? initialDeepLink;
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
@@ -23,6 +25,6 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    return const AppShell();
+    return AppShell(initialDeepLink: widget.initialDeepLink);
   }
 }

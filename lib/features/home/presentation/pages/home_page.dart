@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/navigation/app_section.dart';
 import '../../../../design_system/fit_design_system.dart';
 import '../../../../models/fitai_notification_model.dart';
 import '../../../../models/treino_model.dart';
@@ -115,14 +116,16 @@ class _HomePageState extends State<HomePage> {
           onRefresh: _refresh,
           onOpenWorkout: () => unawaited(_openSelectedWorkout()),
           onCreatePlan: () => unawaited(_openCreatePlan()),
-          onOpenLibrary: () => widget.onSelectTab?.call(2),
+          onOpenLibrary: () =>
+              widget.onSelectTab?.call(AppShellSection.library.index),
           onOpenRunning: () => unawaited(_openRunning()),
           onOpenSteps: () => unawaited(_openSteps()),
           onOpenCoach: () => unawaited(_openCoach()),
           onOpenGoals: () => unawaited(_openGoals()),
           onOpenAchievements: () => unawaited(_openAchievements()),
           onOpenNotifications: () => unawaited(_openNotifications()),
-          onOpenProfile: () => widget.onSelectTab?.call(4),
+          onOpenProfile: () =>
+              widget.onSelectTab?.call(AppShellSection.profile.index),
         ),
       ),
     );

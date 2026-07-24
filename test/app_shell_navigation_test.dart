@@ -5,7 +5,7 @@ import 'package:fitai/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-const _labels = ['Home', 'Planos', 'Biblioteca', 'Atividades', 'Perfil'];
+const _labels = ['Home', 'Planos', 'Atividades', 'Biblioteca', 'Perfil'];
 
 void main() {
   test('router define a ordem oficial das cinco abas', () {
@@ -123,14 +123,14 @@ class _ShellHostState extends State<_ShellHost> {
       selectedIcon: Icons.fitness_center,
     ),
     AppRouteDestination(
-      label: 'Biblioteca',
-      icon: Icons.grid_view_outlined,
-      selectedIcon: Icons.grid_view,
-    ),
-    AppRouteDestination(
       label: 'Atividades',
       icon: Icons.directions_run_outlined,
       selectedIcon: Icons.directions_run,
+    ),
+    AppRouteDestination(
+      label: 'Biblioteca',
+      icon: Icons.grid_view_outlined,
+      selectedIcon: Icons.grid_view,
     ),
     AppRouteDestination(
       label: 'Perfil',
@@ -142,8 +142,8 @@ class _ShellHostState extends State<_ShellHost> {
   final _pages = const [
     _CounterTab(label: 'Home'),
     _StaticTab(label: 'Planos'),
-    _StaticTab(label: 'Biblioteca'),
     _StaticTab(label: 'Atividades'),
+    _StaticTab(label: 'Biblioteca'),
     _StaticTab(label: 'Perfil'),
   ];
 

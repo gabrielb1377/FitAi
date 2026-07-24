@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'features/auth/presentation/pages/auth_splash_page.dart';
+
+import 'core/navigation/app_routes.dart';
+import 'core/navigation/root_router.dart';
 import 'theme/app_theme.dart';
 
 void main() {
@@ -26,7 +28,8 @@ class FitAI extends StatelessWidget {
       title: 'FitIA',
       theme: AppTheme.dark,
       scrollBehavior: const AppScrollBehavior(),
-      home: const AuthSplashPage(),
+      initialRoute: AppRoutes.splash,
+      onGenerateRoute: RootRouter.onGenerateRoute,
     );
   }
 }

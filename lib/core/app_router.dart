@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 
-import '../screens/atividades_page.dart';
-import '../screens/exercicios/biblioteca_exercicios_page.dart';
-import '../screens/home/home_page.dart';
-import '../screens/perfil/perfil_page.dart';
-import '../screens/treinos/treinos_page.dart';
+import '../features/activities/presentation/pages/activities_root_page.dart';
+import '../features/activities/presentation/routes/activities_routes.dart';
+import '../features/home/presentation/pages/home_page.dart';
+import '../features/home/presentation/routes/home_routes.dart';
+import '../features/library/presentation/pages/library_root_page.dart';
+import '../features/library/presentation/routes/library_routes.dart';
+import '../features/plans/presentation/pages/plans_root_page.dart';
+import '../features/plans/presentation/routes/plans_routes.dart';
+import '../features/profile/presentation/pages/profile_root_page.dart';
+import '../features/profile/presentation/routes/profile_routes.dart';
+import 'navigation/app_section.dart';
+import 'navigation/section_router.dart';
 
 class AppRouteDestination {
   final String label;
@@ -61,78 +68,91 @@ class AppRouteState {
 class AppRouter {
   const AppRouter._();
 
-  static const destinations = <AppRouteDestination>[
-    AppRouteDestination(
-      icon: Icons.home_outlined,
-      selectedIcon: Icons.home_rounded,
-      label: 'Home',
+  /// Destinos legados derivados da mesma fonte usada pelo shell oficial.
+  static final destinations = List<AppRouteDestination>.unmodifiable(
+    AppShellSection.values.map(
+      (section) => AppRouteDestination(
+        icon: section.icon,
+        selectedIcon: section.selectedIcon,
+        label: section.label,
+      ),
     ),
-    AppRouteDestination(
-      icon: Icons.fitness_center_outlined,
-      selectedIcon: Icons.fitness_center_rounded,
-      label: 'Planos',
-    ),
-    AppRouteDestination(
-      icon: Icons.grid_view_outlined,
-      selectedIcon: Icons.grid_view_rounded,
-      label: 'Biblioteca',
-    ),
-    AppRouteDestination(
-      icon: Icons.directions_run_outlined,
-      selectedIcon: Icons.directions_run_rounded,
-      label: 'Atividades',
-    ),
-    AppRouteDestination(
-      icon: Icons.person_outline_rounded,
-      selectedIcon: Icons.person_rounded,
-      label: 'Perfil',
-    ),
-  ];
+  );
 
   static List<Widget> buildPages(AppRouteState state) {
     return [
-      HomePage(
-        key: const PageStorageKey('tab-home'),
-        nome: state.nome,
-        distancia: state.distancia,
-        passos: state.passos,
-        xp: state.xp,
-        nivel: state.nivel,
-        velocidadeMedia: state.velocidadeMedia,
-        segundos: state.segundos,
-        corridaIniciada: state.corridaIniciada,
-        iniciarCorrida: state.iniciarCorrida,
-        pararCorrida: state.pararCorrida,
-        onSelectTab: state.onSelectTab,
-        onXpAtualizado: state.carregarDados,
-      ),
-      TreinosPage(
-        key: const PageStorageKey('tab-planos'),
-        onXpAtualizado: state.carregarDados,
-        onBack: () => state.onSelectTab(0),
-      ),
-      const BibliotecaExerciciosPage(key: PageStorageKey('tab-biblioteca')),
-      AtividadesPage(
-        key: const PageStorageKey('tab-atividades'),
-        passos: state.passos,
-        distancia: state.distancia,
-        velocidadeMedia: state.velocidadeMedia,
-        segundos: state.segundos,
-        corridaIniciada: state.corridaIniciada,
-        iniciarCorrida: state.iniciarCorrida,
-        pararCorrida: state.pararCorrida,
-      ),
-      PerfilPage(
-        key: const PageStorageKey('tab-perfil'),
-        nome: state.nome,
-        peso: state.peso,
-        altura: state.altura,
-        idade: state.idade,
-        nivel: state.nivel,
-        conquistaPrimeiraCorrida: state.conquistaPrimeiraCorrida,
-        conquista10Km: state.conquista10Km,
-        onPerfilAtualizado: state.carregarDados,
-      ),
+      _homePage(state),
+      _plansPage(state),
+      _activitiesPage(state),
+      _libraryPage(),
+      _profilePage(state),
     ];
+  }
+
+  static List<SectionRouter> buildSectionRouters(AppRouteState state) {
+    return [
+      HomeRoutes.createRouter(rootBuilder: (_) => _homePage(state)),
+      PlansRoutes.createRouter(rootBuilder: (_) => _plansPage(state)),
+      ActivitiesRoutes.createRouter(rootBuilder: (_) => _activitiesPage(state)),
+      LibraryRoutes.createRouter(rootBuilder: (_) => _libraryPage()),
+      ProfileRoutes.createRouter(rootBuilder: (_) => _profilePage(state)),
+    ];
+  }
+
+  static Widget _homePage(AppRouteState state) {
+    return HomePage(
+      key: const PageStorageKey('tab-home'),
+      nome: state.nome,
+      distancia: state.distancia,
+      passos: state.passos,
+      xp: state.xp,
+      nivel: state.nivel,
+      velocidadeMedia: state.velocidadeMedia,
+      segundos: state.segundos,
+      corridaIniciada: state.corridaIniciada,
+      iniciarCorrida: state.iniciarCorrida,
+      pararCorrida: state.pararCorrida,
+      onSelectTab: state.onSelectTab,
+      onXpAtualizado: state.carregarDados,
+    );
+  }
+
+  static Widget _plansPage(AppRouteState state) {
+    return PlansRootPage(
+      key: const PageStorageKey('tab-planos'),
+      onXpUpdated: state.carregarDados,
+      onBack: () => state.onSelectTab(0),
+    );
+  }
+
+  static Widget _activitiesPage(AppRouteState state) {
+    return ActivitiesRootPage(
+      key: const PageStorageKey('tab-atividades'),
+      steps: state.passos,
+      distance: state.distancia,
+      averageSpeed: state.velocidadeMedia,
+      elapsedSeconds: state.segundos,
+      running: state.corridaIniciada,
+      onStartRunning: state.iniciarCorrida,
+      onStopRunning: state.pararCorrida,
+    );
+  }
+
+  static Widget _libraryPage() {
+    return const LibraryRootPage(key: PageStorageKey('tab-biblioteca'));
+  }
+
+  static Widget _profilePage(AppRouteState state) {
+    return ProfileRootPage(
+      key: const PageStorageKey('tab-perfil'),
+      name: state.nome,
+      weight: state.peso,
+      height: state.altura,
+      age: state.idade,
+      level: state.nivel,
+      firstRunAchievement: state.conquistaPrimeiraCorrida,
+      tenKilometersAchievement: state.conquista10Km,
+      onProfileUpdated: state.carregarDados,
+    );
   }
 }

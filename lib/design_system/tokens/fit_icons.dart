@@ -5,10 +5,15 @@ import 'package:flutter/material.dart';
 /// Centraliza significado sem impedir que componentes recebam outros icones.
 abstract final class FitIcons {
   static const home = Icons.home_rounded;
+  static const homeOutlined = Icons.home_outlined;
   static const plans = Icons.fitness_center_rounded;
+  static const plansOutlined = Icons.fitness_center_outlined;
   static const library = Icons.grid_view_rounded;
+  static const libraryOutlined = Icons.grid_view_outlined;
   static const activities = Icons.directions_run_rounded;
+  static const activitiesOutlined = Icons.directions_run_outlined;
   static const profile = Icons.person_rounded;
+  static const profileOutlined = Icons.person_outline_rounded;
 
   static const ai = Icons.auto_awesome_rounded;
   static const coach = Icons.psychology_rounded;
