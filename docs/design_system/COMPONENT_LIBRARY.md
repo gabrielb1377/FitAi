@@ -264,6 +264,12 @@ Semantics, progresso e callbacks externos, mas nao cria um segundo card.
 dimensoes locais. O componente continua sem timer proprio: a camada de sessao
 fornece tempo, pausa e comandos.
 
+`WorkoutExerciseHistoryPanel` e uma composicao de feature usada pela sessao de
+treino. Ela recebe um `ExerciseHistorySnapshot` ja carregado, combina-o com as
+series da sessao atual e oferece as visoes de series, carga e volume. O painel
+nao acessa storage, rotas ou sincronizacao, mantendo a separacao entre
+apresentacao e dados.
+
 ## Acessibilidade
 
 - Tooltips são obrigatórios em ações somente com ícone.

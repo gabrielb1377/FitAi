@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/exercises/exercise_identity.dart';
 import '../../design_system/fit_design_system.dart';
+import '../../features/plans/workout_execution/widgets/workout_history_panel.dart';
 import '../../features/plans/workout_execution/widgets/workout_execution_stages.dart';
 import '../../core/xp/xp_config.dart';
 import '../../models/coach_insight_model.dart';
@@ -12,6 +14,7 @@ import '../../models/historico_serie_treino_model.dart';
 import '../../models/historico_treino_model.dart';
 import '../../models/treino_model.dart';
 import '../../services/coach_insight_service.dart';
+import '../../services/exercise_history_service.dart';
 import '../../services/exercise_progression_service.dart';
 import '../../services/progressao_service.dart';
 import '../../services/recorde_service.dart';
@@ -52,6 +55,8 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   final Map<int, Set<int>> _seriesConcluidas = {};
   final Map<int, List<_HistoricoSerieLocal>> _historico = {};
   final Map<int, String> _comentarios = {};
+  final Map<int, String> _pesosRascunho = {};
+  final Map<int, String> _repeticoesRascunho = {};
   final Set<int> _exerciciosPulados = {};
   final Set<int> _sugestoesProgressaoIgnoradas = {};
   final Set<int> _sugestoesProgressaoAplicadas = {};
@@ -82,6 +87,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   bool _descansoEstavaPausadoAntesDaPausa = false;
   bool _treinoFinalizadoVisual = false;
   bool _finalizacaoEmAndamento = false;
+  bool _registroSerieEmAndamento = false;
   bool _permitirSair = false;
   String _xpVisualTitulo = '';
   Future<ExerciseProgressionModel>? _nextProgressionFuture;
@@ -132,6 +138,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     debugPrint('Qtd exercícios: ${_exercicios.length}');
     debugPrint(_exercicios.map((e) => e.nome).toList().toString());
 
+    _restaurarInputsDoExercicio(0);
     _carregarProximaProgressaoAtual();
 
     _iniciarCronometro();
@@ -155,7 +162,23 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     });
   }
 
-  void _registrarSerie() {
+  Future<void> _registrarSerie() async {
+    if (_registroSerieEmAndamento || _finalizacaoEmAndamento) return;
+
+    setState(() => _registroSerieEmAndamento = true);
+    try {
+      _registrarSerieSemBloqueio();
+      await Future<void>.delayed(FitDuration.medium);
+    } finally {
+      if (mounted) {
+        setState(() => _registroSerieEmAndamento = false);
+      } else {
+        _registroSerieEmAndamento = false;
+      }
+    }
+  }
+
+  void _registrarSerieSemBloqueio() {
     final exercicio = _exercicio;
     if (exercicio == null) return;
 
@@ -188,6 +211,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
           peso: peso,
           repeticoes: repeticoes,
           data: DateTime.now(),
+          exercicio: exercicio,
         ),
       );
     });
@@ -361,6 +385,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   }
 
   void _mudarExercicio(int index) {
+    _salvarInputsDoExercicioAtual();
     _descansoTimer?.cancel();
     setState(() {
       _descansoRestante = 0;
@@ -370,9 +395,33 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
       _executionStage = WorkoutExecutionStage.active;
       _exercicioAtual = index;
       _sincronizarComentario();
-      _descansoPadrao = 60;
+      _restaurarInputsDoExercicio(index);
     });
     _carregarProximaProgressaoAtual();
+  }
+
+  void _salvarInputsDoExercicioAtual() {
+    if (_exercicioAtual < 0 || _exercicioAtual >= _exercicios.length) return;
+    _pesosRascunho[_exercicioAtual] = _texto(_pesoController);
+    _repeticoesRascunho[_exercicioAtual] = _texto(_repeticoesController);
+  }
+
+  void _restaurarInputsDoExercicio(int index) {
+    if (index < 0 || index >= _exercicios.length) return;
+    final exercicio = _exercicios[index];
+    _pesoController.text = _pesosRascunho[index] ?? '0';
+    _repeticoesController.text =
+        _repeticoesRascunho[index] ?? _repeticoesIniciais(exercicio);
+    _descansoPadrao = exercicio.descansoSegundos <= 0
+        ? 60
+        : exercicio.descansoSegundos;
+  }
+
+  String _repeticoesIniciais(ExercicioModel exercicio) {
+    final values = RegExp(
+      r'\d+',
+    ).allMatches(exercicio.repeticoes).map((match) => match.group(0)).toList();
+    return values.isEmpty ? '12' : values.last!;
   }
 
   void _carregarProximaProgressaoAtual() {
@@ -464,6 +513,13 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
           _historico[index] ?? const <_HistoricoSerieLocal>[],
         ),
         comentario: _comentarios[index] ?? '',
+        pesoRascunho: index == _exercicioAtual
+            ? _texto(_pesoController)
+            : _pesosRascunho[index] ?? '0',
+        repeticoesRascunho: index == _exercicioAtual
+            ? _texto(_repeticoesController)
+            : _repeticoesRascunho[index] ??
+                  _repeticoesIniciais(_exercicios[index]),
         pulado: _exerciciosPulados.contains(index),
       );
     });
@@ -476,6 +532,8 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     _seriesConcluidas.clear();
     _historico.clear();
     _comentarios.clear();
+    _pesosRascunho.clear();
+    _repeticoesRascunho.clear();
     _exerciciosPulados.clear();
 
     for (var index = 0; index < slots.length; index++) {
@@ -489,6 +547,8 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
       if (slot.comentario.isNotEmpty) {
         _comentarios[index] = slot.comentario;
       }
+      _pesosRascunho[index] = slot.pesoRascunho;
+      _repeticoesRascunho[index] = slot.repeticoesRascunho;
       if (slot.pulado) {
         _exerciciosPulados.add(index);
       }
@@ -591,6 +651,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
       _descansoRestante = 0;
       _descansoFinalizado = false;
       _sincronizarComentario();
+      _restaurarInputsDoExercicio(_exercicioAtual);
     });
 
     _mostrarMensagem('Exercício removido.');
@@ -605,6 +666,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     _restoreSlots(slots);
     _exercicioAtual = slots.indexOf(currentSlot);
     _sincronizarComentario();
+    _restaurarInputsDoExercicio(_exercicioAtual);
   }
 
   Future<void> _abrirReordenarExercicios() async {
@@ -775,31 +837,28 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   }
 
   void _abrirHistoricoSeriesSheet(List<_HistoricoSerieLocal> entries) {
+    final exercicio = _exercicio;
+    if (exercicio == null) return;
+
+    final sessionSeries = entries
+        .where((entry) => _mesmoExercicio(entry.exercicio, exercicio))
+        .map(
+          (entry) => _historicoPersistivel(
+            entry: entry,
+            exercicio: entry.exercicio,
+            comentario: _comentarios[_exercicioAtual] ?? '',
+          ),
+        )
+        .toList(growable: false);
+
     _abrirInfoSheet(
       title: 'Histórico do exercício',
       icon: Icons.history_rounded,
-      child: entries.isEmpty
-          ? const _InfoEmptyCard(
-              icon: Icons.history_rounded,
-              title: 'Sem séries registradas',
-              text: 'As séries concluídas neste exercício aparecerão aqui.',
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final entry in entries) ...[
-                  FitCard(
-                    variant: FitCardVariant.outlined,
-                    title: 'Série ${entry.numero}',
-                    child: Text(
-                      '${entry.peso} kg × ${entry.repeticoes} repetições',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ),
-                  const SizedBox(height: FitSpacing.s8),
-                ],
-              ],
-            ),
+      child: WorkoutExerciseHistoryPanel(
+        exercise: exercicio,
+        history: const ExerciseHistoryService().loadExerciseHistory(exercicio),
+        sessionSeries: sessionSeries,
+      ),
     );
   }
 
@@ -1006,41 +1065,56 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
         .fold<double>(0, (total, entry) => total + _volumeSerie(entry));
   }
 
-  Future<void> _salvarHistoricoIndividualExercicios(
-    HistoricoTreinoModel historicoTreino,
-  ) async {
+  Future<void> _salvarHistoricoIndividualExercicios() async {
     for (final entry in _historico.entries) {
       final index = entry.key;
       if (index < 0 || index >= _exercicios.length) continue;
 
-      final exercicio = _exercicios[index];
       final comentario = _comentarios[index] ?? '';
 
       for (final serie in entry.value) {
-        final serieHistorico = HistoricoSerieTreinoModel(
-          id: [
-            historicoTreino.id,
-            _exercicioKey(exercicio),
-            serie.numero,
-            serie.data.microsecondsSinceEpoch,
-          ].join('_'),
-          treinoId: widget.treino.id,
-          sessaoTreinoId: historicoTreino.id,
-          nomeTreino: widget.treino.nome,
-          exercicioId: exercicio.id,
-          nomeExercicio: exercicio.nome,
-          serieNumero: serie.numero,
-          peso: _pesoSerie(serie),
-          repeticoes: serie.repeticoes,
-          series: 1,
-          descansoSegundos: _descansoPadrao,
+        final serieHistorico = _historicoPersistivel(
+          entry: serie,
+          exercicio: serie.exercicio,
           comentario: comentario,
-          dataHora: serie.data,
         );
 
         await StorageService.salvarHistoricoExercicio(serieHistorico);
       }
     }
+  }
+
+  HistoricoSerieTreinoModel _historicoPersistivel({
+    required _HistoricoSerieLocal entry,
+    required ExercicioModel exercicio,
+    required String comentario,
+  }) {
+    return HistoricoSerieTreinoModel(
+      id: [
+        _sessaoTreinoId,
+        _exercicioKey(exercicio),
+        entry.numero,
+        entry.data.microsecondsSinceEpoch,
+      ].join('_'),
+      treinoId: widget.treino.id,
+      sessaoTreinoId: _sessaoTreinoId,
+      nomeTreino: widget.treino.nome,
+      exercicioId: exercicio.id,
+      exerciseKey: ExerciseIdentity.buildExerciseKey(
+        exerciseId: exercicio.id,
+        exerciseName: exercicio.nome,
+      ),
+      nomeExercicio: exercicio.nome,
+      serieNumero: entry.numero,
+      peso: _pesoSerie(entry),
+      repeticoes: entry.repeticoes,
+      series: 1,
+      descansoSegundos: exercicio.descansoSegundos <= 0
+          ? _descansoPadrao
+          : exercicio.descansoSegundos,
+      comentario: comentario,
+      dataHora: entry.data,
+    );
   }
 
   double _pesoSerie(_HistoricoSerieLocal entry) {
@@ -1116,7 +1190,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
 
     try {
       await const RecordeService().sincronizarRecordesHistoricos();
-      await _salvarHistoricoIndividualExercicios(historicoBase);
+      await _salvarHistoricoIndividualExercicios();
 
       final seriesSalvas = await StorageService.carregarHistoricoSeriesTreino();
       final seriesSessao = seriesSalvas.where((serie) {
@@ -1366,7 +1440,10 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
         onRestSkip: _pularDescanso,
         onRestAddTime: () => _ajustarDescanso(15),
         onViewAllHistory: openHistory,
-        onChanged: (_) => setState(() {}),
+        onChanged: (_) {
+          _salvarInputsDoExercicioAtual();
+          setState(() {});
+        },
         onPrevious: _exercicioAtual == 0 ? null : _exercicioAnterior,
         onNext: _exercicioAtual >= _totalExercicios - 1
             ? null
@@ -1671,7 +1748,10 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
                                   repeticoesController: _repeticoesController,
                                   onAddReps: _registrarSerie,
                                   highlightRegister: _descansoFinalizado,
-                                  onChanged: (_) => setState(() {}),
+                                  onChanged: (_) {
+                                    _salvarInputsDoExercicioAtual();
+                                    setState(() {});
+                                  },
                                 ),
                                 const SizedBox(height: 12),
                                 _CommentBox(
@@ -1757,6 +1837,8 @@ class _ExerciseSessionSlot {
   final Set<int> series;
   final List<_HistoricoSerieLocal> historico;
   final String comentario;
+  final String pesoRascunho;
+  final String repeticoesRascunho;
   final bool pulado;
 
   _ExerciseSessionSlot({
@@ -1764,6 +1846,8 @@ class _ExerciseSessionSlot {
     Set<int>? series,
     List<_HistoricoSerieLocal>? historico,
     this.comentario = '',
+    this.pesoRascunho = '0',
+    this.repeticoesRascunho = '12',
     this.pulado = false,
   }) : series = series ?? <int>{},
        historico = historico ?? <_HistoricoSerieLocal>[];
@@ -3662,16 +3746,16 @@ class _CoachBackendTreinoCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.psychology_alt_rounded, color: Color(0xFFB388FF)),
-                  SizedBox(width: 8),
-                  Text(
-                    'Insights do Coach',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
+                  const Icon(Icons.psychology_alt_rounded, color: FitColors.ai),
+                  const SizedBox(width: FitSpacing.s8),
+                  Expanded(
+                    child: Text(
+                      'Insights do Coach',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
                   ),
                 ],
@@ -4520,12 +4604,14 @@ class _HistoricoSerieLocal {
   final String peso;
   final int repeticoes;
   final DateTime data;
+  final ExercicioModel exercicio;
 
   const _HistoricoSerieLocal({
     required this.numero,
     required this.peso,
     required this.repeticoes,
     required this.data,
+    required this.exercicio,
   });
 }
 

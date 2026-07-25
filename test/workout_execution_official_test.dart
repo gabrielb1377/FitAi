@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:fitai/features/plans/workout_execution/pages/workout_preview_page.dart';
 import 'package:fitai/models/exercicio_model.dart';
+import 'package:fitai/models/historico_serie_treino_model.dart';
 import 'package:fitai/models/treino_model.dart';
 import 'package:fitai/screens/treinos/controllers/plan_day_data.dart';
 import 'package:fitai/screens/treinos/treino_em_andamento_page.dart';
@@ -19,13 +22,13 @@ void main() {
 
     await tester.pumpWidget(_app(WorkoutPreviewPage(plan: plan, day: day)));
 
-    expect(find.text('Prévia do treino'), findsOneWidget);
-    expect(find.text('Upper A'), findsNWidgets(2));
-    expect(find.text('Exercícios do treino'), findsOneWidget);
-    await tester.drag(find.byType(ListView), const Offset(0, -560));
+    expect(find.text('Upper A'), findsOneWidget);
+    expect(find.text('Resumo do treino'), findsOneWidget);
+    expect(find.text('Destaques'), findsOneWidget);
+    expect(find.text('Ver lista'), findsOneWidget);
+    await tester.drag(find.byType(ListView), const Offset(0, -420));
     await tester.pump();
     expect(find.text('Iniciar treino'), findsOneWidget);
-    expect(find.text('Ver lista de exercícios'), findsOneWidget);
   });
 
   testWidgets('WORK-003 mantém descanso entre séries inline', (tester) async {
@@ -121,6 +124,85 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('WORK-009 combina histórico persistido e sessão atual', (
+    tester,
+  ) async {
+    final saved = HistoricoSerieTreinoModel(
+      id: 'history-set-1',
+      treinoId: 'old-workout',
+      sessaoTreinoId: 'old-session',
+      nomeTreino: 'Upper anterior',
+      exercicioId: 'supino-reto',
+      nomeExercicio: 'Supino reto',
+      serieNumero: 1,
+      peso: 80,
+      repeticoes: 10,
+      descansoSegundos: 60,
+      dataHora: DateTime(2026, 7, 11, 10),
+    );
+    SharedPreferences.setMockInitialValues({
+      'historicoSeriesTreino': [jsonEncode(saved.toJson())],
+    });
+
+    await tester.pumpWidget(_app(TreinoEmAndamentoPage(treino: _plan())));
+    await tester.pump();
+    await _tapCompleteSet(tester);
+    await _ensureAndTap(tester, find.text('Pular').last);
+    await tester.pump();
+    await tester.scrollUntilVisible(
+      find.text('Histórico'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Histórico'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('Histórico do exercício'), findsOneWidget);
+    expect(find.text('Sessão atual'), findsOneWidget);
+    expect(find.text('0 kg × 12 reps'), findsOneWidget);
+    expect(find.text('11/07/2026'), findsOneWidget);
+    expect(find.text('80 kg × 10 reps'), findsOneWidget);
+    expect(find.text('Nenhuma série registrada ainda'), findsNothing);
+  });
+
+  testWidgets('concluir série bloqueia toque duplo', (tester) async {
+    await tester.pumpWidget(_app(TreinoEmAndamentoPage(treino: _plan())));
+    await tester.pump();
+
+    final complete = find.text('CONCLUIR SÉRIE');
+    await tester.scrollUntilVisible(
+      complete,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pump();
+    await tester.tap(complete);
+    await tester.tap(complete);
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('1 de 3'), findsOneWidget);
+  });
+
+  testWidgets('carga e repetições sobrevivem à navegação entre exercícios', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(TreinoEmAndamentoPage(treino: _plan())));
+    await tester.pump();
+
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), '9');
+    await tester.enterText(fields.at(1), '42,5');
+    await tester.tap(find.text('Próximo exercício'));
+    await tester.pump();
+    await tester.tap(find.text('Anterior'));
+    await tester.pump();
+
+    final restored = tester.widgetList<TextField>(find.byType(TextField));
+    expect(restored.elementAt(0).controller?.text, '9');
+    expect(restored.elementAt(1).controller?.text, '42,5');
+  });
 }
 
 Future<void> _tapCompleteSet(WidgetTester tester) async {
@@ -132,7 +214,7 @@ Future<void> _tapCompleteSet(WidgetTester tester) async {
   await tester.ensureVisible(complete);
   await tester.pump();
   await tester.tap(complete);
-  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 300));
 }
 
 Future<void> _ensureAndTap(WidgetTester tester, Finder finder) async {

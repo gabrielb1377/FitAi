@@ -169,7 +169,7 @@ class _TreinoFinalizadoPageState extends State<TreinoFinalizadoPage> {
                     label: 'Compartilhar',
                     leadingIcon: Icons.ios_share_rounded,
                     variant: FitButtonVariant.outlined,
-                    onPressed: widget.onCompartilhar ?? _showShareFeedback,
+                    onPressed: widget.onCompartilhar ?? _showShareSheet,
                     expand: true,
                   ),
                   const SizedBox(height: FitSpacing.s12),
@@ -243,11 +243,53 @@ class _TreinoFinalizadoPageState extends State<TreinoFinalizadoPage> {
     });
   }
 
-  void _showShareFeedback() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Resumo pronto para compartilhar.'),
-        behavior: SnackBarBehavior.floating,
+  Future<void> _showShareSheet() {
+    return FitBottomSheet.show<void>(
+      context: context,
+      title: 'Compartilhar treino',
+      subtitle: 'Prévia sem dados pessoais',
+      isScrollControlled: true,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          RepaintBoundary(
+            child: FitWorkoutSummaryCard(
+              title: widget.nomeTreino,
+              subtitle: 'Treino concluído no FitIA',
+              metrics: [
+                FitMetricData(
+                  label: 'Tempo',
+                  value: widget.tempo,
+                  icon: Icons.timer_outlined,
+                ),
+                FitMetricData(
+                  label: 'Exercícios',
+                  value: '${widget.exerciciosConcluidos}',
+                  icon: Icons.fitness_center_rounded,
+                ),
+                FitMetricData(
+                  label: 'Volume',
+                  value: widget.volume,
+                  icon: Icons.stacked_line_chart_rounded,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: FitSpacing.s16),
+          const FitInfoCard(
+            title: 'Compartilhamento indisponível',
+            description:
+                'O cartão está pronto, mas o envio nativo ainda não foi integrado.',
+            icon: Icons.info_outline_rounded,
+          ),
+          const SizedBox(height: FitSpacing.s16),
+          FitButton(
+            label: 'Fechar',
+            variant: FitButtonVariant.outlined,
+            expand: true,
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
       ),
     );
   }

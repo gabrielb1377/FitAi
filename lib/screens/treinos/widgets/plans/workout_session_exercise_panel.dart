@@ -40,7 +40,7 @@ class WorkoutExercisePanel extends StatelessWidget {
   final bool isResting;
   final List<WorkoutSetSnapshot> history;
   final VoidCallback onViewExecution;
-  final VoidCallback onCompleteSet;
+  final Future<void> Function() onCompleteSet;
   final VoidCallback onRestTap;
   final VoidCallback onViewAllHistory;
   final ValueChanged<String> onChanged;
@@ -76,7 +76,7 @@ class WorkoutExercisePanel extends StatelessWidget {
             child: FitButton(
               label: 'CONCLUIR SÉRIE',
               leadingIcon: Icons.check_circle_rounded,
-              onPressed: onCompleteSet,
+              onPressedAsync: onCompleteSet,
               expand: true,
             ),
           ),

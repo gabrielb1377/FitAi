@@ -24,6 +24,12 @@ class WorkoutPreviewPage extends StatelessWidget {
       (total, exercise) => total + _setsFor(exercise),
     );
     final minutes = plan.tempoEstimado <= 0 ? 45 : plan.tempoEstimado;
+    final focus = exercises
+        .expand((exercise) => exercise.musculos)
+        .where((muscle) => muscle.trim().isNotEmpty)
+        .toSet()
+        .take(3)
+        .join(', ');
 
     return Scaffold(
       backgroundColor: FitColors.background,
@@ -40,27 +46,23 @@ class WorkoutPreviewPage extends StatelessWidget {
               ),
               children: [
                 FitHeader(
-                  title: 'Prévia do treino',
+                  title: day.title,
+                  subtitle: '${plan.objetivo} · ${day.label}',
                   showBackButton: true,
                   onBack: () => Navigator.of(context).maybePop(),
                   padding: EdgeInsets.zero,
                 ),
-                const SizedBox(height: FitSpacing.s20),
-                Text(
-                  day.title,
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
                 const SizedBox(height: FitSpacing.s8),
                 Text(
-                  day.label,
+                  'Hoje · $minutes min estimados',
+                  textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: FitColors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: FitSpacing.s20),
                 FitWorkoutSummaryCard(
-                  title: plan.nome,
-                  subtitle: plan.objetivo,
+                  title: 'Resumo do treino',
                   metrics: [
                     FitMetricData(
                       label: 'Exercícios',
@@ -81,36 +83,58 @@ class WorkoutPreviewPage extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: FitSpacing.s16),
+                FitCard(
+                  variant: FitCardVariant.outlined,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: FitStatistic(
+                          label: 'Nível',
+                          value: plan.nivel.trim().isEmpty
+                              ? 'Não informado'
+                              : plan.nivel,
+                          icon: Icons.equalizer_rounded,
+                        ),
+                      ),
+                      const SizedBox(width: FitSpacing.s8),
+                      Expanded(
+                        child: FitStatistic(
+                          label: 'Foco',
+                          value: focus.isEmpty ? day.title : focus,
+                          icon: Icons.track_changes_rounded,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (exercises.isNotEmpty) ...[
+                  const SizedBox(height: FitSpacing.s20),
+                  FitSection(
+                    title: 'Destaques',
+                    viewAllLabel: 'Ver lista',
+                    onViewAll: () => _openExerciseList(context),
+                    child: Column(
+                      children: [
+                        for (
+                          var index = 0;
+                          index < exercises.take(2).length;
+                          index++
+                        ) ...[
+                          _ExercisePreviewRow(
+                            exercise: exercises[index],
+                            index: index,
+                          ),
+                          if (index < exercises.take(2).length - 1)
+                            const SizedBox(height: FitSpacing.s8),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: FitSpacing.s16),
                 FitWorkoutCoachBubble(
                   message:
                       'Priorize técnica e controle. Ajuste a carga apenas quando necessário.',
-                ),
-                const SizedBox(height: FitSpacing.s24),
-                FitSection(
-                  title: 'Exercícios do treino',
-                  child: exercises.isEmpty
-                      ? const FitEmptyState(
-                          icon: Icons.fitness_center_rounded,
-                          title: 'Treino sem exercícios',
-                          description:
-                              'Adicione exercícios ao plano antes de iniciar.',
-                        )
-                      : Column(
-                          children: [
-                            for (
-                              var index = 0;
-                              index < exercises.length;
-                              index++
-                            ) ...[
-                              _ExercisePreviewRow(
-                                exercise: exercises[index],
-                                index: index,
-                              ),
-                              if (index < exercises.length - 1)
-                                const SizedBox(height: FitSpacing.s8),
-                            ],
-                          ],
-                        ),
                 ),
                 const SizedBox(height: FitSpacing.s24),
                 FitButton(
@@ -119,28 +143,17 @@ class WorkoutPreviewPage extends StatelessWidget {
                   expand: true,
                   onPressed: exercises.isEmpty
                       ? null
-                      : () => Navigator.of(context).push<void>(
-                          MaterialPageRoute(
-                            builder: (_) => TreinoEmAndamentoPage(
-                              treino: day.workout,
-                              nomeDia: day.label,
-                              grupoDia: day.title,
-                            ),
-                          ),
-                        ),
+                      : () => _startWorkout(context),
                 ),
-                const SizedBox(height: FitSpacing.s12),
-                FitButton(
-                  label: 'Ver lista de exercícios',
-                  leadingIcon: Icons.format_list_bulleted_rounded,
-                  expand: true,
-                  variant: FitButtonVariant.outlined,
-                  onPressed: () => Navigator.of(context).push<void>(
-                    MaterialPageRoute(
-                      builder: (_) => WorkoutDayPage(plan: plan, day: day),
-                    ),
+                if (exercises.isEmpty) ...[
+                  const SizedBox(height: FitSpacing.s16),
+                  const FitEmptyState(
+                    icon: Icons.fitness_center_rounded,
+                    title: 'Treino sem exercícios',
+                    description:
+                        'Adicione exercícios ao plano antes de iniciar.',
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -151,6 +164,26 @@ class WorkoutPreviewPage extends StatelessWidget {
 
   int _setsFor(ExercicioModel exercise) =>
       exercise.series <= 0 ? 3 : exercise.series;
+
+  void _startWorkout(BuildContext context) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => TreinoEmAndamentoPage(
+          treino: day.workout,
+          nomeDia: day.label,
+          grupoDia: day.title,
+        ),
+      ),
+    );
+  }
+
+  void _openExerciseList(BuildContext context) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => WorkoutDayPage(plan: plan, day: day),
+      ),
+    );
+  }
 }
 
 class _ExercisePreviewRow extends StatelessWidget {

@@ -139,12 +139,12 @@ void main() {
     await tester.pump();
     final completeSet = find.text('CONCLUIR SÉRIE');
     await tester.tap(completeSet);
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('1 de 4'), findsOneWidget);
 
     await tester.ensureVisible(completeSet);
     await tester.tap(completeSet);
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('2 de 4'), findsOneWidget);
   });
 
@@ -299,6 +299,33 @@ void main() {
     await tester.tap(find.text('Voltar para Planos'));
     await tester.pump();
     expect(returnedToPlan, isTrue);
+  });
+
+  testWidgets('compartilhamento mantém estado honesto sem integração nativa', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        const TreinoFinalizadoPage(
+          nomeTreino: 'Upper A',
+          tempo: '41:20',
+          volume: '4.200 kg',
+          xp: 35,
+          exerciciosConcluidos: 6,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.scrollUntilVisible(
+      find.text('Compartilhar'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Compartilhar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Prévia sem dados pessoais'), findsOneWidget);
+    expect(find.text('Compartilhamento indisponível'), findsOneWidget);
   });
 }
 

@@ -59,7 +59,7 @@ class OfficialWorkoutSession extends StatelessWidget {
   final VoidCallback onClose;
   final VoidCallback onMenu;
   final VoidCallback onViewExecution;
-  final VoidCallback onCompleteSet;
+  final Future<void> Function() onCompleteSet;
   final VoidCallback onRestTap;
   final VoidCallback onViewAllHistory;
   final ValueChanged<String> onChanged;
