@@ -58,18 +58,20 @@ class MainScaffold extends StatelessWidget {
                   ),
               ],
             ),
-            bottomNavigationBar: Center(
-              heightFactor: 1,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: FitBreakpoints.tablet,
-                ),
-                child: ShellNavigation(
-                  selectedSection: section,
-                  onSelected: navigationController.selectSection,
-                ),
-              ),
-            ),
+            bottomNavigationBar: canPopSection
+                ? null
+                : Center(
+                    heightFactor: 1,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxWidth: FitBreakpoints.tablet,
+                      ),
+                      child: ShellNavigation(
+                        selectedSection: section,
+                        onSelected: navigationController.selectSection,
+                      ),
+                    ),
+                  ),
           ),
         );
       },

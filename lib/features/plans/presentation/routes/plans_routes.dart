@@ -2,6 +2,9 @@ import 'package:flutter/widgets.dart';
 
 import '../../../../core/navigation/app_section.dart';
 import '../../../../core/navigation/section_router.dart';
+import '../pages/planos_official_library_page.dart';
+import '../pages/planos_official_plan_pages.dart';
+import '../pages/planos_official_wizards.dart';
 
 /// Rotas oficiais e reservadas do módulo Planos.
 abstract final class PlansRoutes {
@@ -16,6 +19,12 @@ abstract final class PlansRoutes {
   static const session = '/plans/session';
   static const completion = '/plans/completion';
   static const readyPlans = '/plans/ready';
+  static const statistics = '/plans/statistics';
+  static const calendar = '/plans/calendar';
+  static const compare = '/plans/compare';
+  static const history = '/plans/history';
+  static const importShare = '/plans/import-share';
+  static const archive = '/plans/archive';
 
   static const declared = <String>{
     root,
@@ -29,12 +38,28 @@ abstract final class PlansRoutes {
     session,
     completion,
     readyPlans,
+    statistics,
+    calendar,
+    compare,
+    history,
+    importShare,
+    archive,
   };
 
   static SectionRouter createRouter({required WidgetBuilder rootBuilder}) {
     return SectionRouter(
       section: AppShellSection.plans,
       rootBuilder: rootBuilder,
+      routes: {
+        createWithAi: (_, _) => const PlanosAiGoalPage(),
+        createManual: (_, _) => const PlanosManualGoalPage(),
+        readyPlans: (_, _) => const PlanosReadyLibraryPage(),
+        calendar: (_, _) => const PlanosCalendarPage(),
+        compare: (_, _) => const PlanosComparePage(),
+        history: (_, _) => const PlanosHistoryPage(),
+        importShare: (_, _) => const PlanosImportSharePage(),
+        archive: (_, _) => const PlanosArchivePage(),
+      },
       declaredRoutes: declared,
     );
   }
