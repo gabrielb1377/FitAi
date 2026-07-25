@@ -176,7 +176,7 @@ void main() {
 
     await tester.tap(find.text('Histórico'));
     await tester.pump(const Duration(milliseconds: 250));
-    expect(find.text('Performance'), findsWidgets);
+    expect(find.text('Histórico do exercício'), findsOneWidget);
   });
 
   testWidgets('sessao abre o GIF pelo atalho compacto', (tester) async {

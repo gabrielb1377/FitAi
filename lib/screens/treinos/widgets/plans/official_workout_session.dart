@@ -33,6 +33,11 @@ class OfficialWorkoutSession extends StatelessWidget {
     required this.onRestTap,
     required this.onViewAllHistory,
     required this.onChanged,
+    this.restTotalSeconds = 60,
+    this.restPaused = false,
+    this.onRestTogglePause,
+    this.onRestSkip,
+    this.onRestAddTime,
     this.onPrevious,
     this.onNext,
   });
@@ -58,6 +63,11 @@ class OfficialWorkoutSession extends StatelessWidget {
   final VoidCallback onRestTap;
   final VoidCallback onViewAllHistory;
   final ValueChanged<String> onChanged;
+  final int restTotalSeconds;
+  final bool restPaused;
+  final VoidCallback? onRestTogglePause;
+  final VoidCallback? onRestSkip;
+  final VoidCallback? onRestAddTime;
   final VoidCallback? onPrevious;
   final VoidCallback? onNext;
 
@@ -79,7 +89,7 @@ class OfficialWorkoutSession extends StatelessWidget {
                 FitSpacing.s16,
                 FitSpacing.s4,
                 FitSpacing.s16,
-                FitSpacing.s24 + bottomInset,
+                FitSpacing.s24 + FitSpacing.s64 + bottomInset,
               ),
               children: [
                 WorkoutSessionHeader(
@@ -104,12 +114,17 @@ class OfficialWorkoutSession extends StatelessWidget {
                   weightController: weightController,
                   restSeconds: restSeconds,
                   isResting: isResting,
+                  restTotalSeconds: restTotalSeconds,
+                  restPaused: restPaused,
                   history: history,
                   onViewExecution: onViewExecution,
                   onCompleteSet: onCompleteSet,
                   onRestTap: onRestTap,
                   onViewAllHistory: onViewAllHistory,
                   onChanged: onChanged,
+                  onRestTogglePause: onRestTogglePause,
+                  onRestSkip: onRestSkip,
+                  onRestAddTime: onRestAddTime,
                 ),
                 const SizedBox(height: FitSpacing.s12),
                 WorkoutQuickActionsPanel(actions: quickActions),

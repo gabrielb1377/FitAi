@@ -23,6 +23,11 @@ class WorkoutExercisePanel extends StatelessWidget {
     required this.onRestTap,
     required this.onViewAllHistory,
     required this.onChanged,
+    this.restTotalSeconds = 60,
+    this.restPaused = false,
+    this.onRestTogglePause,
+    this.onRestSkip,
+    this.onRestAddTime,
   });
 
   final ExercicioModel exercise;
@@ -39,6 +44,11 @@ class WorkoutExercisePanel extends StatelessWidget {
   final VoidCallback onRestTap;
   final VoidCallback onViewAllHistory;
   final ValueChanged<String> onChanged;
+  final int restTotalSeconds;
+  final bool restPaused;
+  final VoidCallback? onRestTogglePause;
+  final VoidCallback? onRestSkip;
+  final VoidCallback? onRestAddTime;
 
   @override
   Widget build(BuildContext context) {
@@ -79,6 +89,17 @@ class WorkoutExercisePanel extends StatelessWidget {
             onRestTap: onRestTap,
             onChanged: onChanged,
           ),
+          if (isResting) ...[
+            const SizedBox(height: FitSpacing.s12),
+            _InlineRestTimer(
+              seconds: restSeconds,
+              totalSeconds: restTotalSeconds,
+              paused: restPaused,
+              onTogglePause: onRestTogglePause,
+              onSkip: onRestSkip ?? onRestTap,
+              onAddTime: onRestAddTime,
+            ),
+          ],
           const SizedBox(height: FitSpacing.s20),
           _SetHistoryStrip(
             completedSets: completedSets,
@@ -98,6 +119,62 @@ class WorkoutExercisePanel extends StatelessWidget {
       value.descansoSegundos <= 0 ? 60 : value.descansoSegundos;
 }
 
+/// Descanso entre séries mostrado dentro do painel do exercício ativo.
+///
+/// O relógio é controlado pela sessão; este widget apenas representa o estado
+/// atual e encaminha as ações do usuário.
+class _InlineRestTimer extends StatelessWidget {
+  const _InlineRestTimer({
+    required this.seconds,
+    required this.totalSeconds,
+    required this.paused,
+    this.onTogglePause,
+    this.onSkip,
+    this.onAddTime,
+  });
+
+  final int seconds;
+  final int totalSeconds;
+  final bool paused;
+  final VoidCallback? onTogglePause;
+  final VoidCallback? onSkip;
+  final VoidCallback? onAddTime;
+
+  @override
+  Widget build(BuildContext context) {
+    final minutes = (seconds ~/ 60).toString().padLeft(2, '0');
+    final remainder = (seconds % 60).toString().padLeft(2, '0');
+    final safeTotal = totalSeconds <= 0 ? 1 : totalSeconds;
+    final progress = ((safeTotal - seconds) / safeTotal).clamp(0.0, 1.0);
+
+    return Semantics(
+      container: true,
+      label: paused ? 'Descanso pausado' : 'Descanso entre séries',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            paused ? 'Descanso pausado' : 'Descanso entre séries',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          const SizedBox(height: FitSpacing.s8),
+          FitRestTimerWidget(
+            embedded: true,
+            remainingLabel: '$minutes:$remainder',
+            progress: progress,
+            progressRingSize: FitLayout.domainThumbnailSmall,
+            paused: paused,
+            onTogglePause: onTogglePause,
+            onSkip: onSkip,
+            onAddTime: onAddTime,
+            addTimeLabel: '+15 s',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ExerciseHeading extends StatelessWidget {
   const _ExerciseHeading({
     required this.exercise,
@@ -114,9 +191,10 @@ class _ExerciseHeading extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Container(
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 320;
+            final numberBadge = Container(
               width: 36,
               height: 36,
               alignment: Alignment.center,
@@ -130,24 +208,45 @@ class _ExerciseHeading extends StatelessWidget {
                   context,
                 ).textTheme.titleMedium?.copyWith(color: FitColors.onPrimary),
               ),
-            ),
-            const SizedBox(width: FitSpacing.s12),
-            Expanded(
-              child: Text(
-                'EXERCÍCIO ATUAL',
-                style: Theme.of(
-                  context,
-                ).textTheme.labelLarge?.copyWith(color: FitColors.primary),
-              ),
-            ),
-            FitButton(
+            );
+            final label = Text(
+              'EXERCÍCIO ATUAL',
+              style: Theme.of(
+                context,
+              ).textTheme.labelLarge?.copyWith(color: FitColors.primary),
+            );
+            final action = FitButton(
               label: 'Ver execução',
               leadingIcon: Icons.play_arrow_rounded,
               size: FitButtonSize.compact,
               variant: FitButtonVariant.outlined,
               onPressed: onViewExecution,
-            ),
-          ],
+            );
+            if (compact) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      numberBadge,
+                      const SizedBox(width: FitSpacing.s12),
+                      Expanded(child: label),
+                    ],
+                  ),
+                  const SizedBox(height: FitSpacing.s8),
+                  Align(alignment: Alignment.centerRight, child: action),
+                ],
+              );
+            }
+            return Row(
+              children: [
+                numberBadge,
+                const SizedBox(width: FitSpacing.s12),
+                Expanded(child: label),
+                action,
+              ],
+            );
+          },
         ),
         const SizedBox(height: FitSpacing.s12),
         Text(
@@ -389,17 +488,36 @@ class _SetHistoryStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'HISTÓRICO DA SÉRIE',
-                style: Theme.of(context).textTheme.labelMedium,
-              ),
-            ),
-            Text('$completedSets de $targetSets'),
-            TextButton(onPressed: onViewAll, child: const Text('Ver todas')),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final title = Text(
+              'HISTÓRICO DA SÉRIE',
+              style: Theme.of(context).textTheme.labelMedium,
+            );
+            final status = Text('$completedSets de $targetSets');
+            final action = TextButton(
+              onPressed: onViewAll,
+              child: const Text('Ver todas'),
+            );
+            if (constraints.maxWidth < 320) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  title,
+                  Wrap(
+                    spacing: FitSpacing.s8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [status, action],
+                  ),
+                ],
+              );
+            }
+            return Wrap(
+              spacing: FitSpacing.s8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [title, status, action],
+            );
+          },
         ),
         const SizedBox(height: FitSpacing.s8),
         SizedBox(

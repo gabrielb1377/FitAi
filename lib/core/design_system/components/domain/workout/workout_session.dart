@@ -18,6 +18,8 @@ class FitRestTimerWidget extends StatelessWidget {
     required this.remainingLabel,
     required this.progress,
     this.paused = false,
+    this.embedded = false,
+    this.progressRingSize,
     this.onTogglePause,
     this.onSkip,
     this.onAddTime,
@@ -27,6 +29,13 @@ class FitRestTimerWidget extends StatelessWidget {
   final String remainingLabel;
   final double progress;
   final bool paused;
+
+  /// Remove a superfície externa quando o temporizador é usado dentro de um
+  /// painel de exercício já enquadrado.
+  final bool embedded;
+
+  /// Tamanho opcional do anel para superfícies compactas.
+  final double? progressRingSize;
   final VoidCallback? onTogglePause;
   final VoidCallback? onSkip;
   final VoidCallback? onAddTime;
@@ -34,14 +43,14 @@ class FitRestTimerWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FitCard(
-      semanticLabel: 'Descanso, $remainingLabel',
+    final content = Semantics(
+      label: 'Descanso, $remainingLabel',
       child: Column(
         children: [
           FitProgressRing(
             value: progress,
             label: remainingLabel,
-            size: FitLayout.domainProgressRingLarge,
+            size: progressRingSize ?? FitLayout.domainProgressRingLarge,
             strokeWidth: FitLayout.domainProgressRingStroke,
           ),
           const SizedBox(height: FitSpacing.s16),
@@ -70,6 +79,9 @@ class FitRestTimerWidget extends StatelessWidget {
         ],
       ),
     );
+
+    if (embedded) return content;
+    return FitCard(child: content);
   }
 }
 

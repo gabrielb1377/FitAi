@@ -255,6 +255,15 @@ FitRunControlBar(
 Componentes de domínio organizam apresentação. Eles não acessam sensores,
 serviços, modelos persistentes ou rotas.
 
+### Extensao de treino: UI-003
+
+`FitRestTimerWidget` suporta `embedded: true` quando e exibido dentro de um
+painel de exercicio que ja possui superficie visual. Nesse modo ele conserva
+Semantics, progresso e callbacks externos, mas nao cria um segundo card.
+`progressRingSize` permite adaptar o anel a superficies compactas sem introduzir
+dimensoes locais. O componente continua sem timer proprio: a camada de sessao
+fornece tempo, pausa e comandos.
+
 ## Acessibilidade
 
 - Tooltips são obrigatórios em ações somente com ícone.

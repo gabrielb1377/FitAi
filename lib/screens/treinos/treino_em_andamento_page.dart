@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../design_system/fit_design_system.dart';
+import '../../features/plans/workout_execution/widgets/workout_execution_stages.dart';
 import '../../core/xp/xp_config.dart';
 import '../../models/coach_insight_model.dart';
 import '../../models/exercicio_model.dart';
@@ -76,11 +77,16 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   int _xpVisualKey = 0;
   bool _comentarioAberto = false;
   bool _descansoFinalizado = false;
+  bool _descansoPausado = false;
+  bool _descansoEntreExercicios = false;
+  bool _descansoEstavaPausadoAntesDaPausa = false;
   bool _treinoFinalizadoVisual = false;
   bool _finalizacaoEmAndamento = false;
   bool _permitirSair = false;
   String _xpVisualTitulo = '';
   Future<ExerciseProgressionModel>? _nextProgressionFuture;
+  WorkoutExecutionStage _executionStage = WorkoutExecutionStage.active;
+  WorkoutExecutionStage _stageAntesDaPausa = WorkoutExecutionStage.active;
 
   int get _totalExercicios => _exercicios.length;
 
@@ -143,7 +149,9 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
 
   void _iniciarCronometro() {
     _treinoTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _segundosTreino++);
+      if (mounted && _executionStage != WorkoutExecutionStage.paused) {
+        setState(() => _segundosTreino++);
+      }
     });
   }
 
@@ -153,7 +161,13 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
 
     final concluidas = _seriesConcluidas[_exercicioAtual] ?? <int>{};
     if (concluidas.length >= _seriesPorExercicio) {
-      _avancarDepoisDoExercicio();
+      if (_exercicioAtual >= _totalExercicios - 1) {
+        _finalizarTreino();
+      } else {
+        setState(() {
+          _executionStage = WorkoutExecutionStage.exerciseSummary;
+        });
+      }
       return;
     }
 
@@ -206,18 +220,23 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
       return;
     }
 
-    _mostrarMensagem('${exercicio.nome} concluído. Próximo exercício.');
-    Future.delayed(const Duration(milliseconds: 650), () {
-      if (mounted) _avancarDepoisDoExercicio();
+    _mostrarMensagem('${exercicio.nome} concluído.');
+    setState(() {
+      _executionStage = WorkoutExecutionStage.exerciseSummary;
     });
   }
 
-  void _iniciarDescanso() {
+  void _iniciarDescanso({bool entreExercicios = false}) {
     _descansoTimer?.cancel();
     setState(() {
       _descansoTotal = _descansoPadrao;
       _descansoRestante = _descansoPadrao;
       _descansoFinalizado = false;
+      _descansoPausado = false;
+      _descansoEntreExercicios = entreExercicios;
+      if (entreExercicios) {
+        _executionStage = WorkoutExecutionStage.interExerciseRest;
+      }
     });
 
     _descansoTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -226,13 +245,25 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
         return;
       }
 
+      if (_descansoPausado || _executionStage == WorkoutExecutionStage.paused) {
+        return;
+      }
+
       if (_descansoRestante <= 1) {
         timer.cancel();
         setState(() {
           _descansoRestante = 0;
           _descansoFinalizado = true;
+          _descansoPausado = false;
+          if (_descansoEntreExercicios) {
+            _executionStage = WorkoutExecutionStage.nextExercise;
+          }
         });
-        _mostrarMensagem('Hora da próxima série!');
+        _mostrarMensagem(
+          _descansoEntreExercicios
+              ? 'Hora do próximo exercício!'
+              : 'Hora da próxima série!',
+        );
       } else {
         setState(() => _descansoRestante--);
       }
@@ -244,8 +275,16 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     setState(() {
       _descansoRestante = 0;
       _descansoFinalizado = true;
+      _descansoPausado = false;
+      if (_descansoEntreExercicios) {
+        _executionStage = WorkoutExecutionStage.nextExercise;
+      }
     });
-    _mostrarMensagem('Hora da próxima série!');
+    _mostrarMensagem(
+      _descansoEntreExercicios
+          ? 'Hora do próximo exercício!'
+          : 'Hora da próxima série!',
+    );
   }
 
   void _ajustarDescanso(int seconds) {
@@ -261,16 +300,54 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     });
     if (novoTempo == 0) {
       _descansoTimer?.cancel();
-      _mostrarMensagem('Hora da próxima série!');
+      setState(() {
+        _descansoPausado = false;
+        if (_descansoEntreExercicios) {
+          _executionStage = WorkoutExecutionStage.nextExercise;
+        }
+      });
+      _mostrarMensagem(
+        _descansoEntreExercicios
+            ? 'Hora do próximo exercício!'
+            : 'Hora da próxima série!',
+      );
     }
   }
 
-  void _avancarDepoisDoExercicio() {
-    if (_exercicioAtual < _totalExercicios - 1) {
-      _mudarExercicio(_exercicioAtual + 1);
-    } else {
+  void _alternarPausaDescanso() {
+    if (!_emDescanso) return;
+    setState(() => _descansoPausado = !_descansoPausado);
+  }
+
+  void _iniciarDescansoEntreExercicios() {
+    _iniciarDescanso(entreExercicios: true);
+  }
+
+  void _iniciarProximoExercicio() {
+    if (_exercicioAtual >= _totalExercicios - 1) {
       _finalizarTreino();
+      return;
     }
+    _mudarExercicio(_exercicioAtual + 1);
+  }
+
+  void _pausarTreino() {
+    if (_executionStage == WorkoutExecutionStage.paused) return;
+    setState(() {
+      _stageAntesDaPausa = _executionStage;
+      _descansoEstavaPausadoAntesDaPausa = _descansoPausado;
+      if (_emDescanso) _descansoPausado = true;
+      _executionStage = WorkoutExecutionStage.paused;
+    });
+  }
+
+  void _retomarTreino() {
+    setState(() {
+      _executionStage = _stageAntesDaPausa == WorkoutExecutionStage.paused
+          ? WorkoutExecutionStage.active
+          : _stageAntesDaPausa;
+      _descansoPausado = _descansoEstavaPausadoAntesDaPausa;
+    });
   }
 
   void _proximoExercicioManual() {
@@ -288,6 +365,9 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     setState(() {
       _descansoRestante = 0;
       _descansoFinalizado = false;
+      _descansoPausado = false;
+      _descansoEntreExercicios = false;
+      _executionStage = WorkoutExecutionStage.active;
       _exercicioAtual = index;
       _sincronizarComentario();
       _descansoPadrao = 60;
@@ -694,6 +774,35 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     );
   }
 
+  void _abrirHistoricoSeriesSheet(List<_HistoricoSerieLocal> entries) {
+    _abrirInfoSheet(
+      title: 'Histórico do exercício',
+      icon: Icons.history_rounded,
+      child: entries.isEmpty
+          ? const _InfoEmptyCard(
+              icon: Icons.history_rounded,
+              title: 'Sem séries registradas',
+              text: 'As séries concluídas neste exercício aparecerão aqui.',
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final entry in entries) ...[
+                  FitCard(
+                    variant: FitCardVariant.outlined,
+                    title: 'Série ${entry.numero}',
+                    child: Text(
+                      '${entry.peso} kg × ${entry.repeticoes} repetições',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                  const SizedBox(height: FitSpacing.s8),
+                ],
+              ],
+            ),
+    );
+  }
+
   void _abrirPerformanceSheet({
     required List<_HistoricoSerieLocal> entries,
     required List<_HistoricoSerieLocal> sessionEntries,
@@ -1080,17 +1189,105 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     });
   }
 
+  Future<void> _confirmarDescartarTreino() async {
+    if (_finalizacaoEmAndamento) return;
+
+    final confirmed = await FitConfirmDialog.show(
+      context: context,
+      title: 'Descartar treino?',
+      message:
+          'As séries desta sessão não serão salvas. O plano continuará disponível.',
+      confirmLabel: 'Descartar treino',
+      isDestructive: true,
+    );
+    if (!mounted || confirmed != true) return;
+
+    _treinoTimer?.cancel();
+    _descansoTimer?.cancel();
+    setState(() => _permitirSair = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) TreinoNavigation.popOrHome(context);
+    });
+  }
+
+  Widget _protegerSaida(Widget child) {
+    return PopScope<void>(
+      canPop: _permitirSair,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && !_permitirSair) {
+          _confirmarEncerrarTreino();
+        }
+      },
+      child: child,
+    );
+  }
+
+  Widget? _buildStagePage(ExercicioModel exercicio) {
+    switch (_executionStage) {
+      case WorkoutExecutionStage.active:
+        return null;
+      case WorkoutExecutionStage.exerciseSummary:
+        return WorkoutExerciseSummaryStage(
+          exercise: exercicio,
+          completedSets: _seriesConcluidas[_exercicioAtual]?.length ?? 0,
+          onContinue: _iniciarDescansoEntreExercicios,
+          onClose: _confirmarEncerrarTreino,
+        );
+      case WorkoutExecutionStage.interExerciseRest:
+        final nextIndex = _exercicioAtual + 1;
+        if (nextIndex >= _totalExercicios) return null;
+        final total = _descansoTotal <= 0 ? 1 : _descansoTotal;
+        final progress = ((_descansoTotal - _descansoRestante) / total).clamp(
+          0.0,
+          1.0,
+        );
+        return WorkoutInterExerciseRestStage(
+          nextExercise: _exercicios[nextIndex],
+          remainingLabel: _tempoCurto(_descansoRestante),
+          progress: progress,
+          paused: _descansoPausado,
+          onTogglePause: _alternarPausaDescanso,
+          onSkip: _pularDescanso,
+          onAddTime: () => _ajustarDescanso(15),
+          onClose: _confirmarEncerrarTreino,
+        );
+      case WorkoutExecutionStage.nextExercise:
+        final nextIndex = _exercicioAtual + 1;
+        if (nextIndex >= _totalExercicios) return null;
+        return WorkoutNextExerciseStage(
+          exercise: _exercicios[nextIndex],
+          onStart: _iniciarProximoExercicio,
+          onClose: _confirmarEncerrarTreino,
+        );
+      case WorkoutExecutionStage.paused:
+        return WorkoutPausedStage(
+          workoutName: widget.treino.nome,
+          elapsedLabel: _tempoCompletoFormatado,
+          onResume: _retomarTreino,
+          onSettings: _abrirMenuEdicaoTreino,
+          onSwapExercise: _trocarExercicioAtual,
+          onEnd: _confirmarEncerrarTreino,
+          onDiscard: _confirmarDescartarTreino,
+        );
+    }
+  }
+
+  String _tempoCurto(int seconds) {
+    final minutes = (seconds ~/ 60).toString().padLeft(2, '0');
+    final remainder = (seconds % 60).toString().padLeft(2, '0');
+    return '$minutes:$remainder';
+  }
+
   @override
   Widget build(BuildContext context) {
     final exercicio = _exercicio;
     if (exercicio == null) return _buildLegacy(context);
 
+    final stagePage = _buildStagePage(exercicio);
+    if (stagePage != null) return _protegerSaida(stagePage);
+
     final concluidas = _seriesConcluidas[_exercicioAtual]?.length ?? 0;
     final historicoAtual = _historico[_exercicioAtual] ?? const [];
-    final historicoSessao = _historico.values
-        .expand<_HistoricoSerieLocal>((entries) => entries)
-        .toList();
-    final exerciciosConcluidos = _exerciciosConcluidosTotal();
     final progresso = _progressoSessao();
     final seriesState = _seriesConcluidas[_exercicioAtual] ?? const <int>{};
     final historyByNumber = {
@@ -1111,11 +1308,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
       );
     });
 
-    void openHistory() => _abrirPerformanceSheet(
-      entries: historicoAtual,
-      sessionEntries: historicoSessao,
-      exerciciosConcluidos: exerciciosConcluidos,
-    );
+    void openHistory() => _abrirHistoricoSeriesSheet(historicoAtual);
 
     final quickActions = <WorkoutQuickAction>[
       WorkoutQuickAction(
@@ -1146,14 +1339,8 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
       ),
     ];
 
-    return PopScope<void>(
-      canPop: _permitirSair,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && !_permitirSair) {
-          _confirmarEncerrarTreino();
-        }
-      },
-      child: OfficialWorkoutSession(
+    return _protegerSaida(
+      OfficialWorkoutSession(
         title: _grupoDia,
         elapsedTime: _tempoCompletoFormatado,
         exercise: exercicio,
@@ -1165,6 +1352,8 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
         weightController: _pesoController,
         restSeconds: _emDescanso ? _descansoRestante : _descansoPadrao,
         isResting: _emDescanso,
+        restTotalSeconds: _descansoTotal,
+        restPaused: _descansoPausado,
         progress: progresso,
         history: setHistory,
         quickActions: quickActions,
@@ -1173,6 +1362,9 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
         onViewExecution: _abrirExecucaoSheet,
         onCompleteSet: _registrarSerie,
         onRestTap: _emDescanso ? _pularDescanso : _iniciarDescanso,
+        onRestTogglePause: _alternarPausaDescanso,
+        onRestSkip: _pularDescanso,
+        onRestAddTime: () => _ajustarDescanso(15),
         onViewAllHistory: openHistory,
         onChanged: (_) => setState(() {}),
         onPrevious: _exercicioAtual == 0 ? null : _exercicioAnterior,
@@ -1298,14 +1490,42 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     );
   }
 
+  void _abrirPerformanceAtual() {
+    final entries =
+        _historico[_exercicioAtual] ?? const <_HistoricoSerieLocal>[];
+    final sessionEntries = _historico.values
+        .expand<_HistoricoSerieLocal>((values) => values)
+        .toList(growable: false);
+    _abrirPerformanceSheet(
+      entries: entries,
+      sessionEntries: sessionEntries,
+      exerciciosConcluidos: _exerciciosConcluidosTotal(),
+    );
+  }
+
   void _abrirMaisOpcoesRapidas() {
     WorkoutMoreOptionsSheet.show(
       context: context,
       actions: [
         WorkoutQuickAction(
+          label: 'Pausar',
+          icon: Icons.pause_circle_outline_rounded,
+          onTap: _pausarTreino,
+        ),
+        WorkoutQuickAction(
           label: 'Progressão',
           icon: Icons.trending_up_rounded,
           onTap: _abrirProgressaoSheet,
+        ),
+        WorkoutQuickAction(
+          label: 'Performance',
+          icon: Icons.query_stats_rounded,
+          onTap: _abrirPerformanceAtual,
+        ),
+        WorkoutQuickAction(
+          label: 'XP',
+          icon: Icons.bolt_rounded,
+          onTap: _abrirXpSheet,
         ),
         WorkoutQuickAction(
           label: 'Notas',
@@ -1316,6 +1536,11 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
           label: 'Músculos',
           icon: Icons.accessibility_new_rounded,
           onTap: _abrirMusculosSheet,
+        ),
+        WorkoutQuickAction(
+          label: 'Biblioteca',
+          icon: Icons.menu_book_outlined,
+          onTap: _abrirExecucaoSheet,
         ),
       ],
       onEndWorkout: () {

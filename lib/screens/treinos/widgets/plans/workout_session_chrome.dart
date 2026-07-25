@@ -321,18 +321,27 @@ class _WorkoutMoreOptionsContent extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          children: [
-            for (var index = 0; index < actions.length; index++) ...[
-              if (index > 0) const SizedBox(width: FitSpacing.s8),
-              Expanded(
-                child: _MoreOptionsActionTile(
-                  action: actions[index],
-                  onTap: () => _openAction(context, actions[index]),
-                ),
-              ),
-            ],
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            const columns = 4;
+            final width =
+                (constraints.maxWidth - (FitSpacing.s8 * (columns - 1))) /
+                columns;
+            return Wrap(
+              spacing: FitSpacing.s8,
+              runSpacing: FitSpacing.s8,
+              children: [
+                for (final action in actions)
+                  SizedBox(
+                    width: width,
+                    child: _MoreOptionsActionTile(
+                      action: action,
+                      onTap: () => _openAction(context, action),
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
         const Divider(height: FitSpacing.s16, color: FitColors.outlineSoft),
         SizedBox(

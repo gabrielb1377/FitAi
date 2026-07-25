@@ -5,8 +5,8 @@ import '../../../../models/exercicio_model.dart';
 import '../../../../models/treino_model.dart';
 import '../../../../screens/treinos/controllers/plan_day_data.dart';
 import '../../../../screens/treinos/controllers/plan_progress_snapshot.dart';
-import '../../../../screens/treinos/workout_day_page.dart';
 import '../../../../services/treino_service.dart';
+import '../../workout_execution/pages/workout_preview_page.dart';
 import '../widgets/planos_official_primitives.dart';
 
 /// PLAN-013. Detalhes do plano salvo localmente.
@@ -462,7 +462,7 @@ class PlanosWorkoutDetailPage extends StatelessWidget {
     );
     Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder: (_) => WorkoutDayPage(plan: plan, day: data),
+        builder: (_) => WorkoutPreviewPage(plan: plan, day: data),
       ),
     );
   }
