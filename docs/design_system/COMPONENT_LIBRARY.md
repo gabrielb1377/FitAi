@@ -14,7 +14,7 @@ providers, services, repositories, rotas globais ou contratos de API.
 O import recomendado continua único:
 
 ```dart
-import 'package:fitai/design_system/fit_design_system.dart';
+import 'package:fitai/design_system/design_system.dart';
 ```
 
 Imports modulares também estão disponíveis para consumidores muito isolados:
@@ -28,7 +28,8 @@ import 'package:fitai/core/design_system/components/buttons/buttons.dart';
 ```text
 lib/
 |- design_system/
-|  |- fit_design_system.dart
+|  |- design_system.dart          # API publica oficial
+|  |- fit_design_system.dart      # compatibilidade
 |  |- components/             # implementações maduras preservadas
 |  |- theme/
 |  `- tokens/

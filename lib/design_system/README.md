@@ -1,66 +1,93 @@
 # FitIA Design System Flutter
 
-Esta pasta contém o mapeamento Flutter das foundations do FitIA Design System
-3.0. A fonte de decisão continua em `D:\FitIA\designs\design-system`; o código
-daqui oferece tokens, tema e APIs reutilizáveis sem incorporar regras de
-negócio.
+## Sistema oficial
+
+`lib/design_system` e a base oficial do Design System Flutter do FitIA. Ela
+centraliza tokens, tema, extensoes, animacoes e a API publica de componentes.
+`lib/core/design_system` nao e um segundo tema: ele e uma extensao modular
+temporariamente mantida e exposta pela mesma API publica.
+
+Use somente este import em codigo novo:
+
+```dart
+import 'package:fitai/design_system/design_system.dart';
+```
+
+`fit_design_system.dart` continua disponivel apenas para compatibilidade com
+imports existentes. Nao e necessario migrar telas nesta sprint.
 
 ## Estrutura
 
-- `tokens/`: cores, tipografia, números, spacing, radius, layout, estados,
-  elevação, sombras, opacidade, motion, gradientes, ícones e breakpoints.
-- `theme/`: `FitTheme` e `ThemeExtension`s para cores de domínio e gradientes.
-- `extensions/`: atalhos seguros de `BuildContext` para tema e viewport.
-- `components/`: widgets `Fit*` existentes; não foram redesenhados no M02.
-- `animations/`: helpers existentes que consomem tokens de motion.
-- `catalog/`: demonstração compilável sem rota de produção.
-
-## Ponto de entrada
-
-```dart
-import 'package:fitai/design_system/fit_design_system.dart';
+```text
+lib/
+|- design_system/
+|  |- design_system.dart          # API publica oficial
+|  |- fit_design_system.dart      # compatibilidade de imports antigos
+|  |- tokens/                     # APIs Fit* de fundamentos
+|  |- theme/                      # FitTheme e extensoes
+|  |- components/                 # componentes Fit existentes
+|  |- extensions/
+|  |- animations/
+|  `- catalog/
+`- core/design_system/
+   `- components/                 # extensoes modulares exportadas pelo barrel
 ```
 
-O barrel exporta somente as APIs públicas do Design System. Componentes devem
-consumir nomes semânticos como `FitColors.primary`,
-`FitSpacing.sectionGap`, `FitRadius.card`, `FitTypography.heading` e
-`FitDuration.feedback`.
+## Tokens e tema
 
-Quando houver contexto:
+As APIs oficiais sao `FitColors`, `FitTypography`, `FitSpacing`, `FitRadius`,
+`FitDuration`, `FitElevation`, `FitOpacity`, `FitBreakpoints`, `FitLayout`,
+`FitShadows`, `FitGradients`, `FitIcons` e `FitStates`.
 
-```dart
-final colors = context.colors;
-final domainColors = context.fitColors;
-final gradients = context.fitGradients;
-final textTheme = context.fitText;
-```
+`FitTheme.dark()` e o tema oficial. `AppTheme.dark` continua delegando para
+ele, preservando as telas e testes legados. Os tokens em
+`D:\FitIA\designs\design-tokens` sao a fonte documental de Design; qualquer
+ajuste de valor que mude a interface exige sprint visual, comparacao de
+screenshots e aprovacao, portanto nao e feito por este barrel.
 
-## Tema global
+## Componentes publicos
 
-`FitTheme.dark()` é o tema oficial. `AppTheme.dark` aponta para essa mesma
-factory para manter os imports existentes. `AppTheme.legacyDark` preserva
-temporariamente a configuração estrutural anterior para migração. Como ela
-consome aliases atuais, não representa um snapshot visual bit a bit.
+O barrel oficial expoe os componentes fundamentais e suas variantes:
 
-Um tema claro não foi inferido. A factory permite adicioná-lo futuramente
-quando houver paleta e especificação oficiais.
+- botoes, `FitIconButton` e `FitFAB`;
+- cards, chips, badges, progresso e metricas;
+- headers, busca, inputs, navegacao inferior e containers de dialog/sheet;
+- loading, vazio, erro, offline, sucesso, warning e snackbar;
+- componentes de dominio ja publicados pela Component Library.
 
-## Maturidade
+Componentes recebem dados e callbacks. Eles nao acessam services, providers,
+storage, rotas globais ou logica de negocio.
 
-- neutros, papéis cromáticos, estados e escala tipográfica são sustentados
-  pelo DS3;
-- valores cromáticos de domínio permanecem provisórios;
-- spacing, radius, grid, elevation, opacidade e motion reutilizam valores
-  anteriores como candidatos provisórios;
-- gradientes possuem papéis confirmados, porém stops e alpha continuam
-  provisórios;
-- nenhuma tela foi migrada em massa neste marco.
+## Compatibilidade legada
 
-## Compatibilidade
+`AppTheme`, `AppColors`, `AppRadii`, `AppSpacing`, `AppMotion` e os widgets
+`App*` classificados como `LEGACY_IN_USE` permanecem ativos. Eles nao devem ser
+removidos, marcados como deprecated ou migrados por busca global.
 
-`AppColors`, `AppRadii`, `AppSpacing`, `AppMotion`, `AppTheme` e widgets
-legados continuam disponíveis. Novos arquivos devem usar as APIs `Fit*`.
+O mapeamento detalhado esta em [MIGRATION_MAP.md](MIGRATION_MAP.md). Antes de
+migrar um consumidor, confirme a equivalencia de parametros, estados, Semantics,
+responsividade, offline e referencia visual.
 
-O mapeamento completo está em
-`docs/design_system/FLUTTER_MAPPING.md`; divergências e aliases temporários
-estão em `docs/design_system/MIGRATION_NOTES.md`.
+## Regras para novos componentes
+
+1. Verificar se a necessidade ja e atendida por uma API Fit publica.
+2. Usar tokens e `ThemeData`, sem valores visuais literais.
+3. Manter a API controlada por parametros e callbacks nomeados.
+4. Incluir Semantics, tooltip para acoes apenas com icone e asserts quando
+   houver combinacoes invalidas.
+5. Exportar pelo barrel adequado, documentar e testar antes de reutilizar.
+6. Nao criar componente de dominio generico sem padrao repetido em artes
+   oficiais.
+
+## Migracao incremental
+
+1. Escolher um modulo ou fluxo pequeno.
+2. Mapear a API `App*` para a variante `Fit*` correta.
+3. Preservar callbacks, dados e estado real.
+4. Executar testes e comparar a tela com a arte oficial.
+5. Somente entao remover o consumo legado daquele ponto.
+
+O estado completo da consolidacao e registrado em
+`D:\FitIA\docs\UI_ARCHITECTURE_AUDIT.md`,
+`D:\FitIA\docs\DUPLICATE_COMPONENTS_MAP.md` e
+`D:\FitIA\docs\VISUAL_CONSOLIDATION_PLAN.md`.
