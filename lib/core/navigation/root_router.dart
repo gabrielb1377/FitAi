@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../features/auth/presentation/pages/auth_splash_page.dart';
@@ -7,6 +8,7 @@ import '../../features/auth/presentation/pages/onboarding_page.dart';
 import '../../features/auth/presentation/pages/password_recovery_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
 import '../../screens/dashboard_page.dart';
+import '../../features/workout_vertical_slice/presentation/workout_vertical_slice_page.dart';
 import 'app_routes.dart';
 
 /// Roteador nomeado do nível raiz, fora das pilhas internas do shell.
@@ -19,6 +21,8 @@ abstract final class RootRouter {
       AppRoutes.register => (_) => const RegisterPage(),
       AppRoutes.passwordRecovery => (_) => const PasswordRecoveryPage(),
       AppRoutes.permissions => (_) => const InitialPermissionsPage(),
+      AppRoutes.debugWorkoutVerticalSlice when kDebugMode =>
+        (_) => const WorkoutVerticalSlicePage(),
       AppRoutes.appShell => (_) => DashboardPage(
         initialDeepLink: switch (settings.arguments) {
           final Uri uri => uri,

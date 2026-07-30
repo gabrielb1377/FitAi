@@ -10,4 +10,7 @@ abstract final class AppRoutes {
   static const passwordRecovery = '/auth/password-recovery';
   static const permissions = '/auth/permissions';
   static const appShell = '/app';
+
+  /// Rota de prova tecnica, protegida por `kDebugMode` no [RootRouter].
+  static const debugWorkoutVerticalSlice = '/debug/offline-workout-slice';
 }

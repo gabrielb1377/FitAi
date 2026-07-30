@@ -3,13 +3,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../core/config/dev_data.dart';
+import '../core/config/dev_config.dart';
 import '../core/config/dev_fixtures.dart';
+import '../design_system/design_system.dart';
 import '../core/widgets/dev_mode_banner.dart';
 import '../services/running_session_service.dart';
 import '../services/steps_service.dart';
 import '../services/storage_service.dart';
 import 'app_router.dart';
 import 'navigation/app_section.dart';
+import 'navigation/app_routes.dart';
 import 'navigation/main_scaffold.dart';
 import 'navigation/navigation_controller.dart';
 import 'navigation/section_router.dart';
@@ -188,11 +191,33 @@ class _AppShellState extends State<AppShell> {
     );
     final sectionRouters = AppRouter.buildSectionRouters(routeState);
 
+    final shell = MainScaffold(
+      navigationController: _navigationController,
+      sectionRouters: sectionRouters,
+    );
     return DevModeBanner(
-      child: MainScaffold(
-        navigationController: _navigationController,
-        sectionRouters: sectionRouters,
-      ),
+      child: DevConfig.enabled
+          ? Stack(
+              children: [
+                shell,
+                Positioned(
+                  right: FitSpacing.s16,
+                  bottom: FitSpacing.s64 + FitSpacing.s24,
+                  child: SafeArea(
+                    child: FitIconButton(
+                      icon: FitIcons.storage,
+                      tooltip: 'Offline Workout Vertical Slice',
+                      variant: FitIconButtonVariant.subtle,
+                      onPressed: () => Navigator.of(
+                        context,
+                        rootNavigator: true,
+                      ).pushNamed(AppRoutes.debugWorkoutVerticalSlice),
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : shell,
     );
   }
 }
