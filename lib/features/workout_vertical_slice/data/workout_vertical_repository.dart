@@ -107,6 +107,7 @@ class WorkoutVerticalRepository {
       restEndsAt: now.add(restDuration),
       updatedAt: now,
       syncStatus: WorkoutSyncStatus.pending,
+      version: session.version + 1,
     );
     await _persist(
       snapshot.copyWith(
@@ -145,6 +146,7 @@ class WorkoutVerticalRepository {
       clearRestEndsAt: true,
       updatedAt: now,
       syncStatus: WorkoutSyncStatus.pending,
+      version: current.version + 1,
     );
     sessions[index] = completed;
     final idempotencyKey = 'workout_session_finished:${completed.id}';
@@ -170,12 +172,23 @@ class WorkoutVerticalRepository {
     if (index < 0) return;
     final now = _clock();
     final sessions = [...snapshot.sessions];
-    sessions[index] = sessions[index].copyWith(
+    final discarded = sessions[index].copyWith(
       status: WorkoutSessionStatus.discarded,
       clearRestEndsAt: true,
       updatedAt: now,
+      syncStatus: WorkoutSyncStatus.pending,
+      version: sessions[index].version + 1,
     );
-    await _persist(snapshot.copyWith(sessions: sessions));
+    sessions[index] = discarded;
+    await _persist(
+      snapshot.copyWith(
+        sessions: sessions,
+        outbox: [
+          ...snapshot.outbox,
+          _sessionEvent(discarded, 'workout_session_discarded', now),
+        ],
+      ),
+    );
   });
 
   Future<void> retryNow() => _serial(() async {
@@ -185,7 +198,7 @@ class WorkoutVerticalRepository {
       snapshot.copyWith(
         outbox: [
           for (final event in snapshot.outbox)
-            if (event.status != OutboxEventStatus.confirmed)
+            if (event.status == OutboxEventStatus.pending)
               event.copyWith(
                 status: OutboxEventStatus.pending,
                 nextAttemptAt: now,
@@ -198,12 +211,33 @@ class WorkoutVerticalRepository {
     );
   });
 
+  /// Uma interrupcao durante envio nunca perde o evento: o envio pendente
+  /// volta a ser elegivel quando o processo inicia novamente.
+  Future<void> recoverInterruptedSync() => _serial(() async {
+    final snapshot = await load();
+    if (!snapshot.outbox.any(
+      (event) => event.status == OutboxEventStatus.sending,
+    )) {
+      return;
+    }
+    await _persist(
+      snapshot.copyWith(
+        outbox: [
+          for (final event in snapshot.outbox)
+            if (event.status == OutboxEventStatus.sending)
+              event.copyWith(status: OutboxEventStatus.pending)
+            else
+              event,
+        ],
+      ),
+    );
+  });
+
   Future<void> flushOutbox() => _serial(() async {
     var snapshot = await load();
     final dueEvents = snapshot.outbox.where(
       (event) =>
-          event.status != OutboxEventStatus.confirmed &&
-          event.status != OutboxEventStatus.conflict &&
+          event.status == OutboxEventStatus.pending &&
           !event.nextAttemptAt.isAfter(_clock()),
     );
     for (final dueEvent in dueEvents) {
@@ -214,17 +248,43 @@ class WorkoutVerticalRepository {
       await _persist(snapshot);
       try {
         final result = await transport.dispatch(dueEvent);
-        final event = result.conflict
-            ? dueEvent.copyWith(
+        switch (result.status) {
+          case SyncDispatchStatus.confirmed:
+          case SyncDispatchStatus.alreadyProcessed:
+            snapshot = _removeEvent(snapshot, dueEvent.id);
+            break;
+          case SyncDispatchStatus.conflict:
+            snapshot = _replaceEvent(
+              snapshot,
+              dueEvent.copyWith(
                 status: OutboxEventStatus.conflict,
-                lastError: 'Conflito remoto.',
-              )
-            : dueEvent.copyWith(
-                status: OutboxEventStatus.confirmed,
-                clearLastError: true,
-              );
-        snapshot = _replaceEvent(snapshot, event);
+                lastError: result.message ?? 'Conflito remoto.',
+              ),
+            );
+            break;
+          case SyncDispatchStatus.rejected:
+            snapshot = _replaceEvent(
+              snapshot,
+              dueEvent.copyWith(
+                status: OutboxEventStatus.rejected,
+                lastError: result.message ?? 'Evento rejeitado pelo servidor.',
+              ),
+            );
+            break;
+        }
       } catch (error) {
+        if (error is WorkoutSyncTransportException && !error.retryable) {
+          snapshot = _replaceEvent(
+            snapshot,
+            dueEvent.copyWith(
+              status: OutboxEventStatus.rejected,
+              lastError: error.message,
+            ),
+          );
+          snapshot = _applySyncStates(snapshot);
+          await _persist(snapshot);
+          continue;
+        }
         final attempts = dueEvent.attempts + 1;
         snapshot = _replaceEvent(
           snapshot,
@@ -255,6 +315,7 @@ class WorkoutVerticalRepository {
       status: status,
       updatedAt: now,
       syncStatus: WorkoutSyncStatus.pending,
+      version: sessions[index].version + 1,
     );
     sessions[index] = updated;
     await _persist(
@@ -295,6 +356,7 @@ class WorkoutVerticalRepository {
     nextAttemptAt: now,
     status: OutboxEventStatus.pending,
     idempotencyKey: '$type:${session.id}',
+    version: session.version,
   );
 
   OutboxEventLocal _setEvent(
@@ -312,6 +374,7 @@ class WorkoutVerticalRepository {
     nextAttemptAt: now,
     status: OutboxEventStatus.pending,
     idempotencyKey: 'workout_set_completed:${set.id}',
+    version: set.version,
   );
 
   WorkoutSliceSnapshot _replaceEvent(
@@ -324,6 +387,13 @@ class WorkoutVerticalRepository {
     ],
   );
 
+  WorkoutSliceSnapshot _removeEvent(
+    WorkoutSliceSnapshot snapshot,
+    String eventId,
+  ) => snapshot.copyWith(
+    outbox: snapshot.outbox.where((event) => event.id != eventId).toList(),
+  );
+
   WorkoutSliceSnapshot _applySyncStates(WorkoutSliceSnapshot snapshot) {
     WorkoutSyncStatus resolve(String sessionId) {
       final events = snapshot.outbox.where(
@@ -331,6 +401,9 @@ class WorkoutVerticalRepository {
       );
       if (events.any((event) => event.status == OutboxEventStatus.conflict)) {
         return WorkoutSyncStatus.conflict;
+      }
+      if (events.any((event) => event.status == OutboxEventStatus.rejected)) {
+        return WorkoutSyncStatus.rejected;
       }
       if (events.any((event) => event.status == OutboxEventStatus.sending)) {
         return WorkoutSyncStatus.syncing;

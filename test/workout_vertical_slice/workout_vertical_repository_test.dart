@@ -134,16 +134,92 @@ void main() {
       await repository.retryNow();
       await repository.flushOutbox();
       pending = await repository.load();
-      final confirmed = pending.outbox.firstWhere(
-        (event) => event.id == setEvent.id,
-      );
-      expect(confirmed.status, OutboxEventStatus.confirmed);
+      expect(pending.outbox.any((event) => event.id == setEvent.id), isFalse);
       expect(
         transport.receivedIdempotencyKeys.where(
           (key) => key == setEvent.idempotencyKey,
         ),
         hasLength(1),
       );
+    });
+
+    test('remove ACK idempotente e preserva conflitos e rejeicoes', () async {
+      final session = await repository.startOrRecoverExample();
+      await repository.registerSet(
+        sessionId: session.id,
+        exerciseId: 'bench-press-example',
+        setIndex: 0,
+        weight: 55,
+        reps: 10,
+      );
+
+      repository = WorkoutVerticalRepository(
+        localStore: store,
+        transport: _ResultTransport(
+          const SyncDispatchResult.alreadyProcessed(),
+        ),
+        clock: clock.call,
+      );
+      await repository.flushOutbox();
+      expect((await repository.load()).outbox, isEmpty);
+
+      final conflicting = await repository.startOrRecoverExample();
+      repository = WorkoutVerticalRepository(
+        localStore: store,
+        transport: _ResultTransport(
+          const SyncDispatchResult.conflict('Versao remota mais recente.'),
+        ),
+        clock: clock.call,
+      );
+      await repository.pause(conflicting.id);
+      await repository.flushOutbox();
+      var snapshot = await repository.load();
+      expect(
+        snapshot.outbox.any(
+          (event) => event.status == OutboxEventStatus.conflict,
+        ),
+        isTrue,
+      );
+      await repository.retryNow();
+      snapshot = await repository.load();
+      expect(
+        snapshot.outbox.any(
+          (event) => event.status == OutboxEventStatus.conflict,
+        ),
+        isTrue,
+      );
+
+      repository = WorkoutVerticalRepository(
+        localStore: store,
+        transport: _ResultTransport(
+          const SyncDispatchResult.rejected('Payload invalido.'),
+        ),
+        clock: clock.call,
+      );
+      await repository.resume(conflicting.id);
+      await repository.flushOutbox();
+      snapshot = await repository.load();
+      expect(
+        snapshot.outbox.any(
+          (event) => event.status == OutboxEventStatus.rejected,
+        ),
+        isTrue,
+      );
+    });
+
+    test('recupera evento marcado como enviando apos interrupcao', () async {
+      final session = await repository.startOrRecoverExample();
+      final snapshot = await repository.load();
+      final event = snapshot.outbox.single;
+      store.snapshot = snapshot.copyWith(
+        outbox: [event.copyWith(status: OutboxEventStatus.sending)],
+      );
+
+      await repository.recoverInterruptedSync();
+
+      final recovered = await repository.load();
+      expect(recovered.outbox.single.status, OutboxEventStatus.pending);
+      expect(recovered.sessions.single.id, session.id);
     });
 
     test('calcula backoff limitado e transicoes pause resume finish', () async {
@@ -235,4 +311,13 @@ class _TestClock {
   DateTime call() => now;
 
   void advance(Duration duration) => now = now.add(duration);
+}
+
+class _ResultTransport implements WorkoutVerticalSyncTransport {
+  const _ResultTransport(this.result);
+
+  final SyncDispatchResult result;
+
+  @override
+  Future<SyncDispatchResult> dispatch(OutboxEventLocal event) async => result;
 }

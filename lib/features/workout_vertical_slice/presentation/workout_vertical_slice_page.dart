@@ -60,7 +60,7 @@ class _WorkoutVerticalSlicePageState extends State<WorkoutVerticalSlicePage> {
     final controller = WorkoutVerticalSliceController(
       repository: WorkoutVerticalRepository(
         localStore: SharedPreferencesWorkoutVerticalLocalStore(preferences),
-        transport: transport,
+        transport: AdaptiveWorkoutSyncTransport(debugTransport: transport),
       ),
       debugTransport: transport,
     );
@@ -164,6 +164,7 @@ class _WorkoutVerticalSlicePageState extends State<WorkoutVerticalSlicePage> {
                   _SyncBanner(
                     offline: controller.isOffline,
                     pending: controller.hasPendingOutbox,
+                    issue: controller.hasSyncIssue,
                     syncStatus: session?.syncStatus,
                   ),
                   const SizedBox(height: FitSpacing.s16),
@@ -202,11 +203,13 @@ class _SyncBanner extends StatelessWidget {
   const _SyncBanner({
     required this.offline,
     required this.pending,
+    required this.issue,
     this.syncStatus,
   });
 
   final bool offline;
   final bool pending;
+  final bool issue;
   final WorkoutSyncStatus? syncStatus;
 
   @override
@@ -215,6 +218,8 @@ class _SyncBanner extends StatelessWidget {
         ? 'Offline: tudo continua salvo neste dispositivo.'
         : pending
         ? 'Sincronizacao pendente.'
+        : issue
+        ? 'Sincronizacao requer revisao.'
         : syncStatus == WorkoutSyncStatus.synced
         ? 'Sincronizado.'
         : 'Pronto para iniciar um treino local.';
@@ -222,16 +227,22 @@ class _SyncBanner extends StatelessWidget {
         ? FitIcons.offline
         : pending
         ? FitIcons.backup
+        : issue
+        ? FitIcons.warning
         : FitIcons.success;
     return Semantics(
       liveRegion: true,
       label: message,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: offline ? FitColors.cardInner : FitColors.primaryContainer,
+          color: offline || issue
+              ? FitColors.cardInner
+              : FitColors.primaryContainer,
           borderRadius: FitRadius.mediumBorder,
           border: Border.all(
-            color: offline ? FitColors.borderSubtle : FitColors.primaryMuted,
+            color: offline || issue
+                ? FitColors.borderSubtle
+                : FitColors.primaryMuted,
           ),
         ),
         child: Padding(
@@ -240,7 +251,9 @@ class _SyncBanner extends StatelessWidget {
             children: [
               Icon(
                 icon,
-                color: offline ? FitColors.textSecondary : FitColors.primary,
+                color: offline || issue
+                    ? FitColors.textSecondary
+                    : FitColors.primary,
               ),
               const SizedBox(width: FitSpacing.s8),
               Expanded(child: Text(message)),

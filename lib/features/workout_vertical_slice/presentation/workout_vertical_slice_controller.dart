@@ -26,7 +26,14 @@ class WorkoutVerticalSliceController extends ChangeNotifier {
 
   bool get isOffline => !debugTransport.online;
   bool get hasPendingOutbox => snapshot.outbox.any(
-    (event) => event.status != OutboxEventStatus.confirmed,
+    (event) =>
+        event.status == OutboxEventStatus.pending ||
+        event.status == OutboxEventStatus.sending,
+  );
+  bool get hasSyncIssue => snapshot.outbox.any(
+    (event) =>
+        event.status == OutboxEventStatus.conflict ||
+        event.status == OutboxEventStatus.rejected,
   );
   WorkoutSessionLocal? get activeSession {
     for (final session in snapshot.sessions.reversed) {
@@ -48,6 +55,7 @@ class WorkoutVerticalSliceController extends ChangeNotifier {
     isLoading = true;
     notifyListeners();
     try {
+      await repository.recoverInterruptedSync();
       snapshot = await repository.load();
       needsRecoveryPrompt = activeSession != null;
       errorMessage = null;

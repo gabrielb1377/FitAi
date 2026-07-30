@@ -4,10 +4,18 @@ import 'dart:math' as math;
 enum WorkoutSessionStatus { active, paused, completed, discarded }
 
 /// Estado de envio de uma entidade ou evento local.
-enum WorkoutSyncStatus { local, pending, syncing, synced, failed, conflict }
+enum WorkoutSyncStatus {
+  local,
+  pending,
+  syncing,
+  synced,
+  failed,
+  conflict,
+  rejected,
+}
 
 /// Estado de uma mensagem na outbox persistente.
-enum OutboxEventStatus { pending, sending, confirmed, conflict }
+enum OutboxEventStatus { pending, sending, confirmed, conflict, rejected }
 
 class WorkoutSessionLocal {
   const WorkoutSessionLocal({
@@ -187,6 +195,7 @@ class OutboxEventLocal {
     required this.nextAttemptAt,
     required this.status,
     required this.idempotencyKey,
+    required this.version,
     this.lastError,
   });
 
@@ -200,6 +209,7 @@ class OutboxEventLocal {
   final DateTime nextAttemptAt;
   final OutboxEventStatus status;
   final String idempotencyKey;
+  final int version;
   final String? lastError;
 
   OutboxEventLocal copyWith({
@@ -208,6 +218,7 @@ class OutboxEventLocal {
     OutboxEventStatus? status,
     String? lastError,
     bool clearLastError = false,
+    int? version,
   }) => OutboxEventLocal(
     id: id,
     aggregateId: aggregateId,
@@ -219,6 +230,7 @@ class OutboxEventLocal {
     nextAttemptAt: nextAttemptAt ?? this.nextAttemptAt,
     status: status ?? this.status,
     idempotencyKey: idempotencyKey,
+    version: version ?? this.version,
     lastError: clearLastError ? null : lastError ?? this.lastError,
   );
 
@@ -233,6 +245,7 @@ class OutboxEventLocal {
     'nextAttemptAt': nextAttemptAt.toIso8601String(),
     'status': status.name,
     'idempotencyKey': idempotencyKey,
+    'version': version,
     'lastError': lastError,
   };
 
@@ -248,6 +261,7 @@ class OutboxEventLocal {
         nextAttemptAt: DateTime.parse(json['nextAttemptAt'] as String),
         status: OutboxEventStatus.values.byName(json['status'] as String),
         idempotencyKey: json['idempotencyKey'] as String,
+        version: json['version'] as int? ?? 1,
         lastError: json['lastError'] as String?,
       );
 }
@@ -322,11 +336,31 @@ class RegisterSetResult {
   final bool duplicate;
 }
 
-class SyncDispatchResult {
-  const SyncDispatchResult.confirmed() : conflict = false;
-  const SyncDispatchResult.conflict() : conflict = true;
+enum SyncDispatchStatus { confirmed, alreadyProcessed, conflict, rejected }
 
-  final bool conflict;
+class SyncDispatchResult {
+  const SyncDispatchResult(this.status, {this.message});
+
+  const SyncDispatchResult.confirmed() : this(SyncDispatchStatus.confirmed);
+  const SyncDispatchResult.alreadyProcessed()
+    : this(SyncDispatchStatus.alreadyProcessed);
+  const SyncDispatchResult.conflict([String? message])
+    : this(SyncDispatchStatus.conflict, message: message);
+  const SyncDispatchResult.rejected([String? message])
+    : this(SyncDispatchStatus.rejected, message: message);
+
+  final SyncDispatchStatus status;
+  final String? message;
+}
+
+class WorkoutSyncTransportException implements Exception {
+  const WorkoutSyncTransportException(this.message, {required this.retryable});
+
+  final String message;
+  final bool retryable;
+
+  @override
+  String toString() => 'WorkoutSyncTransportException: $message';
 }
 
 Duration remainingRest(DateTime? restEndsAt, DateTime now) {
