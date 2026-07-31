@@ -10,7 +10,6 @@ import '../widgets/auth_inline_message.dart';
 import '../widgets/auth_page_scaffold.dart';
 import '../widgets/auth_page_title.dart';
 import '../widgets/auth_terms_consent.dart';
-import 'initial_permissions_page.dart';
 import 'login_page.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -58,7 +57,7 @@ class _RegisterPageState extends State<RegisterPage> {
         password: password,
       );
       if (!mounted) return;
-      AuthNavigation.replaceAll(context, const InitialPermissionsPage());
+      AuthNavigation.replaceWithApp(context);
     } on AuthException catch (error) {
       if (mounted) setState(() => _message = error.message);
     } on Object {

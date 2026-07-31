@@ -29,6 +29,9 @@ abstract final class RootRouter {
           _ => null,
         },
       ),
+      final path when AppRoutes.isCoreJourneyPath(path) => (_) => DashboardPage(
+        initialDeepLink: Uri.parse(path!),
+      ),
       _ => (_) => const AuthSplashPage(),
     };
     return MaterialPageRoute<dynamic>(settings: settings, builder: builder);

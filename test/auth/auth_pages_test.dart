@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:fitai/features/auth/data/auth_service.dart';
 import 'package:fitai/features/auth/presentation/pages/auth_splash_page.dart';
-import 'package:fitai/features/auth/presentation/pages/initial_permissions_page.dart';
 import 'package:fitai/features/auth/presentation/pages/login_page.dart';
 import 'package:fitai/features/auth/presentation/pages/onboarding_page.dart';
 import 'package:fitai/features/auth/presentation/pages/password_recovery_page.dart';
@@ -43,13 +42,28 @@ void main() {
     expect(find.byType(OnboardingPage), findsOneWidget);
   });
 
-  testWidgets('onboarding persiste conclusao e segue para login', (
+  testWidgets('onboarding curto persiste quatro decisoes e segue para login', (
     tester,
   ) async {
     await tester.pumpWidget(_host(const OnboardingPage()));
+    await tester.pumpAndSettle();
 
-    expect(find.text('Seu treino, do seu jeito.'), findsOneWidget);
-    await tester.tap(find.text('Pular'));
+    expect(find.text('Qual e seu objetivo principal?'), findsOneWidget);
+    await tester.tap(find.text('Hipertrofia'));
+    await tester.ensureVisible(find.text('Proximo'));
+    await tester.tap(find.text('Proximo'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Iniciante'));
+    await tester.tap(find.text('3'));
+    await tester.ensureVisible(find.text('Proximo'));
+    await tester.tap(find.text('Proximo'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Academia'));
+    await tester.ensureVisible(find.text('Proximo'));
+    await tester.tap(find.text('Proximo'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Entrar no FitIA'));
+    await tester.tap(find.text('Entrar no FitIA'));
     await tester.pumpAndSettle();
 
     expect(find.byType(LoginPage), findsOneWidget);
@@ -71,18 +85,26 @@ void main() {
     expect(find.text('Informe sua senha.'), findsOneWidget);
   });
 
-  testWidgets('login bem-sucedido abre a etapa de permissoes', (tester) async {
+  testWidgets('login bem-sucedido abre a jornada principal', (tester) async {
     final service = AuthService(
       client: MockClient((_) async => _authResponse()),
     );
-    await tester.pumpWidget(_host(LoginPage(authService: service)));
+    var openedJourney = false;
+    await tester.pumpWidget(
+      _host(
+        LoginPage(
+          authService: service,
+          onAuthenticated: () => openedJourney = true,
+        ),
+      ),
+    );
 
     await tester.enterText(find.byType(TextField).at(0), 'gabriel@fitia.app');
     await tester.enterText(find.byType(TextField).at(1), '123456');
     await tester.tap(find.text('Entrar'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(InitialPermissionsPage), findsOneWidget);
+    expect(openedJourney, isTrue);
   });
 
   testWidgets('cadastro bloqueia senhas divergentes localmente', (

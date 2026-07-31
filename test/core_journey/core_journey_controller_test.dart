@@ -1,0 +1,160 @@
+import 'package:fitai/core/config/dev_fixtures.dart';
+import 'package:fitai/features/core_journey/presentation/core_journey_controller.dart';
+import 'package:fitai/features/workout_vertical_slice/data/workout_vertical_local_store.dart';
+import 'package:fitai/features/workout_vertical_slice/data/workout_vertical_repository.dart';
+import 'package:fitai/features/workout_vertical_slice/data/workout_vertical_sync_transport.dart';
+import 'package:fitai/features/workout_vertical_slice/domain/workout_vertical_models.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  group('CoreJourneyController', () {
+    late CoreJourneyIdentity currentIdentity;
+    late _ScopedMemoryStore stores;
+    late CoreJourneyController controller;
+
+    setUp(() {
+      currentIdentity = const CoreJourneyIdentity(
+        userId: 'user-a',
+        name: 'Ana',
+        isAuthenticated: true,
+      );
+      stores = _ScopedMemoryStore();
+      controller = _createController(
+        identity: () async => currentIdentity,
+        stores: stores,
+      );
+    });
+
+    tearDown(() => controller.dispose());
+
+    test('inicia uma sessao com planId e workoutId do plano ativo', () async {
+      await controller.initialize();
+
+      final session = await controller.startPlan(DevFixtures.workouts.single);
+
+      expect(session, isNotNull);
+      expect(session!.planId, DevFixtures.workouts.single.id);
+      expect(session.workoutId, isNotEmpty);
+      expect(controller.activeSession?.id, session.id);
+    });
+
+    test('nao cria duas sessoes ativas conflitantes', () async {
+      await controller.initialize();
+
+      final first = await controller.startPlan(DevFixtures.workouts.single);
+      final second = await controller.startPlan(DevFixtures.workouts.single);
+
+      expect(second?.id, first?.id);
+      expect(
+        controller.snapshot.sessions.where((item) => item.isOpen),
+        hasLength(1),
+      );
+    });
+
+    test('finalizacao local gera um unico resumo e historico', () async {
+      await controller.initialize();
+      final plan = DevFixtures.workouts.single;
+      final session = await controller.startPlan(plan);
+      final exercise = plan.exercicios.first;
+
+      await controller.registerSet(
+        sessionId: session!.id,
+        exercise: exercise,
+        weight: 55,
+        reps: 10,
+      );
+      await controller.finishWorkout(session.id);
+      await controller.finishWorkout(session.id);
+
+      expect(controller.activeSession, isNull);
+      expect(controller.completedSessions, hasLength(1));
+      expect(controller.setsFor(session.id), hasLength(1));
+      expect(controller.volumeFor(session.id), 550);
+    });
+
+    test('troca de usuario nao mistura sessao nem outbox local', () async {
+      controller.dispose();
+      controller = _createController(
+        identity: () async => currentIdentity,
+        stores: stores,
+        transport: const _OfflineTransport(),
+      );
+      await controller.initialize();
+      final session = await controller.startPlan(DevFixtures.workouts.single);
+      await controller.registerSet(
+        sessionId: session!.id,
+        exercise: DevFixtures.workouts.single.exercicios.first,
+        weight: 45,
+        reps: 12,
+      );
+      expect(controller.snapshot.outbox, isNotEmpty);
+
+      currentIdentity = const CoreJourneyIdentity(
+        userId: 'user-b',
+        name: 'Bruno',
+        isAuthenticated: true,
+      );
+      await controller.refreshIdentity();
+      expect(controller.snapshot.sessions, isEmpty);
+      expect(controller.snapshot.sets, isEmpty);
+      expect(controller.snapshot.outbox, isEmpty);
+
+      currentIdentity = const CoreJourneyIdentity(
+        userId: 'user-a',
+        name: 'Ana',
+        isAuthenticated: true,
+      );
+      await controller.refreshIdentity();
+      expect(controller.activeSession?.id, session.id);
+      expect(controller.setsFor(session.id), hasLength(1));
+      expect(controller.snapshot.outbox, isNotEmpty);
+    });
+  });
+}
+
+CoreJourneyController _createController({
+  required CoreJourneyIdentityResolver identity,
+  required _ScopedMemoryStore stores,
+  WorkoutVerticalSyncTransport? transport,
+}) => CoreJourneyController(
+  identityResolver: identity,
+  planLoader: () async => DevFixtures.workouts,
+  repositoryFactory: (scope) async => WorkoutVerticalRepository(
+    localStore: stores.forScope(scope),
+    transport: transport ?? DebugWorkoutSyncTransport(),
+  ),
+);
+
+class _ScopedMemoryStore {
+  final Map<String, WorkoutSliceSnapshot> _snapshots = {};
+
+  WorkoutVerticalLocalStore forScope(String scope) => _MemoryStore(
+    readSnapshot: () => _snapshots[scope] ?? const WorkoutSliceSnapshot.empty(),
+    saveSnapshot: (snapshot) => _snapshots[scope] = snapshot,
+  );
+}
+
+class _MemoryStore implements WorkoutVerticalLocalStore {
+  _MemoryStore({required this.readSnapshot, required this.saveSnapshot});
+
+  final WorkoutSliceSnapshot Function() readSnapshot;
+  final void Function(WorkoutSliceSnapshot snapshot) saveSnapshot;
+
+  @override
+  Future<WorkoutSliceSnapshot> read() async => readSnapshot();
+
+  @override
+  Future<void> write(WorkoutSliceSnapshot snapshot) async =>
+      saveSnapshot(snapshot);
+}
+
+class _OfflineTransport implements WorkoutVerticalSyncTransport {
+  const _OfflineTransport();
+
+  @override
+  Future<SyncDispatchResult> dispatch(OutboxEventLocal event) =>
+      throw const WorkoutSyncTransportException(
+        'Sem conexao.',
+        retryable: true,
+      );
+}

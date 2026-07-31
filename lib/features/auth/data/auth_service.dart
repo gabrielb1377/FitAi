@@ -68,6 +68,57 @@ class AuthSession {
   static String _text(Object? value) => value?.toString().trim() ?? '';
 }
 
+/// Respostas essenciais do onboarding curto. Dados clinicos, integracoes e
+/// preferencias que nao afetam o primeiro treino ficam fora deste contrato.
+class OnboardingDraft {
+  const OnboardingDraft({
+    this.objective,
+    this.experience,
+    this.frequency,
+    this.location,
+    this.equipment = const [],
+  });
+
+  final String? objective;
+  final String? experience;
+  final int? frequency;
+  final String? location;
+  final List<String> equipment;
+
+  OnboardingDraft copyWith({
+    String? objective,
+    String? experience,
+    int? frequency,
+    String? location,
+    List<String>? equipment,
+  }) => OnboardingDraft(
+    objective: objective ?? this.objective,
+    experience: experience ?? this.experience,
+    frequency: frequency ?? this.frequency,
+    location: location ?? this.location,
+    equipment: equipment ?? this.equipment,
+  );
+
+  Map<String, Object?> toJson() => {
+    'objective': objective,
+    'experience': experience,
+    'frequency': frequency,
+    'location': location,
+    'equipment': equipment,
+  };
+
+  factory OnboardingDraft.fromJson(Map<String, dynamic> json) =>
+      OnboardingDraft(
+        objective: json['objective'] as String?,
+        experience: json['experience'] as String?,
+        frequency: json['frequency'] as int?,
+        location: json['location'] as String?,
+        equipment: (json['equipment'] as List<dynamic>? ?? const [])
+            .map((item) => item.toString())
+            .toList(growable: false),
+      );
+}
+
 /// Cliente de autenticacao que preserva sessao local e usa os contratos atuais
 /// do backend. Senhas e tokens nunca sao registrados em logs.
 class AuthService {
@@ -78,6 +129,7 @@ class AuthService {
 
   static const _sessionKey = 'fitai.auth.session.v1';
   static const _onboardingKey = 'fitai.auth.onboarding.completed.v1';
+  static const _onboardingDraftKey = 'fitai.auth.onboarding.draft.v2';
 
   final http.Client _client;
   final bool _bypassLogin;
@@ -98,8 +150,31 @@ class AuthService {
     return prefs.getBool(_onboardingKey) ?? false;
   }
 
-  Future<void> completeOnboarding() async {
+  Future<OnboardingDraft> loadOnboardingDraft() async {
     final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_onboardingDraftKey);
+    if (raw == null || raw.isEmpty) return const OnboardingDraft();
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map) {
+        return OnboardingDraft.fromJson(Map<String, dynamic>.from(decoded));
+      }
+    } on FormatException {
+      _debugLog('Rascunho de onboarding invalido; sera recriado.');
+    }
+    return const OnboardingDraft();
+  }
+
+  Future<void> saveOnboardingDraft(OnboardingDraft draft) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_onboardingDraftKey, jsonEncode(draft.toJson()));
+  }
+
+  Future<void> completeOnboarding([OnboardingDraft? draft]) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (draft != null) {
+      await prefs.setString(_onboardingDraftKey, jsonEncode(draft.toJson()));
+    }
     await prefs.setBool(_onboardingKey, true);
   }
 

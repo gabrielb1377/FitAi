@@ -10,14 +10,14 @@ import '../widgets/auth_inline_message.dart';
 import '../widgets/auth_logo.dart';
 import '../widgets/auth_page_scaffold.dart';
 import '../widgets/auth_page_title.dart';
-import 'initial_permissions_page.dart';
 import 'password_recovery_page.dart';
 import 'register_page.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key, this.authService});
+  const LoginPage({super.key, this.authService, this.onAuthenticated});
 
   final AuthService? authService;
+  final VoidCallback? onAuthenticated;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -55,7 +55,12 @@ class _LoginPageState extends State<LoginPage> {
         password: password,
       );
       if (!mounted) return;
-      AuthNavigation.replaceAll(context, const InitialPermissionsPage());
+      final onAuthenticated = widget.onAuthenticated;
+      if (onAuthenticated != null) {
+        onAuthenticated();
+        return;
+      }
+      AuthNavigation.replaceWithApp(context);
     } on AuthException catch (error) {
       if (mounted) setState(() => _message = error.message);
     } on Object {

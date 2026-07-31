@@ -31,16 +31,22 @@ class WorkoutVerticalRepository {
     return null;
   }
 
-  Future<WorkoutSessionLocal> startOrRecoverExample() => _serial(() async {
+  Future<WorkoutSessionLocal> startOrRecover({
+    required String planId,
+    required String workoutId,
+  }) => _serial(() async {
     final snapshot = await load();
     for (final session in snapshot.sessions.reversed) {
       if (session.isOpen) return session;
     }
+    if (planId.trim().isEmpty || workoutId.trim().isEmpty) {
+      throw ArgumentError('Plano e treino sao obrigatorios para iniciar.');
+    }
     final now = _clock();
     final session = WorkoutSessionLocal(
       id: _uuid.v4(),
-      planId: 'vertical-slice-plan',
-      workoutId: 'upper-a-example',
+      planId: planId,
+      workoutId: workoutId,
       startedAt: now,
       status: WorkoutSessionStatus.active,
       currentExerciseIndex: 0,
@@ -61,6 +67,12 @@ class WorkoutVerticalRepository {
     return session;
   });
 
+  /// Compatibilidade com a prova tecnica independente do fluxo principal.
+  Future<WorkoutSessionLocal> startOrRecoverExample() => startOrRecover(
+    planId: 'vertical-slice-plan',
+    workoutId: 'upper-a-example',
+  );
+
   Future<RegisterSetResult> registerSet({
     required String sessionId,
     required String exerciseId,
@@ -68,6 +80,8 @@ class WorkoutVerticalRepository {
     required double weight,
     required int reps,
     Duration restDuration = const Duration(seconds: 90),
+    int? nextExerciseIndex,
+    int? nextSetIndex,
   }) => _serial(() async {
     if (weight < 0 || reps <= 0 || setIndex < 0) {
       throw ArgumentError('Carga, repeticoes ou indice da serie invalidos.');
@@ -103,7 +117,8 @@ class WorkoutVerticalRepository {
     );
     final sessions = [...snapshot.sessions];
     sessions[sessionIndex] = session.copyWith(
-      currentSetIndex: setIndex + 1,
+      currentExerciseIndex: nextExerciseIndex,
+      currentSetIndex: nextSetIndex ?? setIndex + 1,
       restEndsAt: now.add(restDuration),
       updatedAt: now,
       syncStatus: WorkoutSyncStatus.pending,

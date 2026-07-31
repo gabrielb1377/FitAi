@@ -1,7 +1,9 @@
 import 'package:flutter/widgets.dart';
 
 import '../../../../core/navigation/app_section.dart';
+import '../../../../core/navigation/app_routes.dart';
 import '../../../../core/navigation/section_router.dart';
+import '../../../core_journey/presentation/core_journey_route_pages.dart';
 
 /// Rotas oficiais e reservadas do hub Atividades.
 abstract final class ActivitiesRoutes {
@@ -13,6 +15,7 @@ abstract final class ActivitiesRoutes {
   static const goals = '/activities/goals';
   static const running = '/activities/running';
   static const steps = '/activities/steps';
+  static const workout = AppRoutes.coreWorkoutHistory;
 
   static const declared = <String>{
     root,
@@ -23,12 +26,17 @@ abstract final class ActivitiesRoutes {
     goals,
     running,
     steps,
+    workout,
   };
 
   static SectionRouter createRouter({required WidgetBuilder rootBuilder}) {
     return SectionRouter(
       section: AppShellSection.activities,
       rootBuilder: rootBuilder,
+      routes: {
+        workout: (_, settings) =>
+            CoreJourneySummaryRoutePage(arguments: settings.arguments),
+      },
       declaredRoutes: declared,
     );
   }

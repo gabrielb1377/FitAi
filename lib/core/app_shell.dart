@@ -7,6 +7,8 @@ import '../core/config/dev_config.dart';
 import '../core/config/dev_fixtures.dart';
 import '../design_system/design_system.dart';
 import '../core/widgets/dev_mode_banner.dart';
+import '../features/core_journey/presentation/core_journey_controller.dart';
+import '../features/core_journey/presentation/core_journey_scope.dart';
 import '../services/running_session_service.dart';
 import '../services/steps_service.dart';
 import '../services/storage_service.dart';
@@ -18,10 +20,16 @@ import 'navigation/navigation_controller.dart';
 import 'navigation/section_router.dart';
 
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, this.navigationController, this.initialDeepLink});
+  const AppShell({
+    super.key,
+    this.navigationController,
+    this.initialDeepLink,
+    this.coreJourney,
+  });
 
   final NavigationController? navigationController;
   final Uri? initialDeepLink;
+  final CoreJourneyController? coreJourney;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -188,6 +196,7 @@ class _AppShellState extends State<AppShell> {
       pararCorrida: pararCorrida,
       carregarDados: carregarDados,
       onSelectTab: _navigationController.selectIndex,
+      coreJourney: widget.coreJourney,
     );
     final sectionRouters = AppRouter.buildSectionRouters(routeState);
 
@@ -195,11 +204,26 @@ class _AppShellState extends State<AppShell> {
       navigationController: _navigationController,
       sectionRouters: sectionRouters,
     );
+    final scopedShell = widget.coreJourney == null
+        ? shell
+        : CoreJourneyScope(
+            controller: widget.coreJourney!,
+            onOpenHome: () =>
+                _navigationController.selectSection(AppShellSection.home),
+            onOpenWorkoutHistory: (sessionId) async {
+              await _navigationController.pushNamed<void>(
+                AppShellSection.activities,
+                AppRoutes.coreWorkoutHistory,
+                arguments: sessionId,
+              );
+            },
+            child: shell,
+          );
     return DevModeBanner(
       child: DevConfig.enabled
           ? Stack(
               children: [
-                shell,
+                scopedShell,
                 Positioned(
                   right: FitSpacing.s16,
                   bottom: FitSpacing.s64 + FitSpacing.s24,
@@ -217,7 +241,7 @@ class _AppShellState extends State<AppShell> {
                 ),
               ],
             )
-          : shell,
+          : scopedShell,
     );
   }
 }

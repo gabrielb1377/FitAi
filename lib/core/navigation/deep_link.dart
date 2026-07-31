@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import 'app_routes.dart';
 import 'app_section.dart';
 
 /// Destino validado de um deep link, ainda sem executar navegação.
@@ -30,13 +31,66 @@ abstract final class AppDeepLinkParser {
     ].where((segment) => segment.trim().isNotEmpty).toList();
     if (segments.isEmpty) return null;
 
-    final section = AppShellSection.fromSlug(segments.first);
+    final firstSegment = segments.first.toLowerCase();
+    if (firstSegment == 'workout' && segments.length >= 2) {
+      final isSummary =
+          segments.length >= 3 && segments.last.toLowerCase() == 'summary';
+      return AppDeepLinkTarget(
+        uri: uri,
+        section: AppShellSection.plans,
+        routeName: isSummary
+            ? AppRoutes.coreWorkoutSummary
+            : AppRoutes.coreWorkout,
+      );
+    }
+
+    final section = AppShellSection.fromSlug(firstSegment);
     if (section == null) return null;
+
+    if (section == AppShellSection.activities &&
+        segments.length >= 3 &&
+        segments[1].toLowerCase() == 'workout') {
+      return AppDeepLinkTarget(
+        uri: uri,
+        section: section,
+        routeName: AppRoutes.coreWorkoutHistory,
+      );
+    }
+
+    if (section == AppShellSection.plans &&
+        segments.length == 2 &&
+        !_knownPlansRoute(segments[1])) {
+      return AppDeepLinkTarget(
+        uri: uri,
+        section: section,
+        routeName: AppRoutes.corePlanDetail,
+      );
+    }
 
     final suffix = segments.skip(1).map(Uri.decodeComponent).join('/');
     final routeName = suffix.isEmpty
         ? section.rootRoute
         : '${section.rootRoute}/$suffix';
     return AppDeepLinkTarget(uri: uri, section: section, routeName: routeName);
+  }
+
+  static bool _knownPlansRoute(String value) {
+    const knownRoutes = {
+      'create',
+      'detail',
+      'weeks',
+      'workout-day',
+      'exercise',
+      'session',
+      'completion',
+      'ready',
+      'statistics',
+      'calendar',
+      'compare',
+      'history',
+      'import-share',
+      'archive',
+    };
+    return knownRoutes.contains(value.toLowerCase());
   }
 }

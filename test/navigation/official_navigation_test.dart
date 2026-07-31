@@ -54,6 +54,25 @@ void main() {
     expect(AppDeepLinkParser.parse(Uri.parse('fitia://unknown/path')), isNull);
   });
 
+  test('parser entrega os caminhos dinamicos oficiais do Core V1', () {
+    final plan = AppDeepLinkParser.parse(Uri.parse('/plans/plan-1'));
+    final workout = AppDeepLinkParser.parse(Uri.parse('/workout/session-1'));
+    final summary = AppDeepLinkParser.parse(
+      Uri.parse('/workout/session-1/summary'),
+    );
+    final history = AppDeepLinkParser.parse(
+      Uri.parse('/activities/workout/session-1'),
+    );
+
+    expect(plan?.section, AppShellSection.plans);
+    expect(plan?.routeName, AppRoutes.corePlanDetail);
+    expect(workout?.section, AppShellSection.plans);
+    expect(workout?.routeName, AppRoutes.coreWorkout);
+    expect(summary?.routeName, AppRoutes.coreWorkoutSummary);
+    expect(history?.section, AppShellSection.activities);
+    expect(history?.routeName, AppRoutes.coreWorkoutHistory);
+  });
+
   test('roteador raiz registra os contratos nomeados', () {
     final route = RootRouter.onGenerateRoute(
       const RouteSettings(name: AppRoutes.login),

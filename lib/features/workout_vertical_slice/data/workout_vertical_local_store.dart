@@ -12,15 +12,32 @@ abstract interface class WorkoutVerticalLocalStore {
 
 class SharedPreferencesWorkoutVerticalLocalStore
     implements WorkoutVerticalLocalStore {
-  SharedPreferencesWorkoutVerticalLocalStore(this._preferences);
+  SharedPreferencesWorkoutVerticalLocalStore(
+    this._preferences, {
+    String userScope = anonymousScope,
+  }) : _userScope = _normalizeScope(userScope);
 
+  /// Chave legada mantida para compatibilidade com o harness tecnico anonimo.
   static const storageKey = 'fitai.workoutVerticalSlice.v1';
+  static const anonymousScope = 'anonymous';
 
   final SharedPreferences _preferences;
+  final String _userScope;
+
+  /// Snapshots autenticados nunca compartilham a mesma chave. Assim um logout
+  /// preserva os dados locais do usuario anterior sem expo-los ao proximo.
+  static String storageKeyFor(String userScope) {
+    final normalized = _normalizeScope(userScope);
+    return normalized == anonymousScope
+        ? storageKey
+        : '$storageKey.user.$normalized';
+  }
+
+  String get scopedStorageKey => storageKeyFor(_userScope);
 
   @override
   Future<WorkoutSliceSnapshot> read() async {
-    final serialized = _preferences.getString(storageKey);
+    final serialized = _preferences.getString(scopedStorageKey);
     if (serialized == null || serialized.isEmpty) {
       return const WorkoutSliceSnapshot.empty();
     }
@@ -36,11 +53,17 @@ class SharedPreferencesWorkoutVerticalLocalStore
   @override
   Future<void> write(WorkoutSliceSnapshot snapshot) async {
     final persisted = await _preferences.setString(
-      storageKey,
+      scopedStorageKey,
       jsonEncode(snapshot.toJson()),
     );
     if (!persisted) {
       throw StateError('Nao foi possivel salvar o treino no dispositivo.');
     }
+  }
+
+  static String _normalizeScope(String value) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized.isEmpty) return anonymousScope;
+    return normalized.replaceAll(RegExp(r'[^a-z0-9_-]'), '_');
   }
 }
