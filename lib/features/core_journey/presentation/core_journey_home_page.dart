@@ -24,15 +24,17 @@ class CoreJourneyHomePage extends StatelessWidget {
     animation: controller,
     builder: (context, _) {
       if (controller.isLoading) {
-        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        return const FitLoading.fullScreen(label: 'Carregando Home');
       }
-      if (!controller.isReady) {
+      if (!controller.isReady || controller.hasInitializationError) {
         return CoreJourneyPageFrame(
           title: 'Home',
           child: FitErrorState(
             title: 'Sessao necessaria',
             error:
-                controller.errorMessage ?? 'Entre para acessar seus treinos.',
+                controller.initializationErrorMessage ??
+                controller.errorMessage ??
+                'Entre para acessar seus treinos.',
             onRetry: controller.initialize,
           ),
         );

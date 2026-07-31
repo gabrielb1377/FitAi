@@ -157,6 +157,81 @@ void main() {
       await controller.initialize();
       expect(controller.isOffline, isTrue);
     });
+
+    test(
+      'coalesce inicializacoes concorrentes e evita rebuild de repositorio',
+      () async {
+        var identityCalls = 0;
+        var planLoads = 0;
+        var repositoryBuilds = 0;
+        controller.dispose();
+        controller = CoreJourneyController(
+          identityResolver: () async {
+            identityCalls++;
+            await Future<void>.delayed(const Duration(milliseconds: 5));
+            return currentIdentity;
+          },
+          planLoader: () async {
+            planLoads++;
+            return DevFixtures.workouts;
+          },
+          repositoryFactory: (scope) async {
+            repositoryBuilds++;
+            return WorkoutVerticalRepository(
+              localStore: stores.forScope(scope),
+              transport: DebugWorkoutSyncTransport(),
+            );
+          },
+        );
+
+        await Future.wait([controller.initialize(), controller.initialize()]);
+
+        expect(identityCalls, 1);
+        expect(planLoads, 1);
+        expect(repositoryBuilds, 1);
+      },
+    );
+
+    test(
+      'erro de inicializacao e amigavel e nao expoe excecao tecnica',
+      () async {
+        controller.dispose();
+        controller = CoreJourneyController(
+          identityResolver: () async => currentIdentity,
+          planLoader: () async => throw Exception('database://secret-details'),
+          repositoryFactory: (scope) async => WorkoutVerticalRepository(
+            localStore: stores.forScope(scope),
+            transport: DebugWorkoutSyncTransport(),
+          ),
+        );
+
+        await controller.initialize();
+
+        expect(controller.hasInitializationError, isTrue);
+        expect(
+          controller.initializationErrorMessage,
+          isNot(contains('secret')),
+        );
+        expect(
+          controller.initializationErrorMessage,
+          isNot(contains('database')),
+        );
+      },
+    );
+
+    test('dispose encerra transporte que pertence ao repositorio', () async {
+      final transport = _DisposableTransport();
+      controller.dispose();
+      controller = _createController(
+        identity: () async => currentIdentity,
+        stores: stores,
+        transport: transport,
+      );
+      await controller.initialize();
+
+      controller.dispose();
+      expect(transport.disposed, isTrue);
+    });
   });
 }
 
@@ -237,4 +312,16 @@ class _StateTransport
   @override
   Future<SyncDispatchResult> dispatch(OutboxEventLocal event) async =>
       const SyncDispatchResult.confirmed();
+}
+
+class _DisposableTransport
+    implements WorkoutVerticalSyncTransport, WorkoutSyncTransportDisposer {
+  bool disposed = false;
+
+  @override
+  Future<SyncDispatchResult> dispatch(OutboxEventLocal event) async =>
+      const SyncDispatchResult.confirmed();
+
+  @override
+  void dispose() => disposed = true;
 }

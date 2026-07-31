@@ -80,32 +80,34 @@ class _WorkoutVerticalSlicePageState extends State<WorkoutVerticalSlicePage> {
     if (mounted) await _showRecoveryDialog(controller);
   }
 
-  Future<void> _showRecoveryDialog(WorkoutVerticalSliceController controller) {
-    return showDialog<void>(
+  Future<void> _showRecoveryDialog(
+    WorkoutVerticalSliceController controller,
+  ) async {
+    await FitDialog.show<void>(
       context: context,
+      title: 'Treino em andamento',
       barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Treino em andamento'),
-        content: const Text(
+      message:
           'Uma sessao local foi recuperada. Voce pode continuar sem conexao ou descartar esta sessao.',
+      actions: [
+        FitButton(
+          label: 'Descartar',
+          variant: FitButtonVariant.danger,
+          size: FitButtonSize.compact,
+          onPressedAsync: () async {
+            await controller.discardRecoveredWorkout();
+            if (mounted) Navigator.of(context).pop();
+          },
         ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              await controller.discardRecoveredWorkout();
-              if (dialogContext.mounted) Navigator.of(dialogContext).pop();
-            },
-            child: const Text('Descartar'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              await controller.continueRecoveredWorkout();
-              if (dialogContext.mounted) Navigator.of(dialogContext).pop();
-            },
-            child: const Text('Continuar'),
-          ),
-        ],
-      ),
+        FitButton(
+          label: 'Continuar',
+          size: FitButtonSize.compact,
+          onPressedAsync: () async {
+            await controller.continueRecoveredWorkout();
+            if (mounted) Navigator.of(context).pop();
+          },
+        ),
+      ],
     );
   }
 
@@ -122,16 +124,14 @@ class _WorkoutVerticalSlicePageState extends State<WorkoutVerticalSlicePage> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    FitFeedback.showError(context, message);
   }
 
   @override
   Widget build(BuildContext context) {
     final controller = _controller;
     if (controller == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const FitLoading.fullScreen(label: 'Preparando treino local');
     }
     return AnimatedBuilder(
       animation: controller,
@@ -157,7 +157,7 @@ class _WorkoutVerticalSlicePageState extends State<WorkoutVerticalSlicePage> {
       ),
       body: SafeArea(
         child: controller.isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? const FitLoading.fullScreen(label: 'Carregando treino local')
             : ListView(
                 padding: const EdgeInsets.all(FitSpacing.screenMargin),
                 children: [

@@ -19,7 +19,20 @@ class CoreJourneyPlansPage extends StatelessWidget {
     animation: controller,
     builder: (context, _) {
       if (controller.isLoading) {
-        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        return const FitLoading.fullScreen(label: 'Carregando planos');
+      }
+      if (!controller.isReady || controller.hasInitializationError) {
+        return CoreJourneyPageFrame(
+          title: 'Meus Planos',
+          child: FitErrorState(
+            title: 'Planos indisponiveis',
+            error:
+                controller.initializationErrorMessage ??
+                controller.errorMessage ??
+                'Nao foi possivel carregar seus planos agora.',
+            onRetry: controller.initialize,
+          ),
+        );
       }
       return CoreJourneyPageFrame(
         title: 'Meus Planos',
@@ -174,26 +187,12 @@ class CoreJourneyPlanDetailPage extends StatelessWidget {
   ) async {
     if (active != null && active.planId != plan.id) {
       final previousFocus = FocusManager.instance.primaryFocus;
-      final continueExisting = await showDialog<bool>(
+      final continueExisting = await FitConfirmDialog.show(
         context: context,
-        traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
-        requestFocus: true,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('Ha um treino em andamento'),
-          content: const Text(
-            'Continue a sessao atual antes de iniciar outro treino.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Continuar treino'),
-            ),
-          ],
-        ),
+        title: 'Ha um treino em andamento',
+        message: 'Continue a sessao atual antes de iniciar outro treino.',
+        confirmLabel: 'Continuar treino',
+        cancelLabel: 'Cancelar',
       );
       if (continueExisting != true) {
         if (context.mounted && (previousFocus?.canRequestFocus ?? false)) {

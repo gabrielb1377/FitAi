@@ -1,5 +1,6 @@
 import 'package:fitai/core/config/dev_fixtures.dart';
 import 'package:fitai/design_system/components/fit_inputs.dart';
+import 'package:fitai/design_system/components/fit_dialog.dart';
 import 'package:fitai/features/core_journey/presentation/core_journey_controller.dart';
 import 'package:fitai/features/core_journey/presentation/core_journey_history_page.dart';
 import 'package:fitai/features/core_journey/presentation/core_journey_summary_page.dart';
@@ -91,11 +92,11 @@ void main() {
     );
     await tester.tap(find.text('Finalizar treino'));
     await tester.pumpAndSettle();
-    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.byType(FitDialog), findsOneWidget);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
-    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(FitDialog), findsNothing);
   });
 
   testWidgets('VS5 Resumo e historico possuem rotulos de leitura completos', (

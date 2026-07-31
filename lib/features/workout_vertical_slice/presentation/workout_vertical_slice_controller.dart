@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../data/workout_vertical_repository.dart';
+import '../data/workout_vertical_log.dart';
 import '../data/workout_vertical_sync_transport.dart';
 import '../domain/workout_vertical_models.dart';
 
@@ -23,8 +24,13 @@ class WorkoutVerticalSliceController extends ChangeNotifier {
   bool failNextPersistence = false;
   bool needsRecoveryPrompt = false;
   String? errorMessage;
+  bool _disposed = false;
+  Future<void>? _initialization;
+  int? _lastRestSecond;
 
-  bool get isOffline => !debugTransport.online;
+  bool get isOffline =>
+      !debugTransport.online ||
+      repository.connectionState == WorkoutSyncConnectionState.offline;
   bool get hasPendingOutbox => snapshot.outbox.any(
     (event) =>
         event.status == OutboxEventStatus.pending ||
@@ -51,19 +57,45 @@ class WorkoutVerticalSliceController extends ChangeNotifier {
   Duration get restRemaining =>
       remainingRest(activeSession?.restEndsAt, _clock());
 
-  Future<void> initialize() async {
+  Future<void> initialize() {
+    final activeInitialization = _initialization;
+    if (activeInitialization != null) return activeInitialization;
+    final operation = _initializeInternal();
+    _initialization = operation;
+    unawaited(
+      operation.whenComplete(() {
+        if (identical(_initialization, operation)) _initialization = null;
+      }),
+    );
+    return operation;
+  }
+
+  Future<void> _initializeInternal() async {
+    if (_disposed) return;
     isLoading = true;
-    notifyListeners();
+    _notifySafely();
+    WorkoutVerticalLog.event('slice.initialize_started');
     try {
       await repository.recoverInterruptedSync();
       snapshot = await repository.load();
       needsRecoveryPrompt = activeSession != null;
       errorMessage = null;
-    } catch (error) {
-      errorMessage = 'Nao foi possivel recuperar o treino local: $error';
+      WorkoutVerticalLog.event(
+        'slice.initialize_completed',
+        fields: {
+          'hasSession': activeSession != null,
+          'pending': hasPendingOutbox,
+        },
+      );
+    } on Object catch (error) {
+      WorkoutVerticalLog.failure('slice.initialize_failed', error);
+      errorMessage = _friendlyError(
+        error,
+        fallback: 'Nao foi possivel recuperar o treino local agora.',
+      );
     } finally {
       isLoading = false;
-      notifyListeners();
+      _notifySafely();
     }
   }
 
@@ -78,7 +110,7 @@ class WorkoutVerticalSliceController extends ChangeNotifier {
 
   Future<void> continueRecoveredWorkout() async {
     needsRecoveryPrompt = false;
-    notifyListeners();
+    _notifySafely();
   }
 
   Future<void> discardRecoveredWorkout() async {
@@ -95,7 +127,7 @@ class WorkoutVerticalSliceController extends ChangeNotifier {
     final session = activeSession;
     if (session == null) {
       errorMessage = 'Inicie um treino antes de registrar uma serie.';
-      notifyListeners();
+      _notifySafely();
       return;
     }
     await _perform(() async {
@@ -153,28 +185,41 @@ class WorkoutVerticalSliceController extends ChangeNotifier {
 
   void setOffline(bool value) {
     debugTransport.online = !value;
-    notifyListeners();
+    _notifySafely();
   }
 
   void simulateNextSyncFailure() {
     debugTransport.failNextDispatch = true;
-    notifyListeners();
+    _notifySafely();
   }
 
   void setFailNextPersistence(bool value) {
     failNextPersistence = value;
-    notifyListeners();
+    _notifySafely();
   }
 
-  void refreshClock() => notifyListeners();
+  void refreshClock() {
+    if (_disposed) return;
+    final restEndsAt = activeSession?.restEndsAt;
+    if (restEndsAt == null) return;
+    final seconds = remainingRest(restEndsAt, _clock()).inSeconds;
+    if (_lastRestSecond == seconds) return;
+    _lastRestSecond = seconds;
+    _notifySafely();
+  }
 
   Future<void> _syncWithoutBlockingWorkout() async {
     try {
       await repository.flushOutbox();
       await _reload();
-    } catch (_) {
+    } on Object catch (error) {
+      WorkoutVerticalLog.failure('slice.sync_failed', error);
       // A outbox continua persistida; uma falha nao invalida a serie local.
-      await _reload();
+      try {
+        await _reload();
+      } on Object catch (reloadError) {
+        WorkoutVerticalLog.failure('slice.sync_recovery_failed', reloadError);
+      }
     }
   }
 
@@ -183,17 +228,57 @@ class WorkoutVerticalSliceController extends ChangeNotifier {
   }
 
   Future<void> _perform(Future<void> Function() action) async {
-    if (isSaving) return;
+    if (_disposed || isSaving) return;
     isSaving = true;
     errorMessage = null;
-    notifyListeners();
+    _notifySafely();
     try {
       await action();
-    } catch (error) {
-      errorMessage = error.toString();
+    } on Object catch (error) {
+      WorkoutVerticalLog.failure('slice.action_failed', error);
+      errorMessage = _friendlyError(error);
     } finally {
       isSaving = false;
-      notifyListeners();
+      _notifySafely();
     }
+  }
+
+  String _friendlyError(
+    Object error, {
+    String fallback = 'Nao foi possivel concluir esta acao agora.',
+  }) {
+    if (error is TimeoutException) {
+      return 'A operacao demorou demais. Tente novamente.';
+    }
+    if (error is WorkoutSyncTransportException) {
+      return error.retryable
+          ? 'Sem conexao agora. Seus dados permanecem salvos no dispositivo.'
+          : 'Nao foi possivel sincronizar este dado. Revise e tente novamente.';
+    }
+    if (error is StateError) return _safeStateMessage(error.message, fallback);
+    return fallback;
+  }
+
+  String _safeStateMessage(Object message, String fallback) {
+    final value = message.toString();
+    const safePrefixes = [
+      'Inicie um treino antes de registrar uma serie.',
+      'Falha de persistencia simulada.',
+      'Sessao local nao encontrada.',
+      'A sessao nao aceita novas series.',
+    ];
+    return safePrefixes.any(value.startsWith) ? value : fallback;
+  }
+
+  void _notifySafely() {
+    if (!_disposed) notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    repository.dispose();
+    super.dispose();
   }
 }

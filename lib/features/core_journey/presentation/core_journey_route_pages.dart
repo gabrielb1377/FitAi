@@ -142,7 +142,7 @@ class _CoreJourneyRouteLoading extends StatelessWidget {
   @override
   Widget build(BuildContext context) => const CoreJourneyPageFrame(
     title: 'Carregando',
-    child: Center(child: CircularProgressIndicator()),
+    child: FitLoading.fullScreen(label: 'Carregando jornada'),
   );
 }
 

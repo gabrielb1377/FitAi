@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 
 import '../domain/workout_vertical_models.dart';
 import 'workout_vertical_local_store.dart';
+import 'workout_vertical_log.dart';
 import 'workout_vertical_sync_transport.dart';
 
 class WorkoutVerticalRepository {
@@ -25,6 +26,14 @@ class WorkoutVerticalRepository {
       transport is WorkoutSyncConnectionReporter
       ? (transport as WorkoutSyncConnectionReporter).connectionState
       : WorkoutSyncConnectionState.unknown;
+
+  /// Fecha somente recursos de transporte pertencentes a este repositorio.
+  void dispose() {
+    final transport = this.transport;
+    if (transport is WorkoutSyncTransportDisposer) {
+      (transport as WorkoutSyncTransportDisposer).dispose();
+    }
+  }
 
   Future<WorkoutSliceSnapshot> load() => localStore.read();
 
@@ -261,6 +270,10 @@ class WorkoutVerticalRepository {
           !event.nextAttemptAt.isAfter(_clock()),
     );
     for (final dueEvent in dueEvents) {
+      WorkoutVerticalLog.event(
+        'sync.dispatch_started',
+        fields: {'eventType': dueEvent.eventType, 'attempt': dueEvent.attempts},
+      );
       snapshot = _replaceEvent(
         snapshot,
         dueEvent.copyWith(status: OutboxEventStatus.sending),
@@ -293,6 +306,7 @@ class WorkoutVerticalRepository {
             break;
         }
       } catch (error) {
+        WorkoutVerticalLog.failure('sync.dispatch_failed', error);
         if (error is WorkoutSyncTransportException && !error.retryable) {
           snapshot = _replaceEvent(
             snapshot,

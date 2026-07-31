@@ -112,6 +112,27 @@ void main() {
     );
     expect(transport.connectionState, WorkoutSyncConnectionState.offline);
   });
+
+  test('nao fecha cliente HTTP injetado pelo chamador', () {
+    final client = _TrackingClient();
+    final transport = HttpWorkoutSyncTransport(client: client);
+
+    transport.dispose();
+
+    expect(client.closed, isFalse);
+  });
+}
+
+class _TrackingClient extends http.BaseClient {
+  bool closed = false;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) {
+    throw UnimplementedError();
+  }
+
+  @override
+  void close() => closed = true;
 }
 
 OutboxEventLocal _event() => OutboxEventLocal(

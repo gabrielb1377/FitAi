@@ -158,26 +158,12 @@ class _CoreJourneyWorkoutPageState extends State<CoreJourneyWorkoutPage> {
 
   Future<void> _finish(WorkoutSessionLocal session) async {
     final previousFocus = FocusManager.instance.primaryFocus;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await FitConfirmDialog.show(
       context: context,
-      traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
-      requestFocus: true,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Finalizar treino?'),
-        content: const Text(
-          'O resumo sera salvo localmente e sincronizado quando possivel.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Continuar treino'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Finalizar'),
-          ),
-        ],
-      ),
+      title: 'Finalizar treino?',
+      message: 'O resumo sera salvo localmente e sincronizado quando possivel.',
+      confirmLabel: 'Finalizar',
+      cancelLabel: 'Continuar treino',
     );
     if (confirmed != true) {
       if (mounted && (previousFocus?.canRequestFocus ?? false)) {

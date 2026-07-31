@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import '../domain/workout_vertical_models.dart';
+import 'workout_vertical_log.dart';
 
 /// Contrato que o backend devera atender antes de substituir o transporte debug.
 abstract interface class WorkoutVerticalSyncTransport {
@@ -18,6 +19,11 @@ enum WorkoutSyncConnectionState { unknown, online, offline }
 
 abstract interface class WorkoutSyncConnectionReporter {
   WorkoutSyncConnectionState get connectionState;
+}
+
+/// Permite encerrar recursos de transporte que pertencem ao Vertical Slice.
+abstract interface class WorkoutSyncTransportDisposer {
+  void dispose();
 }
 
 /// Transporte deterministico e sem rede, exclusivo para demonstracao em debug.
@@ -53,18 +59,23 @@ class DebugWorkoutSyncTransport
 
 /// Adapter do contrato VS2. Cada despacho recebe ACK individual do lote.
 class HttpWorkoutSyncTransport
-    implements WorkoutVerticalSyncTransport, WorkoutSyncConnectionReporter {
+    implements
+        WorkoutVerticalSyncTransport,
+        WorkoutSyncConnectionReporter,
+        WorkoutSyncTransportDisposer {
   HttpWorkoutSyncTransport({
     http.Client? client,
     AuthService? authService,
     Future<SharedPreferences> Function()? preferencesLoader,
   }) : _client = client ?? http.Client(),
+       _ownsClient = client == null,
        _authService = authService ?? AuthService(),
        _preferencesLoader = preferencesLoader ?? SharedPreferences.getInstance;
 
   static const _deviceIdKey = 'fitai.workoutVerticalSlice.deviceId.v1';
 
   final http.Client _client;
+  final bool _ownsClient;
   final AuthService _authService;
   final Future<SharedPreferences> Function() _preferencesLoader;
   WorkoutSyncConnectionState _connectionState =
@@ -72,6 +83,11 @@ class HttpWorkoutSyncTransport
 
   @override
   WorkoutSyncConnectionState get connectionState => _connectionState;
+
+  @override
+  void dispose() {
+    if (_ownsClient) _client.close();
+  }
 
   @override
   Future<SyncDispatchResult> dispatch(OutboxEventLocal event) async {
@@ -90,7 +106,7 @@ class HttpWorkoutSyncTransport
     String bearerToken,
   ) async {
     final response = await _post(event, bearerToken);
-    _connectionState = WorkoutSyncConnectionState.online;
+    _setConnectionState(WorkoutSyncConnectionState.online);
     final body = _decodeObject(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw WorkoutSyncTransportException(
@@ -152,15 +168,26 @@ class HttpWorkoutSyncTransport
           )
           .timeout(ApiConfig.timeout);
     } on http.ClientException catch (error) {
-      _connectionState = WorkoutSyncConnectionState.offline;
+      _setConnectionState(WorkoutSyncConnectionState.offline);
+      WorkoutVerticalLog.failure('sync.transport.client_failure', error);
       throw WorkoutSyncTransportException(error.message, retryable: true);
     } on TimeoutException {
-      _connectionState = WorkoutSyncConnectionState.offline;
+      _setConnectionState(WorkoutSyncConnectionState.offline);
+      WorkoutVerticalLog.event('sync.transport.timeout');
       throw const WorkoutSyncTransportException(
         'Tempo esgotado ao sincronizar treino.',
         retryable: true,
       );
     }
+  }
+
+  void _setConnectionState(WorkoutSyncConnectionState value) {
+    if (_connectionState == value) return;
+    _connectionState = value;
+    WorkoutVerticalLog.event(
+      'sync.transport.connection_changed',
+      fields: {'state': value.name},
+    );
   }
 
   Future<String> _deviceId() async {
@@ -209,7 +236,10 @@ class HttpWorkoutSyncTransport
 /// Usa o endpoint real quando existe JWT; o modo debug sem login continua
 /// deterministico e nao torna o endpoint anonimo.
 class AdaptiveWorkoutSyncTransport
-    implements WorkoutVerticalSyncTransport, WorkoutSyncConnectionReporter {
+    implements
+        WorkoutVerticalSyncTransport,
+        WorkoutSyncConnectionReporter,
+        WorkoutSyncTransportDisposer {
   AdaptiveWorkoutSyncTransport({
     required this.debugTransport,
     HttpWorkoutSyncTransport? remoteTransport,
@@ -220,6 +250,9 @@ class AdaptiveWorkoutSyncTransport
   final DebugWorkoutSyncTransport debugTransport;
   final HttpWorkoutSyncTransport _remoteTransport;
   final AuthService _authService;
+
+  @override
+  void dispose() => _remoteTransport.dispose();
 
   @override
   WorkoutSyncConnectionState get connectionState {

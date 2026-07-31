@@ -8,6 +8,7 @@ import '../../../core/config/dev_data.dart';
 import '../../../core/config/dev_fixtures.dart';
 import '../../../features/auth/data/auth_service.dart';
 import '../../../features/workout_vertical_slice/data/workout_vertical_local_store.dart';
+import '../../../features/workout_vertical_slice/data/workout_vertical_log.dart';
 import '../../../features/workout_vertical_slice/data/workout_vertical_repository.dart';
 import '../../../features/workout_vertical_slice/data/workout_vertical_sync_transport.dart';
 import '../../../features/workout_vertical_slice/domain/workout_vertical_models.dart';
@@ -62,12 +63,15 @@ class CoreJourneyController extends ChangeNotifier {
   bool isLoading = true;
   bool isSyncing = false;
   String? errorMessage;
+  String? initializationErrorMessage;
   bool _disposed = false;
   Timer? _syncRetryTimer;
+  Future<void>? _initialization;
 
   static const _syncRetryInterval = Duration(seconds: 30);
 
   bool get isReady => !isLoading && identity != null;
+  bool get hasInitializationError => initializationErrorMessage != null;
 
   bool get isOffline =>
       !_debugTransport.online ||
@@ -132,14 +136,31 @@ class CoreJourneyController extends ChangeNotifier {
         : end.difference(session.startedAt);
   }
 
-  Future<void> initialize() async {
+  Future<void> initialize() {
+    final activeInitialization = _initialization;
+    if (activeInitialization != null) return activeInitialization;
+    final operation = _initializeInternal();
+    _initialization = operation;
+    unawaited(
+      operation.whenComplete(() {
+        if (identical(_initialization, operation)) _initialization = null;
+      }),
+    );
+    return operation;
+  }
+
+  Future<void> _initializeInternal() async {
+    if (_disposed) return;
     isLoading = true;
     errorMessage = null;
-    notifyListeners();
+    initializationErrorMessage = null;
+    _notifySafely();
+    WorkoutVerticalLog.event('journey.initialize_started');
     try {
       final resolvedIdentity = await _resolveIdentity();
       if (resolvedIdentity == null) {
         identity = null;
+        _repository?.dispose();
         _repository = null;
         snapshot = const WorkoutSliceSnapshot.empty();
         plans = const [];
@@ -150,17 +171,27 @@ class CoreJourneyController extends ChangeNotifier {
       final changedUser = identity?.userId != resolvedIdentity.userId;
       identity = resolvedIdentity;
       if (_repository == null || changedUser) {
+        _repository?.dispose();
+        _repository = null;
         _repository = await _buildRepository(resolvedIdentity.userId);
       }
       await _requiredRepository.recoverInterruptedSync();
       snapshot = await _requiredRepository.load();
       plans = await (planLoader ?? _loadPlans)();
       if (hasPendingSync) unawaited(_flushOutbox());
+      WorkoutVerticalLog.event(
+        'journey.initialize_completed',
+        fields: {'plans': plans.length, 'pendingSync': hasPendingSync},
+      );
     } on Object catch (error) {
-      errorMessage = 'Nao foi possivel preparar seus treinos: $error';
+      WorkoutVerticalLog.failure('journey.initialize_failed', error);
+      initializationErrorMessage = _friendlyError(
+        error,
+        fallback: 'Nao foi possivel preparar seus treinos agora.',
+      );
     } finally {
       isLoading = false;
-      notifyListeners();
+      _notifySafely();
     }
   }
 
@@ -239,40 +270,47 @@ class CoreJourneyController extends ChangeNotifier {
   Future<void> refreshIdentity() => initialize();
 
   Future<T?> _perform<T>(Future<T> Function() action) async {
+    if (_disposed) return null;
     errorMessage = null;
-    notifyListeners();
+    _notifySafely();
     try {
       return await action();
     } on Object catch (error) {
-      errorMessage = error.toString();
+      WorkoutVerticalLog.failure('journey.action_failed', error);
+      errorMessage = _friendlyError(error);
       return null;
     } finally {
-      notifyListeners();
+      _notifySafely();
     }
   }
 
   Future<void> _flushOutbox() async {
     if (_disposed || _repository == null || isSyncing) return;
     isSyncing = true;
-    notifyListeners();
+    _notifySafely();
+    WorkoutVerticalLog.event('journey.sync_started');
     try {
       do {
         await _requiredRepository.flushOutbox();
         if (_disposed) return;
         await _reload();
       } while (_hasDueOutboxEvents());
-    } catch (_) {
+    } on Object catch (error) {
+      WorkoutVerticalLog.failure('journey.sync_failed', error);
       // A outbox persistida e a fonte da recuperacao; a interface mostrara
       // pendencia sem impedir o treino ou o resumo local.
       if (!_disposed) await _reload();
     } finally {
       if (!_disposed) {
         isSyncing = false;
-        notifyListeners();
+        _notifySafely();
         if (_hasDueOutboxEvents()) {
           unawaited(_flushOutbox());
         } else if (hasPendingSync) {
           _startAutomaticSyncRetry();
+        } else {
+          _cancelAutomaticSyncRetry();
+          WorkoutVerticalLog.event('journey.sync_completed');
         }
       }
     }
@@ -289,10 +327,12 @@ class CoreJourneyController extends ChangeNotifier {
 
   void _startAutomaticSyncRetry() {
     if (_disposed || !hasPendingSync || _syncRetryTimer != null) return;
+    WorkoutVerticalLog.event('journey.sync_retry_scheduled');
     _syncRetryTimer ??= Timer.periodic(_syncRetryInterval, (timer) {
       if (_disposed || !hasPendingSync) {
         timer.cancel();
         _syncRetryTimer = null;
+        WorkoutVerticalLog.event('journey.sync_retry_cancelled');
         return;
       }
       unawaited(_flushOutbox());
@@ -301,6 +341,45 @@ class CoreJourneyController extends ChangeNotifier {
 
   Future<void> _reload() async {
     snapshot = await _requiredRepository.load();
+  }
+
+  void _cancelAutomaticSyncRetry() {
+    _syncRetryTimer?.cancel();
+    _syncRetryTimer = null;
+  }
+
+  void _notifySafely() {
+    if (!_disposed) notifyListeners();
+  }
+
+  String _friendlyError(
+    Object error, {
+    String fallback = 'Nao foi possivel concluir esta acao agora.',
+  }) {
+    if (error is TimeoutException) {
+      return 'A operacao demorou demais. Tente novamente.';
+    }
+    if (error is WorkoutSyncTransportException) {
+      return error.retryable
+          ? 'Sem conexao agora. Seus dados permanecem salvos no dispositivo.'
+          : 'Nao foi possivel sincronizar este dado. Revise e tente novamente.';
+    }
+    if (error is StateError) return _safeStateMessage(error.message, fallback);
+    return fallback;
+  }
+
+  String _safeStateMessage(Object message, String fallback) {
+    final value = message.toString();
+    const safePrefixes = [
+      'A jornada nao foi inicializada',
+      'Este treino nao esta disponivel',
+      'Todas as series deste exercicio',
+      'Treino local nao encontrado',
+      'Sessao local nao encontrada',
+      'A sessao nao aceita novas series',
+      'A sessao nao pode ser finalizada',
+    ];
+    return safePrefixes.any(value.startsWith) ? value : fallback;
   }
 
   Future<CoreJourneyIdentity?> _resolveIdentity() async {
@@ -356,8 +435,11 @@ class CoreJourneyController extends ChangeNotifier {
 
   @override
   void dispose() {
+    if (_disposed) return;
     _disposed = true;
-    _syncRetryTimer?.cancel();
+    _cancelAutomaticSyncRetry();
+    _repository?.dispose();
+    _repository = null;
     super.dispose();
   }
 }

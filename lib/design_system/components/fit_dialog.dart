@@ -29,9 +29,11 @@ class FitDialog extends StatelessWidget {
     Widget? content,
     IconData? icon,
     List<Widget> actions = const [],
+    bool barrierDismissible = true,
   }) {
     return showDialog<T>(
       context: context,
+      barrierDismissible: barrierDismissible,
       builder: (_) => FitDialog(
         title: title,
         message: message,
@@ -113,9 +115,13 @@ class FitConfirmDialog extends StatelessWidget {
     String confirmLabel = 'Confirmar',
     String cancelLabel = 'Cancelar',
     bool isDestructive = false,
+    bool barrierDismissible = true,
   }) {
     return showDialog<bool>(
       context: context,
+      barrierDismissible: barrierDismissible,
+      traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
+      requestFocus: true,
       builder: (_) => FitConfirmDialog(
         title: title,
         message: message,
