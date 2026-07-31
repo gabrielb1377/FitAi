@@ -92,6 +92,8 @@ class _HistoryRow extends StatelessWidget {
       variant: FitCardVariant.clickable,
       title: plan?.nome ?? 'Treino',
       subtitle: formatCoreDuration(controller.durationFor(session)),
+      semanticLabel:
+          '${plan?.nome ?? 'Treino'}. ${sets.length} series. ${controller.volumeFor(session.id).toStringAsFixed(1)} quilogramas de volume. ${coreSyncLabel(session.syncStatus)}. Abrir resumo.',
       leading: const Icon(FitIcons.success),
       trailing: const Icon(FitIcons.forward),
       onTap: onTap,

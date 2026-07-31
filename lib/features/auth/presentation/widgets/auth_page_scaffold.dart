@@ -35,13 +35,15 @@ class AuthPageScaffold extends StatelessWidget {
           padding: EdgeInsets.only(bottom: bottomInset),
           child: Align(
             alignment: alignment,
-            child: scrollable
-                ? SingleChildScrollView(
-                    keyboardDismissBehavior:
-                        ScrollViewKeyboardDismissBehavior.onDrag,
-                    child: content,
-                  )
-                : content,
+            child: FocusTraversalGroup(
+              child: scrollable
+                  ? SingleChildScrollView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      child: content,
+                    )
+                  : content,
+            ),
           ),
         ),
       ),

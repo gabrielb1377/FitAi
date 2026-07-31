@@ -39,12 +39,18 @@ abstract final class FitFeedback {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Row(
-            children: [
-              Icon(icon, color: color ?? colors.primary),
-              const SizedBox(width: FitSpacing.s12),
-              Expanded(child: Text(message)),
-            ],
+          content: Semantics(
+            liveRegion: true,
+            label: message,
+            child: ExcludeSemantics(
+              child: Row(
+                children: [
+                  Icon(icon, color: color ?? colors.primary),
+                  const SizedBox(width: FitSpacing.s12),
+                  Expanded(child: Text(message)),
+                ],
+              ),
+            ),
           ),
           behavior: SnackBarBehavior.floating,
           shape: const RoundedRectangleBorder(

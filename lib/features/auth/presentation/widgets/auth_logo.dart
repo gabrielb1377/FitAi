@@ -17,40 +17,43 @@ class AuthLogo extends StatelessWidget {
     return Semantics(
       label: 'FitIA',
       child: ExcludeSemantics(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: iconSize,
-              height: iconSize,
-              decoration: BoxDecoration(
-                color: FitColors.primaryContainer,
-                borderRadius: BorderRadius.circular(FitRadius.medium),
-              ),
-              child: Icon(
-                Icons.bolt_rounded,
-                color: FitColors.primary,
-                size: iconSize * .72,
-              ),
-            ),
-            const SizedBox(width: FitSpacing.s12),
-            Text.rich(
-              TextSpan(
-                text: 'Fit',
-                style: TextStyle(
-                  color: FitColors.textPrimary,
-                  fontSize: textSize,
-                  fontWeight: FontWeight.w800,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: iconSize,
+                height: iconSize,
+                decoration: BoxDecoration(
+                  color: FitColors.primaryContainer,
+                  borderRadius: BorderRadius.circular(FitRadius.medium),
                 ),
-                children: [
-                  TextSpan(
-                    text: 'IA',
-                    style: TextStyle(color: FitColors.primary),
-                  ),
-                ],
+                child: Icon(
+                  Icons.bolt_rounded,
+                  color: FitColors.primary,
+                  size: iconSize * .72,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(width: FitSpacing.s12),
+              Text.rich(
+                TextSpan(
+                  text: 'Fit',
+                  style: TextStyle(
+                    color: FitColors.textPrimary,
+                    fontSize: textSize,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  children: [
+                    TextSpan(
+                      text: 'IA',
+                      style: TextStyle(color: FitColors.primary),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

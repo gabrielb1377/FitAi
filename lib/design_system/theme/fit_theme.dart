@@ -144,8 +144,8 @@ abstract final class FitTheme {
           foregroundColor: FitColors.primary,
           disabledForegroundColor: FitColors.textDisabled,
           minimumSize: const Size(
-            FitLayout.compactTouchTarget,
-            FitLayout.compactTouchTarget,
+            FitLayout.minimumTouchTarget,
+            FitLayout.minimumTouchTarget,
           ),
           tapTargetSize: MaterialTapTargetSize.padded,
           shape: const RoundedRectangleBorder(

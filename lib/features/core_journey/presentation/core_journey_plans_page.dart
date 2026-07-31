@@ -116,6 +116,9 @@ class CoreJourneyPlanDetailPage extends StatelessWidget {
               title: isCurrentPlan ? 'Treino em andamento' : 'Proximo treino',
               subtitle:
                   '${plan.tempoEstimado} min  |  ${plan.diasPorSemana} dias por semana',
+              semanticLabel: isCurrentPlan
+                  ? 'Treino em andamento no plano ${plan.nome}. Continuar treino.'
+                  : 'Proximo treino do plano ${plan.nome}. Iniciar treino.',
               leading: Icon(isCurrentPlan ? FitIcons.timer : FitIcons.calendar),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -170,8 +173,11 @@ class CoreJourneyPlanDetailPage extends StatelessWidget {
     WorkoutSessionLocal? active,
   ) async {
     if (active != null && active.planId != plan.id) {
+      final previousFocus = FocusManager.instance.primaryFocus;
       final continueExisting = await showDialog<bool>(
         context: context,
+        traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
+        requestFocus: true,
         builder: (dialogContext) => AlertDialog(
           title: const Text('Ha um treino em andamento'),
           content: const Text(
@@ -189,7 +195,13 @@ class CoreJourneyPlanDetailPage extends StatelessWidget {
           ],
         ),
       );
-      if (continueExisting != true || !context.mounted) return;
+      if (continueExisting != true) {
+        if (context.mounted && (previousFocus?.canRequestFocus ?? false)) {
+          previousFocus!.requestFocus();
+        }
+        return;
+      }
+      if (!context.mounted) return;
       final existingPlan = controller.planById(active.planId);
       if (existingPlan == null) return;
       _openWorkout(context, existingPlan, active.id);
@@ -237,6 +249,8 @@ class _PlanRow extends StatelessWidget {
     selected: active,
     title: plan.nome,
     subtitle: '${plan.objetivo}  |  ${plan.divisao}',
+    semanticLabel:
+        '${plan.nome}. ${plan.objetivo}. ${plan.divisao}. ${plan.exercicios.length} exercicios. ${active ? 'Treino em andamento.' : 'Abrir detalhes do plano.'}',
     leading: Icon(active ? FitIcons.play : FitIcons.plans),
     trailing: active
         ? const FitChip(label: 'Em andamento', selected: true)

@@ -88,19 +88,25 @@ class CoreJourneyPageFrame extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: FitColors.background,
-    body: SafeArea(
-      child: Column(
-        children: [
-          FitHeader(
-            title: title,
-            subtitle: subtitle,
-            showBackButton: showBackButton,
-            onBack: onBack,
+  Widget build(BuildContext context) => Semantics(
+    namesRoute: true,
+    label: title,
+    child: Scaffold(
+      backgroundColor: FitColors.background,
+      body: SafeArea(
+        child: FocusTraversalGroup(
+          child: Column(
+            children: [
+              FitHeader(
+                title: title,
+                subtitle: subtitle,
+                showBackButton: showBackButton,
+                onBack: onBack,
+              ),
+              Expanded(child: child),
+            ],
           ),
-          Expanded(child: child),
-        ],
+        ),
       ),
     ),
   );

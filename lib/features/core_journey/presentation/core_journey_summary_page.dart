@@ -57,6 +57,8 @@ class CoreJourneySummaryPage extends StatelessWidget {
               variant: FitCardVariant.elevated,
               title: 'Resumo da sessao',
               leading: const Icon(FitIcons.success),
+              semanticLabel:
+                  'Resumo da sessao. ${sets.length} series. ${controller.volumeFor(session.id).toStringAsFixed(1)} quilogramas de volume. ${coreSyncLabel(session.syncStatus)}.',
               child: _SummaryMetrics(
                 duration: controller.durationFor(session),
                 exerciseCount: sets

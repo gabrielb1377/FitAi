@@ -139,6 +139,9 @@ class _PrimaryWorkoutCard extends StatelessWidget {
       variant: FitCardVariant.elevated,
       title: active == null ? 'Treino de hoje' : 'Treino em andamento',
       subtitle: plan.nome,
+      semanticLabel: active == null
+          ? 'Treino de hoje: ${plan.nome}. Abrir plano.'
+          : 'Treino em andamento: ${plan.nome}. Continuar treino.',
       leading: Icon(active == null ? FitIcons.workout : FitIcons.timer),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -179,6 +182,9 @@ class _RecentActivityCard extends StatelessWidget {
     return FitCard(
       title: 'Atividade recente',
       subtitle: latest == null ? 'Seu primeiro treino aparecera aqui.' : null,
+      semanticLabel: latest == null
+          ? 'Atividade recente. Nenhum treino concluido.'
+          : 'Atividade recente: ${controller.planById(latest.planId)?.nome ?? 'Treino'}, ${controller.setsFor(latest.id).length} series. Abrir resumo.',
       trailing: latest == null ? null : const Icon(FitIcons.forward),
       onTap: latest == null ? null : () => onOpenSummary(latest),
       variant: latest == null

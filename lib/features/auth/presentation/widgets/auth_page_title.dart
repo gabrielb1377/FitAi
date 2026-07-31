@@ -24,12 +24,15 @@ class AuthPageTitle extends StatelessWidget {
     return Column(
       crossAxisAlignment: alignment,
       children: [
-        Text(
-          title,
-          textAlign: textAlign,
-          style: Theme.of(
-            context,
-          ).textTheme.headlineMedium?.copyWith(color: FitColors.textPrimary),
+        Semantics(
+          header: true,
+          child: Text(
+            title,
+            textAlign: textAlign,
+            style: Theme.of(
+              context,
+            ).textTheme.headlineMedium?.copyWith(color: FitColors.textPrimary),
+          ),
         ),
         const SizedBox(height: FitSpacing.s8),
         Text(

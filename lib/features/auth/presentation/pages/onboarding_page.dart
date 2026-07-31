@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../design_system/components/fit_button.dart';
+import '../../../../design_system/tokens/fit_layout.dart';
 import '../../../../design_system/tokens/fit_spacing.dart';
 import '../../data/auth_service.dart';
 import '../auth_navigation.dart';
@@ -237,14 +238,17 @@ class _ChoiceStep extends StatelessWidget {
           selected: selected == option,
           button: true,
           label: option,
+          onTap: () => onSelected(option),
           child: SizedBox(
             width: double.infinity,
             height: 52,
-            child: OutlinedButton(
-              onPressed: () => onSelected(option),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(option),
+            child: ExcludeSemantics(
+              child: OutlinedButton(
+                onPressed: () => onSelected(option),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(option),
+                ),
               ),
             ),
           ),
@@ -283,21 +287,24 @@ class _ChipChoices extends StatelessWidget {
         runSpacing: FitSpacing.s8,
         children: [
           for (final option in options)
-            ChoiceChip(
-              label: Text(option),
-              selected:
-                  selected == option ||
-                  (selectedMany?.contains(option) ?? false),
-              onSelected: (_) {
-                final many = selectedMany;
-                if (many == null) {
-                  onSelected?.call(option);
-                  return;
-                }
-                final updated = {...many};
-                if (!updated.add(option)) updated.remove(option);
-                onSelectedMany?.call(updated);
-              },
+            SizedBox(
+              height: FitLayout.minimumTouchTarget,
+              child: ChoiceChip(
+                label: Text(option),
+                selected:
+                    selected == option ||
+                    (selectedMany?.contains(option) ?? false),
+                onSelected: (_) {
+                  final many = selectedMany;
+                  if (many == null) {
+                    onSelected?.call(option);
+                    return;
+                  }
+                  final updated = {...many};
+                  if (!updated.add(option)) updated.remove(option);
+                  onSelectedMany?.call(updated);
+                },
+              ),
             ),
         ],
       ),

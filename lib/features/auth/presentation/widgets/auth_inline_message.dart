@@ -30,27 +30,30 @@ class AuthInlineMessage extends StatelessWidget {
     };
     return Semantics(
       liveRegion: true,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(FitSpacing.s12),
-        decoration: BoxDecoration(
-          color: color.withAlpha(20),
-          borderRadius: FitRadius.mediumBorder,
-          border: Border.all(color: color.withAlpha(90)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: color, size: 18),
-            const SizedBox(width: FitSpacing.s8),
-            Expanded(
-              child: Text(
-                message,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: FitColors.textPrimary),
+      label: '${tone.name}: $message',
+      child: ExcludeSemantics(
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(FitSpacing.s12),
+          decoration: BoxDecoration(
+            color: color.withAlpha(20),
+            borderRadius: FitRadius.mediumBorder,
+            border: Border.all(color: color.withAlpha(90)),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: color, size: 18),
+              const SizedBox(width: FitSpacing.s8),
+              Expanded(
+                child: Text(
+                  message,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: FitColors.textPrimary),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

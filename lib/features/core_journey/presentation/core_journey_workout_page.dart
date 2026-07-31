@@ -157,8 +157,11 @@ class _CoreJourneyWorkoutPageState extends State<CoreJourneyWorkoutPage> {
   }
 
   Future<void> _finish(WorkoutSessionLocal session) async {
+    final previousFocus = FocusManager.instance.primaryFocus;
     final confirmed = await showDialog<bool>(
       context: context,
+      traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
+      requestFocus: true,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Finalizar treino?'),
         content: const Text(
@@ -176,9 +179,13 @@ class _CoreJourneyWorkoutPageState extends State<CoreJourneyWorkoutPage> {
         ],
       ),
     );
-    if (confirmed != true || !mounted) {
+    if (confirmed != true) {
+      if (mounted && (previousFocus?.canRequestFocus ?? false)) {
+        previousFocus!.requestFocus();
+      }
       return;
     }
+    if (!mounted) return;
     final finished = await widget.controller.finishWorkout(session.id);
     if (!mounted || finished == null) {
       if (mounted) {
@@ -264,6 +271,8 @@ class _ExerciseCard extends StatelessWidget {
     variant: FitCardVariant.elevated,
     title: exercise.nome,
     subtitle: exercise.musculos.join(', '),
+    semanticLabel:
+        '${exercise.nome}. Musculos: ${exercise.musculos.join(', ')}. Serie ${completed + 1} de ${exercise.series}. ${exercise.repeticoes} repeticoes. Descanso de ${exercise.descansoSegundos} segundos.',
     leading: const Icon(FitIcons.exercise),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -279,13 +288,14 @@ class _ExerciseCard extends StatelessWidget {
                 child: Image.asset(
                   exercise.imagem,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const _ExerciseMediaFallback(),
+                  errorBuilder: (_, _, _) =>
+                      _ExerciseMediaFallback(exerciseName: exercise.nome),
                 ),
               ),
             ),
           )
         else
-          const _ExerciseMediaFallback(),
+          _ExerciseMediaFallback(exerciseName: exercise.nome),
         const SizedBox(height: FitSpacing.s12),
         Text(
           '${exercise.series} series  |  ${exercise.repeticoes} reps  |  ${exercise.descansoSegundos}s descanso',
@@ -301,15 +311,23 @@ class _ExerciseCard extends StatelessWidget {
 }
 
 class _ExerciseMediaFallback extends StatelessWidget {
-  const _ExerciseMediaFallback();
+  const _ExerciseMediaFallback({this.exerciseName});
+
+  final String? exerciseName;
 
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      borderRadius: FitRadius.mediumBorder,
+  Widget build(BuildContext context) => Semantics(
+    image: true,
+    label: exerciseName == null
+        ? 'Midia do exercicio indisponivel'
+        : 'Midia indisponivel para $exerciseName',
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: FitRadius.mediumBorder,
+      ),
+      child: const Center(child: Icon(FitIcons.exercise, size: 48)),
     ),
-    child: const Center(child: Icon(FitIcons.exercise, size: 48)),
   );
 }
 
@@ -370,6 +388,7 @@ class _SetHistory extends StatelessWidget {
   Widget build(BuildContext context) => FitCard(
     title: 'Historico da sessao',
     subtitle: '${sets.length} series salvas',
+    semanticLabel: 'Historico da sessao. ${sets.length} series salvas.',
     child: sets.isEmpty
         ? const Text('A primeira serie salva aparecera aqui.')
         : Column(

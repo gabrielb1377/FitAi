@@ -104,15 +104,19 @@ class _LoginPageState extends State<LoginPage> {
               onChanged: (_) => _clearFieldError(password: true),
               onSubmitted: (_) => _submit(),
             ),
-            Align(
-              alignment: Alignment.centerRight,
+            SizedBox(
+              width: double.infinity,
               child: TextButton(
+                style: TextButton.styleFrom(alignment: Alignment.centerRight),
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => const PasswordRecoveryPage(),
                   ),
                 ),
-                child: const Text('Esqueci minha senha'),
+                child: const Text(
+                  'Esqueci minha senha',
+                  textAlign: TextAlign.end,
+                ),
               ),
             ),
             if (_message != null) ...[
@@ -122,11 +126,13 @@ class _LoginPageState extends State<LoginPage> {
             const SizedBox(height: FitSpacing.s24),
             FitButton(label: 'Entrar', expand: true, onPressedAsync: _submit),
             const SizedBox(height: FitSpacing.s20),
-            Wrap(
-              alignment: WrapAlignment.center,
-              crossAxisAlignment: WrapCrossAlignment.center,
+            Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Ainda nao tem uma conta?'),
+                const Text(
+                  'Ainda nao tem uma conta?',
+                  textAlign: TextAlign.center,
+                ),
                 TextButton(
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const RegisterPage()),

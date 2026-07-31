@@ -74,6 +74,9 @@ class FitTextField extends StatelessWidget {
     return Semantics(
       textField: true,
       label: semanticLabel ?? label,
+      hint: errorText ?? helperText ?? hintText,
+      enabled: enabled && !isLoading,
+      readOnly: readOnly,
       child: TextField(
         controller: controller,
         focusNode: focusNode,
