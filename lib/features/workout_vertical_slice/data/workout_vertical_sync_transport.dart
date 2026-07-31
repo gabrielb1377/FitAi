@@ -14,12 +14,24 @@ abstract interface class WorkoutVerticalSyncTransport {
   Future<SyncDispatchResult> dispatch(OutboxEventLocal event);
 }
 
+enum WorkoutSyncConnectionState { unknown, online, offline }
+
+abstract interface class WorkoutSyncConnectionReporter {
+  WorkoutSyncConnectionState get connectionState;
+}
+
 /// Transporte deterministico e sem rede, exclusivo para demonstracao em debug.
-class DebugWorkoutSyncTransport implements WorkoutVerticalSyncTransport {
+class DebugWorkoutSyncTransport
+    implements WorkoutVerticalSyncTransport, WorkoutSyncConnectionReporter {
   bool online = true;
   bool failNextDispatch = false;
   bool conflictNextDispatch = false;
   final List<String> receivedIdempotencyKeys = [];
+
+  @override
+  WorkoutSyncConnectionState get connectionState => online
+      ? WorkoutSyncConnectionState.online
+      : WorkoutSyncConnectionState.offline;
 
   @override
   Future<SyncDispatchResult> dispatch(OutboxEventLocal event) async {
@@ -40,7 +52,8 @@ class DebugWorkoutSyncTransport implements WorkoutVerticalSyncTransport {
 }
 
 /// Adapter do contrato VS2. Cada despacho recebe ACK individual do lote.
-class HttpWorkoutSyncTransport implements WorkoutVerticalSyncTransport {
+class HttpWorkoutSyncTransport
+    implements WorkoutVerticalSyncTransport, WorkoutSyncConnectionReporter {
   HttpWorkoutSyncTransport({
     http.Client? client,
     AuthService? authService,
@@ -54,6 +67,11 @@ class HttpWorkoutSyncTransport implements WorkoutVerticalSyncTransport {
   final http.Client _client;
   final AuthService _authService;
   final Future<SharedPreferences> Function() _preferencesLoader;
+  WorkoutSyncConnectionState _connectionState =
+      WorkoutSyncConnectionState.unknown;
+
+  @override
+  WorkoutSyncConnectionState get connectionState => _connectionState;
 
   @override
   Future<SyncDispatchResult> dispatch(OutboxEventLocal event) async {
@@ -72,6 +90,7 @@ class HttpWorkoutSyncTransport implements WorkoutVerticalSyncTransport {
     String bearerToken,
   ) async {
     final response = await _post(event, bearerToken);
+    _connectionState = WorkoutSyncConnectionState.online;
     final body = _decodeObject(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw WorkoutSyncTransportException(
@@ -133,8 +152,10 @@ class HttpWorkoutSyncTransport implements WorkoutVerticalSyncTransport {
           )
           .timeout(ApiConfig.timeout);
     } on http.ClientException catch (error) {
+      _connectionState = WorkoutSyncConnectionState.offline;
       throw WorkoutSyncTransportException(error.message, retryable: true);
     } on TimeoutException {
+      _connectionState = WorkoutSyncConnectionState.offline;
       throw const WorkoutSyncTransportException(
         'Tempo esgotado ao sincronizar treino.',
         retryable: true,
@@ -187,7 +208,8 @@ class HttpWorkoutSyncTransport implements WorkoutVerticalSyncTransport {
 
 /// Usa o endpoint real quando existe JWT; o modo debug sem login continua
 /// deterministico e nao torna o endpoint anonimo.
-class AdaptiveWorkoutSyncTransport implements WorkoutVerticalSyncTransport {
+class AdaptiveWorkoutSyncTransport
+    implements WorkoutVerticalSyncTransport, WorkoutSyncConnectionReporter {
   AdaptiveWorkoutSyncTransport({
     required this.debugTransport,
     HttpWorkoutSyncTransport? remoteTransport,
@@ -198,6 +220,12 @@ class AdaptiveWorkoutSyncTransport implements WorkoutVerticalSyncTransport {
   final DebugWorkoutSyncTransport debugTransport;
   final HttpWorkoutSyncTransport _remoteTransport;
   final AuthService _authService;
+
+  @override
+  WorkoutSyncConnectionState get connectionState {
+    if (!debugTransport.online) return WorkoutSyncConnectionState.offline;
+    return _remoteTransport.connectionState;
+  }
 
   @override
   Future<SyncDispatchResult> dispatch(OutboxEventLocal event) async {

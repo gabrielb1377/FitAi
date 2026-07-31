@@ -109,6 +109,54 @@ void main() {
       expect(controller.setsFor(session.id), hasLength(1));
       expect(controller.snapshot.outbox, isNotEmpty);
     });
+
+    test(
+      'reabre e envia automaticamente eventos pendentes elegiveis',
+      () async {
+        controller.dispose();
+        controller = _createController(
+          identity: () async => currentIdentity,
+          stores: stores,
+          transport: const _OfflineTransport(),
+        );
+        await controller.initialize();
+        final session = await controller.startPlan(DevFixtures.workouts.single);
+        await controller.registerSet(
+          sessionId: session!.id,
+          exercise: DevFixtures.workouts.single.exercicios.first,
+          weight: 50,
+          reps: 10,
+        );
+        expect(controller.hasPendingSync, isTrue);
+        await Future<void>.delayed(const Duration(milliseconds: 25));
+        stores.makeOutboxDue(currentIdentity.userId);
+
+        controller.dispose();
+        final transport = _CountingTransport();
+        controller = _createController(
+          identity: () async => currentIdentity,
+          stores: stores,
+          transport: transport,
+        );
+        await controller.initialize();
+        await Future<void>.delayed(const Duration(milliseconds: 25));
+
+        expect(transport.dispatched, greaterThan(0));
+        expect(controller.hasPendingSync, isFalse);
+      },
+    );
+
+    test('estado offline vem do transporte real quando informado', () async {
+      controller.dispose();
+      controller = _createController(
+        identity: () async => currentIdentity,
+        stores: stores,
+        transport: const _StateTransport(WorkoutSyncConnectionState.offline),
+      );
+
+      await controller.initialize();
+      expect(controller.isOffline, isTrue);
+    });
   });
 }
 
@@ -132,6 +180,16 @@ class _ScopedMemoryStore {
     readSnapshot: () => _snapshots[scope] ?? const WorkoutSliceSnapshot.empty(),
     saveSnapshot: (snapshot) => _snapshots[scope] = snapshot,
   );
+
+  void makeOutboxDue(String scope) {
+    final current = _snapshots[scope] ?? const WorkoutSliceSnapshot.empty();
+    _snapshots[scope] = current.copyWith(
+      outbox: [
+        for (final event in current.outbox)
+          event.copyWith(nextAttemptAt: DateTime.utc(2000)),
+      ],
+    );
+  }
 }
 
 class _MemoryStore implements WorkoutVerticalLocalStore {
@@ -157,4 +215,26 @@ class _OfflineTransport implements WorkoutVerticalSyncTransport {
         'Sem conexao.',
         retryable: true,
       );
+}
+
+class _CountingTransport implements WorkoutVerticalSyncTransport {
+  int dispatched = 0;
+
+  @override
+  Future<SyncDispatchResult> dispatch(OutboxEventLocal event) async {
+    dispatched++;
+    return const SyncDispatchResult.confirmed();
+  }
+}
+
+class _StateTransport
+    implements WorkoutVerticalSyncTransport, WorkoutSyncConnectionReporter {
+  const _StateTransport(this.connectionState);
+
+  @override
+  final WorkoutSyncConnectionState connectionState;
+
+  @override
+  Future<SyncDispatchResult> dispatch(OutboxEventLocal event) async =>
+      const SyncDispatchResult.confirmed();
 }

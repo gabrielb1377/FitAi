@@ -21,6 +21,11 @@ class WorkoutVerticalRepository {
   final Uuid _uuid;
   Future<void> _mutationQueue = Future<void>.value();
 
+  WorkoutSyncConnectionState get connectionState =>
+      transport is WorkoutSyncConnectionReporter
+      ? (transport as WorkoutSyncConnectionReporter).connectionState
+      : WorkoutSyncConnectionState.unknown;
+
   Future<WorkoutSliceSnapshot> load() => localStore.read();
 
   Future<WorkoutSessionLocal?> activeSession() async {

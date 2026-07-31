@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/api/api_config.dart';
 import '../../../core/config/dev_config.dart';
+import 'auth_session_store.dart';
 
 enum AuthLaunchDestination { onboarding, login, appShell }
 
@@ -122,10 +123,14 @@ class OnboardingDraft {
 /// Cliente de autenticacao que preserva sessao local e usa os contratos atuais
 /// do backend. Senhas e tokens nunca sao registrados em logs.
 class AuthService {
-  AuthService({http.Client? client, bool? bypassLogin})
-    : _client = client ?? http.Client(),
-      _bypassLogin =
-          DevConfig.enabled && (bypassLogin ?? DevConfig.bypassLogin);
+  AuthService({
+    http.Client? client,
+    bool? bypassLogin,
+    AuthSessionStore? sessionStore,
+  }) : _client = client ?? http.Client(),
+       _bypassLogin =
+           DevConfig.enabled && (bypassLogin ?? DevConfig.bypassLogin),
+       _sessionStore = sessionStore ?? SecureAuthSessionStore();
 
   static const _sessionKey = 'fitai.auth.session.v1';
   static const _onboardingKey = 'fitai.auth.onboarding.completed.v1';
@@ -133,6 +138,7 @@ class AuthService {
 
   final http.Client _client;
   final bool _bypassLogin;
+  final AuthSessionStore _sessionStore;
 
   Future<AuthLaunchDestination> resolveLaunchDestination() async {
     if (_bypassLogin) return AuthLaunchDestination.appShell;
@@ -180,8 +186,7 @@ class AuthService {
 
   Future<AuthSession?> restoreSession() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_sessionKey);
+      final raw = await _readPersistedSession();
       if (raw == null || raw.isEmpty) return null;
 
       final decoded = jsonDecode(raw);
@@ -225,7 +230,7 @@ class AuthService {
 
   Future<void> clearSession() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_sessionKey);
+    await Future.wait([_sessionStore.delete(), prefs.remove(_sessionKey)]);
   }
 
   Future<AuthSession> _authenticate(
@@ -276,7 +281,8 @@ class AuthService {
   Future<void> _persistSession(AuthSession session) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_sessionKey, jsonEncode(session.toJson()));
+      await _sessionStore.write(jsonEncode(session.toJson()));
+      await prefs.remove(_sessionKey);
 
       // Mantem o nome exibido nas telas existentes sem modificar o perfil local.
       await prefs.setString('perfilNome', session.name);
@@ -287,6 +293,20 @@ class AuthService {
         AuthFailureKind.local,
       );
     }
+  }
+
+  Future<String?> _readPersistedSession() async {
+    final secureValue = await _sessionStore.read();
+    if (secureValue != null && secureValue.isNotEmpty) return secureValue;
+
+    final prefs = await SharedPreferences.getInstance();
+    final legacyValue = prefs.getString(_sessionKey);
+    if (legacyValue == null || legacyValue.isEmpty) return null;
+
+    await _sessionStore.write(legacyValue);
+    await prefs.remove(_sessionKey);
+    _debugLog('Sessao legada migrada para armazenamento seguro.');
+    return legacyValue;
   }
 
   AuthSession _sessionFromResponse(Map<String, dynamic> response) {

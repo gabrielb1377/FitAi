@@ -63,12 +63,15 @@ class CoreJourneyController extends ChangeNotifier {
   bool isSyncing = false;
   String? errorMessage;
   bool _disposed = false;
+  Timer? _syncRetryTimer;
+
+  static const _syncRetryInterval = Duration(seconds: 30);
 
   bool get isReady => !isLoading && identity != null;
 
-  /// No Developer Mode o transporte local continua disponivel sem JWT; falta
-  /// de sessao autenticada nao deve ser apresentada como perda de rede.
-  bool get isOffline => !_debugTransport.online;
+  bool get isOffline =>
+      !_debugTransport.online ||
+      _repository?.connectionState == WorkoutSyncConnectionState.offline;
   bool get hasPendingSync => snapshot.outbox.any(
     (event) =>
         event.status == OutboxEventStatus.pending ||
@@ -152,6 +155,7 @@ class CoreJourneyController extends ChangeNotifier {
       await _requiredRepository.recoverInterruptedSync();
       snapshot = await _requiredRepository.load();
       plans = await (planLoader ?? _loadPlans)();
+      if (hasPendingSync) unawaited(_flushOutbox());
     } on Object catch (error) {
       errorMessage = 'Nao foi possivel preparar seus treinos: $error';
     } finally {
@@ -252,9 +256,11 @@ class CoreJourneyController extends ChangeNotifier {
     isSyncing = true;
     notifyListeners();
     try {
-      await _requiredRepository.flushOutbox();
-      if (_disposed) return;
-      await _reload();
+      do {
+        await _requiredRepository.flushOutbox();
+        if (_disposed) return;
+        await _reload();
+      } while (_hasDueOutboxEvents());
     } catch (_) {
       // A outbox persistida e a fonte da recuperacao; a interface mostrara
       // pendencia sem impedir o treino ou o resumo local.
@@ -263,8 +269,34 @@ class CoreJourneyController extends ChangeNotifier {
       if (!_disposed) {
         isSyncing = false;
         notifyListeners();
+        if (_hasDueOutboxEvents()) {
+          unawaited(_flushOutbox());
+        } else if (hasPendingSync) {
+          _startAutomaticSyncRetry();
+        }
       }
     }
+  }
+
+  bool _hasDueOutboxEvents() {
+    final now = DateTime.now();
+    return snapshot.outbox.any(
+      (event) =>
+          event.status == OutboxEventStatus.pending &&
+          !event.nextAttemptAt.isAfter(now),
+    );
+  }
+
+  void _startAutomaticSyncRetry() {
+    if (_disposed || !hasPendingSync || _syncRetryTimer != null) return;
+    _syncRetryTimer ??= Timer.periodic(_syncRetryInterval, (timer) {
+      if (_disposed || !hasPendingSync) {
+        timer.cancel();
+        _syncRetryTimer = null;
+        return;
+      }
+      unawaited(_flushOutbox());
+    });
   }
 
   Future<void> _reload() async {
@@ -325,6 +357,7 @@ class CoreJourneyController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _syncRetryTimer?.cancel();
     super.dispose();
   }
 }

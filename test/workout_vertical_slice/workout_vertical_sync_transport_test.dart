@@ -100,6 +100,18 @@ void main() {
       ),
     );
   });
+
+  test('marca indisponibilidade quando o transporte HTTP falha', () async {
+    final transport = HttpWorkoutSyncTransport(
+      client: MockClient((_) async => throw http.ClientException('offline')),
+    );
+
+    await expectLater(
+      transport.dispatchWithToken(_event(), 'token'),
+      throwsA(isA<WorkoutSyncTransportException>()),
+    );
+    expect(transport.connectionState, WorkoutSyncConnectionState.offline);
+  });
 }
 
 OutboxEventLocal _event() => OutboxEventLocal(

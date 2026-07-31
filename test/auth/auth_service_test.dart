@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:fitai/core/config/dev_config.dart';
+import 'package:fitai/features/auth/data/auth_session_store.dart';
 import 'package:fitai/features/auth/data/auth_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -14,6 +15,7 @@ void main() {
     final service = AuthService(
       client: MockClient((_) async => _ok()),
       bypassLogin: false,
+      sessionStore: InMemoryAuthSessionStore(),
     );
 
     expect(
@@ -30,12 +32,14 @@ void main() {
 
   test('login usa contrato do backend e restaura sessao local', () async {
     late http.Request captured;
+    final sessionStore = InMemoryAuthSessionStore();
     final service = AuthService(
       client: MockClient((request) async {
         captured = request;
         return _ok();
       }),
       bypassLogin: false,
+      sessionStore: sessionStore,
     );
 
     final session = await service.login(
@@ -50,6 +54,13 @@ void main() {
     });
     expect(session.name, 'Gabriel');
     expect((await service.restoreSession())?.email, 'gabriel@fitia.app');
+    expect(await sessionStore.read(), isNotEmpty);
+    expect(
+      (await SharedPreferences.getInstance()).containsKey(
+        'fitai.auth.session.v1',
+      ),
+      isFalse,
+    );
     expect(
       await service.resolveLaunchDestination(),
       AuthLaunchDestination.appShell,
@@ -63,6 +74,7 @@ void main() {
         captured = request;
         return _ok(statusCode: 201);
       }),
+      sessionStore: InMemoryAuthSessionStore(),
     );
 
     await service.register(
@@ -85,6 +97,7 @@ void main() {
         (_) async =>
             http.Response(jsonEncode({'error': 'invalid_credentials'}), 401),
       ),
+      sessionStore: InMemoryAuthSessionStore(),
     );
 
     await expectLater(
@@ -119,6 +132,7 @@ void main() {
     final service = AuthService(
       client: MockClient((_) async => _ok()),
       bypassLogin: false,
+      sessionStore: InMemoryAuthSessionStore(),
     );
 
     expect(await service.restoreSession(), isNull);
@@ -129,7 +143,10 @@ void main() {
   });
 
   test('debug pode pular login sem persistir sessao falsa', () async {
-    final service = AuthService(client: MockClient((_) async => _ok()));
+    final service = AuthService(
+      client: MockClient((_) async => _ok()),
+      sessionStore: InMemoryAuthSessionStore(),
+    );
 
     expect(DevConfig.enabled, isTrue);
     expect(
