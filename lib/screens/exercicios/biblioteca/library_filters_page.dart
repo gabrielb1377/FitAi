@@ -8,9 +8,14 @@ import 'library_catalog_controller.dart';
 import 'library_official_widgets.dart';
 
 class LibraryFiltersPage extends StatefulWidget {
-  const LibraryFiltersPage({super.key, required this.initialValue});
+  const LibraryFiltersPage({
+    super.key,
+    required this.initialValue,
+    required this.resultCountFor,
+  });
 
   final LibraryFilterSelection initialValue;
+  final int Function(LibraryFilterSelection selection) resultCountFor;
 
   @override
   State<LibraryFiltersPage> createState() => _LibraryFiltersPageState();
@@ -27,130 +32,192 @@ class _LibraryFiltersPageState extends State<LibraryFiltersPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: FitColors.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: LibraryContentFrame(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      LibraryCenteredHeader(
-                        title: 'Filtros',
-                        leading: IconButton(
-                          tooltip: 'Voltar',
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(Icons.arrow_back_rounded),
-                        ),
-                        trailing: TextButton(
-                          onPressed: _clearAll,
-                          child: const Text('Limpar'),
-                        ),
+    // O container FitIA tambem reserva espaco para alca, titulo e safe area.
+    // O corpo recebe uma altura menor e rolagem propria para evitar overflow.
+    final height = MediaQuery.sizeOf(context).height * .48;
+    final resultCount = widget.resultCountFor(selection);
+    return SizedBox(
+      height: height,
+      child: Column(
+        children: [
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: _clearAll,
+              child: const Text('Limpar'),
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              key: const PageStorageKey('library-filters-scroll'),
+              physics: const BouncingScrollPhysics(),
+              child: LibraryContentFrame(
+                padding: const EdgeInsets.fromLTRB(0, 0, 0, FitSpacing.s12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _section(
+                      title: 'Grupo muscular',
+                      onClear: () => setState(
+                        () => selection = selection.copyWith(muscleGroup: null),
                       ),
-                      const SizedBox(height: FitSpacing.s8),
-                      _section(
-                        title: 'Grupo muscular',
-                        onClear: () => setState(
-                          () =>
-                              selection = selection.copyWith(muscleGroup: null),
-                        ),
-                        children: [
-                          for (final group
-                              in LibraryCatalogController.muscleGroups)
-                            _FilterOption(
-                              label: group.label,
-                              selected: selection.muscleGroup == group.label,
-                              onTap: () => setState(
-                                () => selection = selection.copyWith(
-                                  muscleGroup: group.label,
-                                ),
+                      children: [
+                        for (final group
+                            in LibraryCatalogController.muscleGroups)
+                          _FilterOption(
+                            label: group.label,
+                            selected: selection.muscleGroup == group.label,
+                            onTap: () => setState(
+                              () => selection = selection.copyWith(
+                                muscleGroup: group.label,
                               ),
                             ),
-                        ],
+                          ),
+                      ],
+                    ),
+                    _section(
+                      title: 'Nível',
+                      onClear: () => setState(
+                        () => selection = selection.copyWith(level: null),
                       ),
-                      _section(
-                        title: 'Nível',
-                        onClear: () => setState(
-                          () => selection = selection.copyWith(level: null),
-                        ),
-                        children: [
-                          for (final level in LibraryCatalogController.levels)
-                            _FilterOption(
-                              label: level,
-                              selected: selection.level == level,
-                              onTap: () => setState(
-                                () => selection = selection.copyWith(
-                                  level: level,
-                                ),
+                      children: [
+                        for (final level in LibraryCatalogController.levels)
+                          _FilterOption(
+                            label: level,
+                            selected: selection.level == level,
+                            onTap: () => setState(
+                              () =>
+                                  selection = selection.copyWith(level: level),
+                            ),
+                          ),
+                      ],
+                    ),
+                    _section(
+                      title: 'Equipamento',
+                      onClear: () => setState(
+                        () => selection = selection.copyWith(equipment: null),
+                      ),
+                      children: [
+                        for (final item in LibraryCatalogController.equipment)
+                          _FilterOption(
+                            label: item,
+                            selected: selection.equipment == item,
+                            onTap: () => setState(
+                              () => selection = selection.copyWith(
+                                equipment: item,
                               ),
                             ),
-                        ],
+                          ),
+                      ],
+                    ),
+                    _section(
+                      title: 'Categoria',
+                      onClear: () => setState(
+                        () => selection = selection.copyWith(category: null),
                       ),
-                      _section(
-                        title: 'Equipamento',
-                        onClear: () => setState(
-                          () => selection = selection.copyWith(equipment: null),
-                        ),
-                        children: [
-                          for (final item in LibraryCatalogController.equipment)
-                            _FilterOption(
-                              label: item,
-                              selected: selection.equipment == item,
-                              onTap: () => setState(
-                                () => selection = selection.copyWith(
-                                  equipment: item,
-                                ),
+                      children: [
+                        for (final category
+                            in LibraryCatalogController.categories)
+                          _FilterOption(
+                            label: category,
+                            selected: selection.category == category,
+                            onTap: () => setState(
+                              () => selection = selection.copyWith(
+                                category: category,
                               ),
                             ),
-                        ],
+                          ),
+                      ],
+                    ),
+                    _section(
+                      title: 'Movimento',
+                      onClear: () => setState(
+                        () => selection = selection.copyWith(movement: null),
                       ),
-                      _section(
-                        title: 'Ordenar por',
-                        showClear: false,
-                        children: [
+                      children: [
+                        for (final movement
+                            in LibraryCatalogController.movements)
                           _FilterOption(
-                            label: 'A-Z',
-                            selected:
-                                selection.sort == LibrarySort.alphabetical,
-                            onTap: () => _setSort(LibrarySort.alphabetical),
+                            label: movement,
+                            selected: selection.movement == movement,
+                            onTap: () => setState(
+                              () => selection = selection.copyWith(
+                                movement: movement,
+                              ),
+                            ),
                           ),
-                          _FilterOption(
-                            label: 'Mais populares',
-                            selected:
-                                selection.sort == LibrarySort.popular ||
-                                selection.sort == LibrarySort.all,
-                            onTap: () => _setSort(LibrarySort.popular),
-                          ),
-                          _FilterOption(
-                            label: 'Recentes',
-                            selected: selection.sort == LibrarySort.recent,
-                            onTap: () => _setSort(LibrarySort.recent),
-                          ),
-                        ],
+                      ],
+                    ),
+                    _section(
+                      title: 'Objetivo',
+                      onClear: () => setState(
+                        () => selection = selection.copyWith(objective: null),
                       ),
-                    ],
-                  ),
+                      children: [
+                        for (final objective
+                            in LibraryCatalogController.objectives)
+                          _FilterOption(
+                            label: objective,
+                            selected: selection.objective == objective,
+                            onTap: () => setState(
+                              () => selection = selection.copyWith(
+                                objective: objective,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    _section(
+                      title: 'Ordenar por',
+                      showClear: false,
+                      children: [
+                        _FilterOption(
+                          label: 'A-Z',
+                          selected: selection.sort == LibrarySort.alphabetical,
+                          onTap: () => _setSort(LibrarySort.alphabetical),
+                        ),
+                        _FilterOption(
+                          label: 'Mais populares',
+                          selected:
+                              selection.sort == LibrarySort.popular ||
+                              selection.sort == LibrarySort.all,
+                          onTap: () => _setSort(LibrarySort.popular),
+                        ),
+                        _FilterOption(
+                          label: 'Recentes',
+                          selected: selection.sort == LibrarySort.recent,
+                          onTap: () => _setSort(LibrarySort.recent),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),
-            SafeArea(
-              top: false,
-              minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 648),
-                child: FitButton(
+          ),
+          SafeArea(
+            top: false,
+            minimum: const EdgeInsets.only(top: FitSpacing.s8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '$resultCount resultados',
+                  style: const TextStyle(
+                    color: FitColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: FitSpacing.s8),
+                FitButton(
                   label: 'Aplicar filtros',
                   onPressed: () => Navigator.of(context).pop(selection),
                   expand: true,
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

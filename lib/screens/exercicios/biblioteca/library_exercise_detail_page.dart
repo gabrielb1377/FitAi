@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../design_system/components/fit_button.dart';
 import '../../../design_system/tokens/fit_colors.dart';
@@ -26,6 +27,9 @@ class BibliotecaExercicioDetalhePage extends StatefulWidget {
     this.initialFavorite = false,
     this.onToggleFavorite,
     this.onOpenFavorites,
+    this.relatedExercises = const [],
+    this.onOpenRelated,
+    this.onToggleRelated,
   });
 
   final ExercicioModel exercicio;
@@ -33,6 +37,9 @@ class BibliotecaExercicioDetalhePage extends StatefulWidget {
   final bool initialFavorite;
   final LibraryFavoriteToggle? onToggleFavorite;
   final VoidCallback? onOpenFavorites;
+  final List<ExercicioModel> relatedExercises;
+  final ValueChanged<ExercicioModel>? onOpenRelated;
+  final ValueChanged<ExercicioModel>? onToggleRelated;
 
   @override
   State<BibliotecaExercicioDetalhePage> createState() =>
@@ -114,6 +121,12 @@ class _BibliotecaExercicioDetalhePageState
                 _musclesSummary(),
                 const SizedBox(height: 14),
                 _description(),
+                const SizedBox(height: 14),
+                _exerciseDetails(),
+                if (widget.relatedExercises.isNotEmpty) ...[
+                  const SizedBox(height: 18),
+                  _relatedExercises(),
+                ],
               ],
             ),
           ),
@@ -145,6 +158,15 @@ class _BibliotecaExercicioDetalhePageState
               icon: Icons.arrow_back_rounded,
               tooltip: 'Voltar',
               onPressed: () => Navigator.of(context).pop(),
+            ),
+          ),
+          Positioned(
+            right: 62,
+            top: 8,
+            child: LibraryIconButton(
+              icon: Icons.share_outlined,
+              tooltip: 'Compartilhar exercicio',
+              onPressed: _shareExercise,
             ),
           ),
           Positioned(
@@ -364,6 +386,108 @@ class _BibliotecaExercicioDetalhePageState
           child: TextButton(
             onPressed: () => setState(() => _showTabs = true),
             child: const Text('Ver mais'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _exerciseDetails() {
+    final breathing = 'Expire na fase de esforco e inspire no retorno.';
+    final tips = exercise.observacoesTreino.trim().isEmpty
+        ? 'Priorize amplitude controlada e carga compativel com a tecnica.'
+        : exercise.observacoesTreino;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _detailRow('Execucao', exercise.comoExecutar),
+        const SizedBox(height: 12),
+        _detailRow('Respiracao', breathing),
+        const SizedBox(height: 12),
+        _detailRow('Dicas', tips),
+        if (exercise.tags.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          const Text(
+            'Tags',
+            style: TextStyle(
+              color: FitColors.textPrimary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final tag in exercise.tags)
+                Chip(label: Text(tag), visualDensity: VisualDensity.compact),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _detailRow(String title, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            color: FitColors.textPrimary,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          value.trim().isEmpty ? 'Nao informado.' : value,
+          maxLines: 4,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: FitColors.textSecondary,
+            fontSize: 11,
+            height: 1.4,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _relatedExercises() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Variacoes e relacionados',
+          style: TextStyle(
+            color: FitColors.textPrimary,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 128,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: widget.relatedExercises.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final related = widget.relatedExercises[index];
+              return SizedBox(
+                width: 176,
+                child: LibraryExerciseTile(
+                  exercise: related,
+                  favorite: related.favorito,
+                  compact: true,
+                  onTap: () => widget.onOpenRelated?.call(related),
+                  onFavorite: () => widget.onToggleRelated?.call(related),
+                ),
+              );
+            },
           ),
         ),
       ],
@@ -801,6 +925,16 @@ class _BibliotecaExercicioDetalhePageState
       gifPath: exercise.gifPath,
       titulo: exercise.nome,
       subtitulo: exercise.categoria,
+    );
+  }
+
+  Future<void> _shareExercise() async {
+    await Clipboard.setData(
+      ClipboardData(text: '${exercise.nome} - ${exercise.categoria}'),
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Informacoes do exercicio copiadas.')),
     );
   }
 

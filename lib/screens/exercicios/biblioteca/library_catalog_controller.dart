@@ -10,7 +10,7 @@ import '../../../services/storage_service.dart';
 
 typedef LibraryCatalogLoader = Future<List<ExercicioModel>> Function();
 
-enum LibrarySection { home, explore, favorites }
+enum LibrarySection { home, explore, favorites, recent }
 
 enum LibrarySort { all, popular, recent, alphabetical }
 
@@ -35,24 +35,36 @@ class LibraryFilterSelection {
     this.muscleGroup,
     this.level,
     this.equipment,
+    this.category,
+    this.movement,
+    this.objective,
     this.sort = LibrarySort.all,
   });
 
   final String? muscleGroup;
   final String? level;
   final String? equipment;
+  final String? category;
+  final String? movement;
+  final String? objective;
   final LibrarySort sort;
 
   bool get isActive =>
       muscleGroup != null ||
       level != null ||
       equipment != null ||
+      category != null ||
+      movement != null ||
+      objective != null ||
       sort != LibrarySort.all;
 
   LibraryFilterSelection copyWith({
     Object? muscleGroup = _unset,
     Object? level = _unset,
     Object? equipment = _unset,
+    Object? category = _unset,
+    Object? movement = _unset,
+    Object? objective = _unset,
     LibrarySort? sort,
   }) {
     return LibraryFilterSelection(
@@ -63,6 +75,15 @@ class LibraryFilterSelection {
       equipment: identical(equipment, _unset)
           ? this.equipment
           : equipment as String?,
+      category: identical(category, _unset)
+          ? this.category
+          : category as String?,
+      movement: identical(movement, _unset)
+          ? this.movement
+          : movement as String?,
+      objective: identical(objective, _unset)
+          ? this.objective
+          : objective as String?,
       sort: sort ?? this.sort,
     );
   }
@@ -95,7 +116,7 @@ class LibraryCatalogController extends ChangeNotifier {
       highlight: Alignment(-0.58, -0.5),
     ),
     LibraryMuscleGroup(
-      label: 'Pernas',
+      label: 'Quadriceps',
       aliases: ['Pernas', 'Quadriceps', 'Quadríceps', 'Posterior'],
       highlight: Alignment(-0.25, 0.55),
     ),
@@ -110,7 +131,7 @@ class LibraryCatalogController extends ChangeNotifier {
       highlight: Alignment(0.7, -0.12),
     ),
     LibraryMuscleGroup(
-      label: 'Abdômen',
+      label: 'Core',
       aliases: ['Abdomen', 'Abdômen', 'Core'],
       highlight: Alignment(0, 0.05),
     ),
@@ -118,6 +139,21 @@ class LibraryCatalogController extends ChangeNotifier {
       label: 'Panturrilhas',
       aliases: ['Panturrilha', 'Panturrilhas'],
       highlight: Alignment(0.28, 0.82),
+    ),
+    LibraryMuscleGroup(
+      label: 'Posterior',
+      aliases: ['Posterior', 'Posteriores', 'Isquiotibiais'],
+      highlight: Alignment(0.25, 0.55),
+    ),
+    LibraryMuscleGroup(
+      label: 'Gluteos',
+      aliases: ['Gluteos', 'Glúteos'],
+      highlight: Alignment(0, 0.47),
+    ),
+    LibraryMuscleGroup(
+      label: 'Corpo inteiro',
+      aliases: ['Corpo inteiro', 'Full body', 'Geral'],
+      highlight: Alignment(0, 0),
     ),
   ];
 
@@ -129,6 +165,23 @@ class LibraryCatalogController extends ChangeNotifier {
     'Cabo',
     'Corpo Livre',
     'Elástico',
+  ];
+
+  static const categories = [
+    'Força',
+    'Cardio',
+    'Mobilidade',
+    'Aquecimento',
+    'Alongamento',
+  ];
+
+  static const movements = ['Empurrar', 'Puxar', 'Agachar', 'Hinge', 'Isolado'];
+
+  static const objectives = [
+    'Hipertrofia',
+    'Força',
+    'Condicionamento',
+    'Mobilidade',
   ];
 
   final LibraryCatalogLoader _catalogLoader;
@@ -157,6 +210,9 @@ class LibraryCatalogController extends ChangeNotifier {
     _filters.muscleGroup,
     _filters.level,
     _filters.equipment,
+    _filters.category,
+    _filters.movement,
+    _filters.objective,
   ].whereType<String>().length;
 
   Future<void> initialize() async {
@@ -205,6 +261,12 @@ class LibraryCatalogController extends ChangeNotifier {
 
   void showFavorites() {
     _section = LibrarySection.favorites;
+    _query = '';
+    notifyListeners();
+  }
+
+  void showRecent() {
+    _section = LibrarySection.recent;
     _query = '';
     notifyListeners();
   }
@@ -280,17 +342,48 @@ class LibraryCatalogController extends ChangeNotifier {
     return result.take(2).toList(growable: false);
   }
 
+  List<ExercicioModel> get recentExercises {
+    final byId = <String, ExercicioModel>{
+      for (final exercise in _exercises) exercise.id: exercise,
+    };
+    return _recentIds
+        .map((id) => byId[id])
+        .whereType<ExercicioModel>()
+        .toList(growable: false);
+  }
+
+  List<ExercicioModel> relatedExercises(ExercicioModel exercise) {
+    final primary = exercise.musculos.isEmpty
+        ? normalizeLibraryText(exercise.categoria)
+        : normalizeLibraryText(exercise.musculos.first);
+    return _exercises
+        .where((candidate) => candidate.id != exercise.id)
+        .where((candidate) {
+          final text = normalizeLibraryText(
+            [candidate.categoria, ...candidate.musculos].join(' '),
+          );
+          return text.contains(primary) ||
+              normalizeLibraryText(candidate.categoria) ==
+                  normalizeLibraryText(exercise.categoria);
+        })
+        .take(8)
+        .toList(growable: false);
+  }
+
+  int countForFilters(LibraryFilterSelection filters) =>
+      _filteredExercises(filters: filters, query: _query).length;
+
+  int countForMuscleGroup(String group) =>
+      _exercises.where((exercise) => _matchesGroup(exercise, group)).length;
+
   List<ExercicioModel> get visibleExercises {
     final favoriteOnly = _section == LibrarySection.favorites;
-    final normalizedQuery = normalizeLibraryText(_query);
-    final result = _exercises
+    final recentOnly = _section == LibrarySection.recent;
+    final result = _filteredExercises(filters: _filters, query: _query)
         .where((exercise) {
           if (favoriteOnly && !_favoriteIds.contains(exercise.id)) return false;
-          if (!_matchesGroup(exercise, _filters.muscleGroup)) return false;
-          if (!_matchesLevel(exercise, _filters.level)) return false;
-          if (!_matchesEquipment(exercise, _filters.equipment)) return false;
-          if (normalizedQuery.isEmpty) return true;
-          return _searchableText(exercise).contains(normalizedQuery);
+          if (recentOnly && !_recentIds.contains(exercise.id)) return false;
+          return true;
         })
         .toList(growable: true);
 
@@ -310,6 +403,23 @@ class LibraryCatalogController extends ChangeNotifier {
         break;
     }
     return List.unmodifiable(result);
+  }
+
+  List<ExercicioModel> _filteredExercises({
+    required LibraryFilterSelection filters,
+    required String query,
+  }) {
+    return _exercises
+        .where((exercise) {
+          return _matchesGroup(exercise, filters.muscleGroup) &&
+              _matchesLevel(exercise, filters.level) &&
+              _matchesEquipment(exercise, filters.equipment) &&
+              _matchesCategory(exercise, filters.category) &&
+              _matchesMovement(exercise, filters.movement) &&
+              _matchesObjective(exercise, filters.objective) &&
+              _matchesSearch(exercise, query);
+        })
+        .toList(growable: false);
   }
 
   Future<void> _loadLocalState() async {
@@ -374,6 +484,72 @@ class LibraryCatalogController extends ChangeNotifier {
     };
   }
 
+  bool _matchesCategory(ExercicioModel exercise, String? category) {
+    if (category == null) return true;
+    final text = normalizeLibraryText(
+      [exercise.categoria, exercise.objetivo, ...exercise.tags].join(' '),
+    );
+    return switch (normalizeLibraryText(category)) {
+      'forca' => !text.contains('cardio') && !text.contains('mobilidade'),
+      'cardio' => text.contains('cardio') || text.contains('condicionamento'),
+      'mobilidade' => text.contains('mobilidade'),
+      'aquecimento' => text.contains('aquecimento'),
+      'alongamento' => text.contains('alongamento'),
+      final selected => text.contains(selected),
+    };
+  }
+
+  bool _matchesMovement(ExercicioModel exercise, String? movement) {
+    if (movement == null) return true;
+    final text = _searchableText(exercise);
+    return switch (normalizeLibraryText(movement)) {
+      'empurrar' => RegExp(
+        r'supino|flexao|desenvolvimento|press',
+      ).hasMatch(text),
+      'puxar' => RegExp(r'remada|puxada|barra fixa|pull').hasMatch(text),
+      'agachar' => RegExp(r'agachamento|afundo|leg press').hasMatch(text),
+      'hinge' => RegExp(r'terra|stiff|romeno|good morning').hasMatch(text),
+      'isolado' => RegExp(
+        r'rosca|extensora|flexora|elevacao|triceps',
+      ).hasMatch(text),
+      _ => true,
+    };
+  }
+
+  bool _matchesObjective(ExercicioModel exercise, String? objective) {
+    if (objective == null) return true;
+    return normalizeLibraryText(exercise.objetivo) ==
+        normalizeLibraryText(objective);
+  }
+
+  bool _matchesSearch(ExercicioModel exercise, String query) {
+    final normalizedQuery = normalizeLibraryText(query);
+    if (normalizedQuery.isEmpty) return true;
+    final searchable = _searchableText(exercise);
+    return _searchTokens(normalizedQuery).every(searchable.contains);
+  }
+
+  Iterable<String> _searchTokens(String query) sync* {
+    const aliases = <String, List<String>>{
+      'bench': ['supino'],
+      'press': ['supino'],
+      'row': ['remada'],
+      'pulldown': ['puxada'],
+      'curl': ['rosca'],
+      'squat': ['agachamento'],
+      'deadlift': ['terra'],
+      'dumbbell': ['halter'],
+      'barbell': ['barra'],
+      'cable': ['cabo'],
+    };
+    for (final token in query.split(' ').where((item) => item.isNotEmpty)) {
+      final singular = token.endsWith('s') && token.length > 3
+          ? token.substring(0, token.length - 1)
+          : token;
+      yield (aliases[token] ?? [singular]).first;
+    }
+  }
+
   String _searchableText(ExercicioModel exercise) {
     return normalizeLibraryText(
       [
@@ -386,8 +562,40 @@ class LibraryCatalogController extends ChangeNotifier {
         ...exercise.musculosSecundarios,
         ...exercise.equipamentos,
         ...exercise.tags,
+        ..._exerciseAliases(exercise),
       ].join(' '),
     );
+  }
+
+  Iterable<String> _exerciseAliases(ExercicioModel exercise) sync* {
+    final name = normalizeLibraryText(exercise.nome);
+    if (name.contains('supino')) {
+      yield* const ['bench', 'bench press', 'chest press'];
+    }
+    if (name.contains('remada')) {
+      yield* const ['row', 'seated row'];
+    }
+    if (name.contains('puxada')) {
+      yield* const ['pulldown', 'pull down'];
+    }
+    if (name.contains('rosca')) {
+      yield* const ['curl'];
+    }
+    if (name.contains('agachamento')) {
+      yield* const ['squat'];
+    }
+    if (name.contains('terra')) {
+      yield* const ['deadlift'];
+    }
+    if (name.contains('halter')) {
+      yield* const ['dumbbell'];
+    }
+    if (name.contains('barra')) {
+      yield* const ['barbell'];
+    }
+    if (name.contains('cabo') || name.contains('polia')) {
+      yield* const ['cable'];
+    }
   }
 
   static Future<List<ExercicioModel>> _loadBundledCatalog() async =>

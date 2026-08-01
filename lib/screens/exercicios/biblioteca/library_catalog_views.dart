@@ -78,6 +78,7 @@ class LibraryHomeView extends StatelessWidget {
                     final group = LibraryCatalogController.muscleGroups[index];
                     return LibraryMuscleTile(
                       group: group,
+                      count: controller.countForMuscleGroup(group.label),
                       onTap: () =>
                           controller.showExplore(muscleGroup: group.label),
                     );
@@ -110,6 +111,32 @@ class LibraryHomeView extends StatelessWidget {
                 );
               },
             ),
+            if (controller.recentExercises.isNotEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: LibrarySectionHeader(
+                    title: 'Recentes',
+                    actionLabel: 'Ver todos',
+                    onAction: controller.showRecent,
+                  ),
+                ),
+              ),
+            if (controller.recentExercises.isNotEmpty)
+              SliverList.separated(
+                itemCount: controller.recentExercises.take(3).length,
+                separatorBuilder: (_, _) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final exercise = controller.recentExercises[index];
+                  return LibraryExerciseTile(
+                    exercise: exercise,
+                    favorite: controller.isFavorite(exercise),
+                    compact: true,
+                    onTap: () => onOpenExercise(exercise),
+                    onFavorite: () => onToggleFavorite(exercise),
+                  );
+                },
+              ),
             const SliverToBoxAdapter(child: SizedBox(height: 8)),
           ],
         ),
@@ -288,6 +315,77 @@ class LibraryFavoritesView extends StatelessWidget {
                             return LibraryExerciseTile(
                               exercise: exercise,
                               favorite: true,
+                              compact: true,
+                              onTap: () => onOpenExercise(exercise),
+                              onFavorite: () => onToggleFavorite(exercise),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class LibraryRecentView extends StatelessWidget {
+  const LibraryRecentView({
+    super.key,
+    required this.controller,
+    required this.onOpenExercise,
+    required this.onToggleFavorite,
+  });
+
+  final LibraryCatalogController controller;
+  final LibraryExerciseCallback onOpenExercise;
+  final LibraryExerciseCallback onToggleFavorite;
+
+  @override
+  Widget build(BuildContext context) {
+    final exercises = controller.visibleExercises;
+    return SafeArea(
+      bottom: false,
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 680),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+            child: Column(
+              children: [
+                LibraryCenteredHeader(
+                  title: 'Recentes',
+                  leading: LibraryIconButton(
+                    icon: Icons.arrow_back_rounded,
+                    tooltip: 'Voltar para biblioteca',
+                    onPressed: controller.showHome,
+                  ),
+                ),
+                const SizedBox(height: FitSpacing.s12),
+                Expanded(
+                  child: exercises.isEmpty
+                      ? FitEmptyState(
+                          icon: Icons.history_rounded,
+                          title: 'Nenhum exercicio recente',
+                          description:
+                              'Os exercicios abertos ou usados aparecerao aqui.',
+                          actionLabel: 'Explorar exercicios',
+                          onAction: controller.showExplore,
+                        )
+                      : ListView.separated(
+                          key: const PageStorageKey('LIB-RECENT'),
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: exercises.length,
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: FitSpacing.s8),
+                          itemBuilder: (context, index) {
+                            final exercise = exercises[index];
+                            return LibraryExerciseTile(
+                              exercise: exercise,
+                              favorite: controller.isFavorite(exercise),
                               compact: true,
                               onTap: () => onOpenExercise(exercise),
                               onFavorite: () => onToggleFavorite(exercise),

@@ -7,6 +7,7 @@ import '../../../design_system/tokens/fit_colors.dart';
 import '../../../design_system/tokens/fit_radius.dart';
 import '../../../design_system/tokens/fit_spacing.dart';
 import '../../../models/exercicio_model.dart';
+import '../../../core/design_system/components/navigation/fit_containers.dart';
 import 'library_catalog_controller.dart';
 import 'library_catalog_views.dart';
 import 'library_exercise_detail_page.dart';
@@ -165,13 +166,24 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
         onOpenExercise: _openExercise,
         onToggleFavorite: _toggleFavorite,
       ),
+      LibrarySection.recent => LibraryRecentView(
+        key: const ValueKey('library-recent'),
+        controller: _controller,
+        onOpenExercise: _openExercise,
+        onToggleFavorite: _toggleFavorite,
+      ),
     };
   }
 
   Future<void> _openFilters() async {
-    final selected = await Navigator.of(context).push<LibraryFilterSelection>(
-      MaterialPageRoute(
-        builder: (_) => LibraryFiltersPage(initialValue: _controller.filters),
+    final selected = await FitBottomSheetContainer.show<LibraryFilterSelection>(
+      context: context,
+      title: 'Filtros',
+      subtitle: 'Refine os exercicios exibidos no dispositivo.',
+      isScrollControlled: true,
+      child: LibraryFiltersPage(
+        initialValue: _controller.filters,
+        resultCountFor: _controller.countForFilters,
       ),
     );
     if (selected != null) _controller.applyFilters(selected);
@@ -188,6 +200,9 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
           initialFavorite: _controller.isFavorite(exercise),
           onToggleFavorite: _controller.toggleFavorite,
           onOpenFavorites: _controller.showFavorites,
+          relatedExercises: _controller.relatedExercises(exercise),
+          onOpenRelated: _openExercise,
+          onToggleRelated: _toggleFavorite,
         ),
       ),
     );

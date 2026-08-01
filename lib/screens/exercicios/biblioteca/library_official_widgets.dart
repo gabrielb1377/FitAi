@@ -242,10 +242,12 @@ class LibraryMuscleTile extends StatelessWidget {
     super.key,
     required this.group,
     required this.onTap,
+    this.count,
   });
 
   final LibraryMuscleGroup group;
   final VoidCallback onTap;
+  final int? count;
 
   @override
   Widget build(BuildContext context) {
@@ -280,6 +282,15 @@ class LibraryMuscleTile extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (count != null)
+                  Text(
+                    '$count',
+                    maxLines: 1,
+                    style: const TextStyle(
+                      color: FitColors.textHint,
+                      fontSize: 9,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -362,6 +373,10 @@ class LibraryExerciseTile extends StatelessWidget {
     final muscle = exercise.categoria.trim().isEmpty
         ? exercise.musculos.firstOrNull ?? 'Geral'
         : exercise.categoria;
+    final expandedForText = MediaQuery.textScalerOf(context).scale(1) > 1.3;
+    final height = expandedForText
+        ? (compact ? 88.0 : 96.0)
+        : (compact ? 62.0 : 68.0);
     return Semantics(
       button: true,
       label: '${exercise.nome}, $muscle, $difficulty',
@@ -375,7 +390,7 @@ class LibraryExerciseTile extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: SizedBox(
-            height: compact ? 62 : 68,
+            height: height,
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final mediaWidth = (constraints.maxWidth * .23).clamp(

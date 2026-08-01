@@ -47,6 +47,21 @@ void main() {
     expect(find.text('Supino Reto com Barra'), findsNothing);
   });
 
+  testWidgets('pesquisa local aceita ingles, plural e ordem livre', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(_library()));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, 'bench press');
+    await tester.pump();
+    expect(find.text('Supino Reto com Barra'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).first, 'barras supino');
+    await tester.pump();
+    expect(find.text('Supino Reto com Barra'), findsOneWidget);
+  });
+
   testWidgets('LIB-003 aplica filtros oficiais', (tester) async {
     await tester.pumpWidget(_app(_library()));
     await tester.pumpAndSettle();
@@ -57,14 +72,23 @@ void main() {
     expect(find.text('Nível'), findsOneWidget);
     expect(find.text('Equipamento'), findsOneWidget);
     expect(find.text('Ordenar por'), findsOneWidget);
+    expect(find.text('Categoria'), findsOneWidget);
+    expect(find.text('Movimento'), findsOneWidget);
+    expect(find.text('Objetivo'), findsOneWidget);
+    expect(find.textContaining('resultados'), findsOneWidget);
 
     await tester.tap(find.text('Peito').last);
     await tester.scrollUntilVisible(
-      find.text('Intermediário'),
+      find.text('Intermediário').last,
       180,
-      scrollable: find.byType(Scrollable).first,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const PageStorageKey('library-filters-scroll')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
     );
-    await tester.tap(find.text('Intermediário'));
+    await tester.tap(find.text('Intermediário').last);
     await tester.tap(find.text('Aplicar filtros'));
     await tester.pumpAndSettle();
 
@@ -178,6 +202,24 @@ void main() {
     await tester.tap(find.byTooltip('Filtros'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+  });
+
+  test('recentes permanecem locais e ordenados pelo ultimo acesso', () async {
+    final controller = LibraryCatalogController(
+      catalogLoader: () async => _exercises(),
+    );
+    addTearDown(controller.dispose);
+    await controller.initialize();
+
+    await controller.registerViewed(_exercises()[1]);
+    await controller.registerViewed(_exercises().first);
+    controller.showRecent();
+
+    expect(controller.recentExercises.first.id, 'peito_001');
+    expect(controller.visibleExercises.map((item) => item.id), [
+      'peito_001',
+      'pernas_001',
+    ]);
   });
 }
 
