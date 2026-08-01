@@ -2,10 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../features/activities/presentation/pages/activities_root_page.dart';
 import '../features/activities/presentation/routes/activities_routes.dart';
-import '../features/core_journey/presentation/core_journey_controller.dart';
-import '../features/core_journey/presentation/core_journey_history_page.dart';
-import '../features/core_journey/presentation/core_journey_home_page.dart';
-import '../features/core_journey/presentation/core_journey_plans_page.dart';
 import '../features/home/presentation/pages/home_page.dart';
 import '../features/home/presentation/routes/home_routes.dart';
 import '../features/library/presentation/pages/library_root_page.dart';
@@ -47,8 +43,6 @@ class AppRouteState {
   final VoidCallback pararCorrida;
   final Future<void> Function() carregarDados;
   final ValueChanged<int> onSelectTab;
-  final CoreJourneyController? coreJourney;
-
   const AppRouteState({
     required this.nome,
     required this.peso,
@@ -67,7 +61,6 @@ class AppRouteState {
     required this.pararCorrida,
     required this.carregarDados,
     required this.onSelectTab,
-    this.coreJourney,
   });
 }
 
@@ -106,14 +99,6 @@ class AppRouter {
   }
 
   static Widget _homePage(AppRouteState state) {
-    final coreJourney = state.coreJourney;
-    if (coreJourney != null) {
-      return CoreJourneyHomePage(
-        key: const PageStorageKey('core-v1-home'),
-        controller: coreJourney,
-        onOpenPlans: () => state.onSelectTab(AppShellSection.plans.index),
-      );
-    }
     return HomePage(
       key: const PageStorageKey('tab-home'),
       nome: state.nome,
@@ -132,13 +117,6 @@ class AppRouter {
   }
 
   static Widget _plansPage(AppRouteState state) {
-    final coreJourney = state.coreJourney;
-    if (coreJourney != null) {
-      return CoreJourneyPlansPage(
-        key: const PageStorageKey('core-v1-plans'),
-        controller: coreJourney,
-      );
-    }
     return PlansRootPage(
       key: const PageStorageKey('tab-planos'),
       onXpUpdated: state.carregarDados,
@@ -147,15 +125,6 @@ class AppRouter {
   }
 
   static Widget _activitiesPage(AppRouteState state) {
-    final coreJourney = state.coreJourney;
-    if (coreJourney != null) {
-      return CoreJourneyHistoryPage(
-        key: const PageStorageKey('core-v1-activities'),
-        controller: coreJourney,
-        title: 'Atividades',
-        subtitle: 'Historico de treinos',
-      );
-    }
     return ActivitiesRootPage(
       key: const PageStorageKey('tab-atividades'),
       steps: state.passos,

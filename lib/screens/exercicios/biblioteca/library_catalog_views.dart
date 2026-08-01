@@ -111,6 +111,33 @@ class LibraryHomeView extends StatelessWidget {
                 );
               },
             ),
+            if (controller.mostUsedExercises.isNotEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: LibrarySectionHeader(
+                    title: 'Mais usados por voce',
+                    actionLabel: 'Explorar',
+                    onAction: () =>
+                        controller.setExploreSort(LibrarySort.popular),
+                  ),
+                ),
+              ),
+            if (controller.mostUsedExercises.isNotEmpty)
+              SliverList.separated(
+                itemCount: controller.mostUsedExercises.take(3).length,
+                separatorBuilder: (_, _) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final exercise = controller.mostUsedExercises[index];
+                  return LibraryExerciseTile(
+                    exercise: exercise,
+                    favorite: controller.isFavorite(exercise),
+                    compact: true,
+                    onTap: () => onOpenExercise(exercise),
+                    onFavorite: () => onToggleFavorite(exercise),
+                  );
+                },
+              ),
             if (controller.recentExercises.isNotEmpty)
               SliverToBoxAdapter(
                 child: Padding(
@@ -337,11 +364,13 @@ class LibraryRecentView extends StatelessWidget {
     required this.controller,
     required this.onOpenExercise,
     required this.onToggleFavorite,
+    required this.onClearRecents,
   });
 
   final LibraryCatalogController controller;
   final LibraryExerciseCallback onOpenExercise;
   final LibraryExerciseCallback onToggleFavorite;
+  final Future<void> Function() onClearRecents;
 
   @override
   Widget build(BuildContext context) {
@@ -358,6 +387,14 @@ class LibraryRecentView extends StatelessWidget {
               children: [
                 LibraryCenteredHeader(
                   title: 'Recentes',
+                  trailing: exercises.isEmpty
+                      ? null
+                      : TextButton(
+                          onPressed: () async {
+                            await onClearRecents();
+                          },
+                          child: const Text('Limpar'),
+                        ),
                   leading: LibraryIconButton(
                     icon: Icons.arrow_back_rounded,
                     tooltip: 'Voltar para biblioteca',

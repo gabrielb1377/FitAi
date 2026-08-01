@@ -487,12 +487,15 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
         8;
   }
 
-  Future<ExercicioModel?> _selecionarExercicioDaBiblioteca() async {
+  Future<ExercicioModel?> _selecionarExercicioDaBiblioteca({
+    required LibrarySelectionPurpose purpose,
+  }) async {
     ExercicioModel? selecionado;
 
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) => BibliotecaExerciciosPage(
+          selectionPurpose: purpose,
           onSelecionar: (exercicio) {
             selecionado = exercicio;
           },
@@ -568,7 +571,9 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   }
 
   Future<void> _adicionarExercicioDepoisAtual() async {
-    final selecionado = await _selecionarExercicioDaBiblioteca();
+    final selecionado = await _selecionarExercicioDaBiblioteca(
+      purpose: LibrarySelectionPurpose.activeWorkoutAdd,
+    );
     if (!mounted || selecionado == null) return;
 
     setState(() {
@@ -585,15 +590,21 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     final exercicioAtual = _exercicio;
     if (exercicioAtual == null) return;
 
-    final selecionado = await _selecionarExercicioDaBiblioteca();
+    final selecionado = await _selecionarExercicioDaBiblioteca(
+      purpose: LibrarySelectionPurpose.activeWorkoutReplace,
+    );
 
     if (!mounted || selecionado == null) return;
 
     if (_mesmoExercicio(exercicioAtual, selecionado)) return;
 
     setState(() {
+      // Completed entries keep their original exercise identity. New sets begin
+      // at set one for the replacement and cannot rewrite historical records.
+      _seriesConcluidas.remove(_exercicioAtual);
       _exercicios[_exercicioAtual] = selecionado;
       _exerciciosPulados.remove(_exercicioAtual);
+      _restaurarInputsDoExercicio(_exercicioAtual);
     });
 
     _mostrarMensagem('Exercício substituído.');
@@ -746,6 +757,14 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
 
   bool _mesmoExercicio(ExercicioModel a, ExercicioModel b) {
     return _exercicioKey(a) == _exercicioKey(b);
+  }
+
+  List<_HistoricoSerieLocal> _historicoDoExercicio(int index) {
+    if (index < 0 || index >= _exercicios.length) return const [];
+    final exercicio = _exercicios[index];
+    return (_historico[index] ?? const <_HistoricoSerieLocal>[])
+        .where((entry) => _mesmoExercicio(entry.exercicio, exercicio))
+        .toList(growable: false);
   }
 
   String _exercicioKey(ExercicioModel exercicio) {
@@ -1361,7 +1380,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     if (stagePage != null) return _protegerSaida(stagePage);
 
     final concluidas = _seriesConcluidas[_exercicioAtual]?.length ?? 0;
-    final historicoAtual = _historico[_exercicioAtual] ?? const [];
+    final historicoAtual = _historicoDoExercicio(_exercicioAtual);
     final progresso = _progressoSessao();
     final seriesState = _seriesConcluidas[_exercicioAtual] ?? const <int>{};
     final historyByNumber = {
@@ -1568,8 +1587,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   }
 
   void _abrirPerformanceAtual() {
-    final entries =
-        _historico[_exercicioAtual] ?? const <_HistoricoSerieLocal>[];
+    final entries = _historicoDoExercicio(_exercicioAtual);
     final sessionEntries = _historico.values
         .expand<_HistoricoSerieLocal>((values) => values)
         .toList(growable: false);
@@ -1631,7 +1649,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   Widget _buildLegacy(BuildContext context) {
     final exercicio = _exercicio;
     final concluidas = _seriesConcluidas[_exercicioAtual]?.length ?? 0;
-    final historicoAtual = _historico[_exercicioAtual] ?? const [];
+    final historicoAtual = _historicoDoExercicio(_exercicioAtual);
     final historicoSessao = _historico.values
         .expand<_HistoricoSerieLocal>((entries) => entries)
         .toList();

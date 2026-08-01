@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/exercises/exercise_library_intelligence.dart';
 import '../../../design_system/components/fit_empty_state.dart';
 import '../../../design_system/components/fit_error_state.dart';
 import '../../../design_system/components/fit_skeleton.dart';
@@ -21,6 +22,7 @@ class BibliotecaExerciciosPage extends StatefulWidget {
     this.categoriaInicial,
     this.controller,
     this.offline = false,
+    this.selectionPurpose = LibrarySelectionPurpose.plan,
   });
 
   final void Function(ExercicioModel)? onSelecionar;
@@ -31,6 +33,9 @@ class BibliotecaExerciciosPage extends StatefulWidget {
 
   /// Exibe um aviso discreto sem bloquear o catálogo local.
   final bool offline;
+
+  /// Records a real usage event only after an external flow confirms selection.
+  final LibrarySelectionPurpose selectionPurpose;
 
   @override
   State<BibliotecaExerciciosPage> createState() =>
@@ -171,6 +176,7 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
         controller: _controller,
         onOpenExercise: _openExercise,
         onToggleFavorite: _toggleFavorite,
+        onClearRecents: _controller.clearRecents,
       ),
     };
   }
@@ -201,8 +207,22 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
           onToggleFavorite: _controller.toggleFavorite,
           onOpenFavorites: _controller.showFavorites,
           relatedExercises: _controller.relatedExercises(exercise),
+          relatedRecommendations: _controller.relatedRecommendations(exercise),
+          substitutions: _controller.substitutionsFor(exercise),
           onOpenRelated: _openExercise,
           onToggleRelated: _toggleFavorite,
+          onSelectionConfirmed: widget.onSelecionar == null
+              ? null
+              : () => _controller.registerUse(
+                  exercise,
+                  _usageEventFor(widget.selectionPurpose),
+                ),
+          onPlanAdded: () =>
+              _controller.registerUse(exercise, ExerciseUsageEvent.addedToPlan),
+          onQuickWorkoutStarted: () => _controller.registerUse(
+            exercise,
+            ExerciseUsageEvent.startedInWorkout,
+          ),
         ),
       ),
     );
@@ -211,26 +231,44 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
     Navigator.of(context).pop();
   }
 
+  ExerciseUsageEvent _usageEventFor(LibrarySelectionPurpose purpose) =>
+      switch (purpose) {
+        LibrarySelectionPurpose.plan => ExerciseUsageEvent.addedToPlan,
+        LibrarySelectionPurpose.activeWorkoutAdd =>
+          ExerciseUsageEvent.addedToWorkout,
+        LibrarySelectionPurpose.activeWorkoutReplace =>
+          ExerciseUsageEvent.replacedInWorkout,
+      };
+
   Future<void> _toggleFavorite(ExercicioModel exercise) async {
-    final favorite = await _controller.toggleFavorite(exercise);
-    if (!mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.clearSnackBars();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          favorite
-              ? 'Exercício adicionado aos favoritos.'
-              : 'Exercício removido dos favoritos.',
+    try {
+      final favorite = await _controller.toggleFavorite(exercise);
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            favorite
+                ? 'Exercício adicionado aos favoritos.'
+                : 'Exercício removido dos favoritos.',
+          ),
+          action: favorite
+              ? SnackBarAction(
+                  label: 'Ver favoritos',
+                  onPressed: _controller.showFavorites,
+                )
+              : null,
         ),
-        action: favorite
-            ? SnackBarAction(
-                label: 'Ver favoritos',
-                onPressed: _controller.showFavorites,
-              )
-            : null,
-      ),
-    );
+      );
+    } on Object {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Nao foi possivel salvar este favorito localmente.'),
+        ),
+      );
+    }
   }
 
   void _syncSearchController() {

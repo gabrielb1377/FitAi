@@ -108,7 +108,7 @@ void main() {
 
     expect(find.text('Músculos trabalhados'), findsOneWidget);
     expect(find.text('Descrição'), findsOneWidget);
-    expect(find.text('Adicionar ao treino'), findsOneWidget);
+    expect(find.text('Adicionar ao plano'), findsOneWidget);
 
     await tester.ensureVisible(find.text('Ver mais'));
     await tester.pumpAndSettle();
@@ -139,6 +139,30 @@ void main() {
     expect(find.text('Favoritos'), findsOneWidget);
     expect(find.text('Supino Reto com Barra'), findsOneWidget);
     expect(find.byTooltip('Remover dos favoritos'), findsOneWidget);
+  });
+
+  testWidgets('relacionados permitem abrir comparacao objetiva', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(_library()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Supino Reto com Barra'));
+    await tester.pumpAndSettle();
+    final compareButton = find
+        .byKey(const ValueKey('library_compare_button'))
+        .last;
+    await tester.drag(
+      find.byKey(const ValueKey('LIB-004')),
+      const Offset(0, -720),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(compareButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Comparar exercicios'), findsOneWidget);
+    expect(find.text('Padrao de movimento'), findsOneWidget);
+    expect(find.text('Equipamento'), findsWidgets);
   });
 
   testWidgets('loading, erro, vazio e offline possuem estados dedicados', (

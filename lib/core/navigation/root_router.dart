@@ -22,7 +22,11 @@ abstract final class RootRouter {
       AppRoutes.passwordRecovery => (_) => const PasswordRecoveryPage(),
       AppRoutes.permissions => (_) => const InitialPermissionsPage(),
       AppRoutes.debugWorkoutVerticalSlice when kDebugMode =>
-        (_) => const WorkoutVerticalSlicePage(),
+        (context) => WorkoutVerticalSlicePage(
+          onExit: () => Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil(AppRoutes.appShell, (route) => false),
+        ),
       AppRoutes.appShell => (_) => DashboardPage(
         initialDeepLink: switch (settings.arguments) {
           final Uri uri => uri,

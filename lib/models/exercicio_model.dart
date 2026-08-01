@@ -57,6 +57,41 @@ class ExercicioModel {
     this.favorito = false,
   });
 
+  /// Creates a prescription-specific snapshot without changing the catalog.
+  ExercicioModel copyWith({
+    int? series,
+    String? repeticoes,
+    int? descansoSegundos,
+    bool? favorito,
+  }) {
+    return ExercicioModel(
+      id: id,
+      nome: nome,
+      categoria: categoria,
+      descricao: descricao,
+      comoExecutar: comoExecutar,
+      cuidados: cuidados,
+      musculos: musculos,
+      musculosSecundarios: musculosSecundarios,
+      equipamentos: equipamentos,
+      locais: locais,
+      dificuldade: dificuldade,
+      objetivo: objetivo,
+      imagem: imagem,
+      gifPath: gifPath,
+      video: video,
+      tags: tags,
+      caloriasHora: caloriasHora,
+      series: series ?? this.series,
+      repeticoes: repeticoes ?? this.repeticoes,
+      descansoSegundos: descansoSegundos ?? this.descansoSegundos,
+      rir: rir,
+      cadencia: cadencia,
+      observacoesTreino: observacoesTreino,
+      favorito: favorito ?? this.favorito,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       "id": id,

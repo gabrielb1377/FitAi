@@ -2,6 +2,10 @@ import '../../models/exercicio_model.dart';
 
 /// Identidade estavel usada para relacionar exercicios entre telas e historicos.
 abstract final class ExerciseIdentity {
+  static final RegExp _separators = RegExp(r'[_-]+');
+  static final RegExp _unsupportedCharacters = RegExp(r'[^a-z0-9 ]+');
+  static final RegExp _whitespace = RegExp(r'\s+');
+
   static String normalizeName(String value) {
     var normalized = value.toLowerCase().trim();
     const replacements = {
@@ -41,9 +45,9 @@ abstract final class ExerciseIdentity {
     }
 
     return normalized
-        .replaceAll(RegExp(r'[_-]+'), ' ')
-        .replaceAll(RegExp(r'[^a-z0-9 ]+'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(_separators, ' ')
+        .replaceAll(_unsupportedCharacters, ' ')
+        .replaceAll(_whitespace, ' ')
         .trim();
   }
 

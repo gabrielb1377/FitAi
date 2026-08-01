@@ -13,9 +13,10 @@ import 'workout_vertical_slice_controller.dart';
 
 /// Tela isolada, acessivel apenas no Developer Mode, para validar o slice.
 class WorkoutVerticalSlicePage extends StatefulWidget {
-  const WorkoutVerticalSlicePage({super.key, this.controller});
+  const WorkoutVerticalSlicePage({super.key, this.controller, this.onExit});
 
   final WorkoutVerticalSliceController? controller;
+  final VoidCallback? onExit;
 
   @override
   State<WorkoutVerticalSlicePage> createState() =>
@@ -127,6 +128,15 @@ class _WorkoutVerticalSlicePageState extends State<WorkoutVerticalSlicePage> {
     FitFeedback.showError(context, message);
   }
 
+  void _exitTestEnvironment() {
+    final onExit = widget.onExit;
+    if (onExit != null) {
+      onExit();
+      return;
+    }
+    Navigator.of(context).maybePop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = _controller;
@@ -146,7 +156,12 @@ class _WorkoutVerticalSlicePageState extends State<WorkoutVerticalSlicePage> {
     final session = controller.activeSession;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Offline Workout Vertical Slice'),
+        leading: IconButton(
+          tooltip: 'Sair do modo de teste',
+          onPressed: _exitTestEnvironment,
+          icon: const Icon(Icons.close_rounded),
+        ),
+        title: const Text('Ambiente de teste'),
         actions: [
           IconButton(
             tooltip: 'Simular reinicio do aplicativo',

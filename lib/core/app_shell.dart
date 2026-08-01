@@ -196,7 +196,6 @@ class _AppShellState extends State<AppShell> {
       pararCorrida: pararCorrida,
       carregarDados: carregarDados,
       onSelectTab: _navigationController.selectIndex,
-      coreJourney: widget.coreJourney,
     );
     final sectionRouters = AppRouter.buildSectionRouters(routeState);
 

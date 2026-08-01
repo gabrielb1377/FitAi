@@ -2,15 +2,19 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/exercises/exercise_identity.dart';
+import '../../../core/exercises/exercise_library_intelligence.dart';
+import '../../../core/exercises/exercise_library_local_store.dart';
 import '../../../data/exercicios/exercicios.dart';
 import '../../../models/exercicio_model.dart';
-import '../../../services/storage_service.dart';
 
 typedef LibraryCatalogLoader = Future<List<ExercicioModel>> Function();
 
 enum LibrarySection { home, explore, favorites, recent }
+
+/// Describes the external flow that opened the Library selection mode.
+enum LibrarySelectionPurpose { plan, activeWorkoutAdd, activeWorkoutReplace }
 
 enum LibrarySort { all, popular, recent, alphabetical }
 
@@ -94,8 +98,12 @@ class LibraryFilterSelection {
 class LibraryCatalogController extends ChangeNotifier {
   LibraryCatalogController({
     LibraryCatalogLoader? catalogLoader,
+    ExerciseLibraryLocalStore? localStore,
+    ExerciseLibraryIntelligence? intelligence,
     this.initialCategory,
-  }) : _catalogLoader = catalogLoader ?? _loadBundledCatalog;
+  }) : _catalogLoader = catalogLoader ?? _loadBundledCatalog,
+       _localStore = localStore ?? SharedPreferencesExerciseLibraryLocalStore(),
+       _intelligence = intelligence ?? const ExerciseLibraryIntelligence();
 
   static const recentStorageKey = 'fitai_exercicios_recentemente_visualizados';
 
@@ -185,11 +193,14 @@ class LibraryCatalogController extends ChangeNotifier {
   ];
 
   final LibraryCatalogLoader _catalogLoader;
+  final ExerciseLibraryLocalStore _localStore;
+  final ExerciseLibraryIntelligence _intelligence;
   final String? initialCategory;
 
   List<ExercicioModel> _exercises = const [];
   Set<String> _favoriteIds = const {};
   List<String> _recentIds = const [];
+  Map<String, int> _usageScoreById = const {};
   String _query = '';
   LibraryFilterSelection _filters = const LibraryFilterSelection();
   LibrarySection _section = LibrarySection.home;
@@ -199,6 +210,7 @@ class LibraryCatalogController extends ChangeNotifier {
   List<ExercicioModel> get exercises => List.unmodifiable(_exercises);
   Set<String> get favoriteIds => Set.unmodifiable(_favoriteIds);
   List<String> get recentIds => List.unmodifiable(_recentIds);
+  Map<String, int> get usageScoreById => Map.unmodifiable(_usageScoreById);
   String get query => _query;
   LibraryFilterSelection get filters => _filters;
   LibrarySection get section => _section;
@@ -305,27 +317,28 @@ class LibraryCatalogController extends ChangeNotifier {
       _favoriteIds.contains(exercise.id);
 
   Future<bool> toggleFavorite(ExercicioModel exercise) async {
-    final favorite = await StorageService.alternarFavoritoExercicio(
-      exercise.id,
-    );
-    final updated = Set<String>.from(_favoriteIds);
-    favorite ? updated.add(exercise.id) : updated.remove(exercise.id);
-    _favoriteIds = updated;
-    exercise.favorito = favorite;
+    final state = await _localStore.toggleFavorite(_idFor(exercise));
+    _applyLocalState(state);
+    final favorite = _favoriteIds.contains(_idFor(exercise));
     notifyListeners();
     return favorite;
   }
 
-  Future<void> registerViewed(ExercicioModel exercise) async {
-    final prefs = await SharedPreferences.getInstance();
-    final id = exercise.id.trim().isEmpty ? exercise.nome : exercise.id;
-    final current = prefs.getStringList(recentStorageKey) ?? const <String>[];
-    final updated = <String>[
-      id,
-      ...current.where((item) => item != id),
-    ].take(20).toList(growable: false);
-    await prefs.setStringList(recentStorageKey, updated);
-    _recentIds = updated;
+  Future<void> registerViewed(ExercicioModel exercise) =>
+      registerUse(exercise, ExerciseUsageEvent.viewed);
+
+  Future<void> registerUse(
+    ExercicioModel exercise,
+    ExerciseUsageEvent event,
+  ) async {
+    final state = await _localStore.recordUse(_idFor(exercise), event);
+    _applyLocalState(state);
+    notifyListeners();
+  }
+
+  Future<void> clearRecents() async {
+    final state = await _localStore.clearRecents();
+    _applyLocalState(state);
     notifyListeners();
   }
 
@@ -344,7 +357,10 @@ class LibraryCatalogController extends ChangeNotifier {
 
   List<ExercicioModel> get recentExercises {
     final byId = <String, ExercicioModel>{
-      for (final exercise in _exercises) exercise.id: exercise,
+      for (final exercise in _exercises) ...{
+        _idFor(exercise): exercise,
+        exercise.nome.trim(): exercise,
+      },
     };
     return _recentIds
         .map((id) => byId[id])
@@ -353,22 +369,30 @@ class LibraryCatalogController extends ChangeNotifier {
   }
 
   List<ExercicioModel> relatedExercises(ExercicioModel exercise) {
-    final primary = exercise.musculos.isEmpty
-        ? normalizeLibraryText(exercise.categoria)
-        : normalizeLibraryText(exercise.musculos.first);
-    return _exercises
-        .where((candidate) => candidate.id != exercise.id)
-        .where((candidate) {
-          final text = normalizeLibraryText(
-            [candidate.categoria, ...candidate.musculos].join(' '),
-          );
-          return text.contains(primary) ||
-              normalizeLibraryText(candidate.categoria) ==
-                  normalizeLibraryText(exercise.categoria);
-        })
-        .take(8)
-        .toList(growable: false);
+    return relatedRecommendations(
+      exercise,
+    ).map((item) => item.exercise).toList(growable: false);
   }
+
+  List<ExerciseRecommendation> relatedRecommendations(
+    ExercicioModel exercise,
+  ) => _intelligence.related(exercise: exercise, catalog: _exercises);
+
+  List<ExerciseSubstitution> substitutionsFor(ExercicioModel exercise) =>
+      _intelligence.substitutions(exercise: exercise, catalog: _exercises);
+
+  ExerciseComparison compareExercises(
+    ExercicioModel first,
+    ExercicioModel second,
+  ) => _intelligence.compare(first, second);
+
+  List<ExerciseCollection> get collections =>
+      _intelligence.collections(_exercises);
+
+  List<ExercicioModel> get mostUsedExercises => _intelligence.mostUsed(
+    catalog: _exercises,
+    usageScoreById: _usageScoreById,
+  );
 
   int countForFilters(LibraryFilterSelection filters) =>
       _filteredExercises(filters: filters, query: _query).length;
@@ -381,8 +405,12 @@ class LibraryCatalogController extends ChangeNotifier {
     final recentOnly = _section == LibrarySection.recent;
     final result = _filteredExercises(filters: _filters, query: _query)
         .where((exercise) {
-          if (favoriteOnly && !_favoriteIds.contains(exercise.id)) return false;
-          if (recentOnly && !_recentIds.contains(exercise.id)) return false;
+          if (favoriteOnly && !_favoriteIds.contains(_idFor(exercise))) {
+            return false;
+          }
+          if (recentOnly && !_recentIds.contains(_idFor(exercise))) {
+            return false;
+          }
           return true;
         })
         .toList(growable: true);
@@ -390,16 +418,25 @@ class LibraryCatalogController extends ChangeNotifier {
     switch (_filters.sort) {
       case LibrarySort.alphabetical:
         result.sort((a, b) => a.nome.compareTo(b.nome));
+        break;
+      case LibrarySort.popular:
+        result.sort((a, b) {
+          final usage = (_usageScoreById[_idFor(b)] ?? 0).compareTo(
+            _usageScoreById[_idFor(a)] ?? 0,
+          );
+          return usage != 0 ? usage : a.nome.compareTo(b.nome);
+        });
+        break;
       case LibrarySort.recent:
         result.sort((a, b) {
-          final aIndex = _recentIds.indexOf(a.id);
-          final bIndex = _recentIds.indexOf(b.id);
+          final aIndex = _recentIds.indexOf(_idFor(a));
+          final bIndex = _recentIds.indexOf(_idFor(b));
           final aRank = aIndex < 0 ? 1 << 20 : aIndex;
           final bRank = bIndex < 0 ? 1 << 20 : bIndex;
           return aRank.compareTo(bRank);
         });
+        break;
       case LibrarySort.all:
-      case LibrarySort.popular:
         break;
     }
     return List.unmodifiable(result);
@@ -424,23 +461,11 @@ class LibraryCatalogController extends ChangeNotifier {
 
   Future<void> _loadLocalState() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final values = await Future.wait<Object>([
-        StorageService.carregarFavoritosExercicios(),
-        Future<Object>.value(
-          prefs.getStringList(recentStorageKey) ?? const <String>[],
-        ),
-      ]);
-      _favoriteIds = Set<String>.from(values[0] as Set<String>);
-      _recentIds = List<String>.from(
-        values[1] as List<String>,
-      ).take(20).toList();
-      for (final exercise in _exercises) {
-        exercise.favorito = _favoriteIds.contains(exercise.id);
-      }
+      _applyLocalState(await _localStore.load());
     } catch (error, stackTrace) {
       _favoriteIds = const {};
       _recentIds = const [];
+      _usageScoreById = const {};
       _debugLog(
         'cache local indisponível; catálogo mantido',
         error,
@@ -448,6 +473,19 @@ class LibraryCatalogController extends ChangeNotifier {
       );
     }
   }
+
+  void _applyLocalState(ExerciseLibraryLocalState state) {
+    _favoriteIds = Set<String>.from(state.favoriteIds);
+    _recentIds = List<String>.from(state.recentIds);
+    _usageScoreById = Map<String, int>.from(state.usageScoreById);
+    for (final exercise in _exercises) {
+      exercise.favorito = _favoriteIds.contains(_idFor(exercise));
+    }
+  }
+
+  String _idFor(ExercicioModel exercise) => exercise.id.trim().isNotEmpty
+      ? exercise.id.trim()
+      : ExerciseIdentity.buildExerciseKey(exerciseName: exercise.nome);
 
   bool _matchesGroup(ExercicioModel exercise, String? group) {
     if (group == null || group.trim().isEmpty) return true;

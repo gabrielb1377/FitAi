@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../design_system/components/fit_button.dart';
 import '../../../design_system/tokens/fit_colors.dart';
 import '../../../design_system/tokens/fit_radius.dart';
+import '../../../core/exercises/exercise_library_intelligence.dart';
 import '../../../models/exercicio_model.dart';
 import '../../../models/exercise_history_model.dart';
 import '../../../models/exercise_progression_model.dart';
@@ -15,6 +16,8 @@ import '../../../widgets/exercicio_gif_viewer.dart';
 import '../../treinos/treino_em_andamento_page.dart';
 import '../../treinos/widgets/exercise_next_progression_card.dart';
 import 'library_catalog_controller.dart';
+import 'library_comparison_sheet.dart';
+import 'library_plan_actions.dart';
 import 'library_official_widgets.dart';
 
 typedef LibraryFavoriteToggle = Future<bool> Function(ExercicioModel exercise);
@@ -28,8 +31,13 @@ class BibliotecaExercicioDetalhePage extends StatefulWidget {
     this.onToggleFavorite,
     this.onOpenFavorites,
     this.relatedExercises = const [],
+    this.relatedRecommendations = const [],
+    this.substitutions = const [],
     this.onOpenRelated,
     this.onToggleRelated,
+    this.onSelectionConfirmed,
+    this.onPlanAdded,
+    this.onQuickWorkoutStarted,
   });
 
   final ExercicioModel exercicio;
@@ -38,8 +46,13 @@ class BibliotecaExercicioDetalhePage extends StatefulWidget {
   final LibraryFavoriteToggle? onToggleFavorite;
   final VoidCallback? onOpenFavorites;
   final List<ExercicioModel> relatedExercises;
+  final List<ExerciseRecommendation> relatedRecommendations;
+  final List<ExerciseSubstitution> substitutions;
   final ValueChanged<ExercicioModel>? onOpenRelated;
   final ValueChanged<ExercicioModel>? onToggleRelated;
+  final Future<void> Function()? onSelectionConfirmed;
+  final Future<void> Function()? onPlanAdded;
+  final Future<void> Function()? onQuickWorkoutStarted;
 
   @override
   State<BibliotecaExercicioDetalhePage> createState() =>
@@ -123,9 +136,13 @@ class _BibliotecaExercicioDetalhePageState
                 _description(),
                 const SizedBox(height: 14),
                 _exerciseDetails(),
-                if (widget.relatedExercises.isNotEmpty) ...[
+                if (widget.relatedRecommendations.isNotEmpty) ...[
                   const SizedBox(height: 18),
                   _relatedExercises(),
+                ],
+                if (widget.substitutions.isNotEmpty) ...[
+                  const SizedBox(height: 18),
+                  _substitutions(),
                 ],
               ],
             ),
@@ -468,28 +485,94 @@ class _BibliotecaExercicioDetalhePageState
             fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            key: const ValueKey('library_compare_button'),
+            onPressed: () => showLibraryExerciseComparisonSheet(
+              context: context,
+              source: exercise,
+              candidates: widget.relatedRecommendations,
+            ),
+            icon: const Icon(Icons.compare_arrows_rounded, size: 18),
+            label: const Text('Comparar'),
+          ),
+        ),
+        const SizedBox(height: 2),
         SizedBox(
           height: 128,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            itemCount: widget.relatedExercises.length,
+            itemCount: widget.relatedRecommendations.length,
             separatorBuilder: (_, _) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
-              final related = widget.relatedExercises[index];
-              return SizedBox(
-                width: 176,
-                child: LibraryExerciseTile(
-                  exercise: related,
-                  favorite: related.favorito,
-                  compact: true,
-                  onTap: () => widget.onOpenRelated?.call(related),
-                  onFavorite: () => widget.onToggleRelated?.call(related),
+              final recommendation = widget.relatedRecommendations[index];
+              final related = recommendation.exercise;
+              return Semantics(
+                label:
+                    '${related.nome}. ${recommendation.reasons.first.label}.',
+                child: SizedBox(
+                  width: 176,
+                  child: LibraryExerciseTile(
+                    exercise: related,
+                    favorite: related.favorito,
+                    compact: true,
+                    onTap: () => widget.onOpenRelated?.call(related),
+                    onFavorite: () => widget.onToggleRelated?.call(related),
+                  ),
                 ),
               );
             },
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _substitutions() {
+    final suggestions = widget.substitutions.take(3).toList(growable: false);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Alternativas compativeis',
+          style: TextStyle(
+            color: FitColors.textPrimary,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        for (final substitution in suggestions)
+          Semantics(
+            button: true,
+            label:
+                '${substitution.exercise.nome}. ${_substitutionLabel(substitution.kind)}.',
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                substitution.exercise.nome,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: FitColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              subtitle: Text(
+                _substitutionDescription(substitution),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: FitColors.textSecondary),
+              ),
+              trailing: const Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: FitColors.textSecondary,
+                size: 16,
+              ),
+              onTap: () => widget.onOpenRelated?.call(substitution.exercise),
+            ),
+          ),
       ],
     );
   }
@@ -833,14 +916,62 @@ class _BibliotecaExercicioDetalhePageState
       minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 648),
-        child: FitButton(
-          label: 'Adicionar ao treino',
-          icon: Icons.add_circle_outline_rounded,
-          onPressed: widget.permitirSelecao
-              ? () => Navigator.of(context).pop(exercise)
-              : _executeNow,
-          expand: true,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            FitButton(
+              label: widget.permitirSelecao
+                  ? 'Selecionar exercicio'
+                  : 'Adicionar ao plano',
+              icon: widget.permitirSelecao
+                  ? Icons.check_circle_outline_rounded
+                  : Icons.playlist_add_rounded,
+              onPressedAsync: widget.permitirSelecao
+                  ? _confirmSelection
+                  : _addToPlan,
+              expand: true,
+            ),
+            if (!widget.permitirSelecao) ...[
+              const SizedBox(height: 8),
+              FitButton(
+                label: 'Iniciar treino rapido',
+                icon: Icons.play_arrow_rounded,
+                variant: FitButtonVariant.secondary,
+                onPressedAsync: _executeNow,
+                expand: true,
+              ),
+            ],
+          ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _confirmSelection() async {
+    try {
+      await widget.onSelectionConfirmed?.call();
+      if (mounted) Navigator.of(context).pop(exercise);
+    } on Object {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Nao foi possivel salvar a selecao neste dispositivo.'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _addToPlan() async {
+    final result = await showLibraryAddToPlanSheet(
+      context: context,
+      exercise: exercise,
+    );
+    if (!mounted || result == null) return;
+    await widget.onPlanAdded?.call();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${exercise.nome} adicionado a ${result.plan.nome}.'),
       ),
     );
   }
@@ -877,6 +1008,13 @@ class _BibliotecaExercicioDetalhePageState
               : null,
         ),
       );
+    } on Object {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Nao foi possivel salvar este favorito localmente.'),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _favoriteBusy = false);
     }
@@ -884,6 +1022,8 @@ class _BibliotecaExercicioDetalhePageState
 
   Future<void> _executeNow() async {
     final now = DateTime.now();
+    await widget.onQuickWorkoutStarted?.call();
+    if (!mounted) return;
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) => TreinoEmAndamentoPage(
@@ -926,6 +1066,25 @@ class _BibliotecaExercicioDetalhePageState
       titulo: exercise.nome,
       subtitulo: exercise.categoria,
     );
+  }
+
+  static String _substitutionLabel(ExerciseSubstitutionKind kind) =>
+      switch (kind) {
+        ExerciseSubstitutionKind.equivalent => 'Equivalente',
+        ExerciseSubstitutionKind.sameMuscle => 'Mesmo musculo',
+        ExerciseSubstitutionKind.sameMovement => 'Mesmo movimento',
+        ExerciseSubstitutionKind.sameEquipment => 'Mesmo equipamento',
+        ExerciseSubstitutionKind.noEquipment => 'Sem equipamento',
+        ExerciseSubstitutionKind.easier => 'Menor dificuldade',
+        ExerciseSubstitutionKind.harder => 'Maior dificuldade',
+      };
+
+  static String _substitutionDescription(ExerciseSubstitution substitution) {
+    final preserved = substitution.preserved.isEmpty
+        ? 'Alternativa baseada no catalogo local.'
+        : 'Preserva ${substitution.preserved.join(', ')}.';
+    if (substitution.changed.isEmpty) return preserved;
+    return '$preserved Muda ${substitution.changed.join(', ')}.';
   }
 
   Future<void> _shareExercise() async {
