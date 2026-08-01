@@ -1,0 +1,4 @@
+# Widget tests share Flutter's test binding, viewport and mock platform state.
+# Serial execution prevents concurrent suites from mutating those global values
+# while a golden comparison is being rendered.
+concurrency: 1

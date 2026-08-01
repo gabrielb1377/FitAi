@@ -1,0 +1,79 @@
+name: Flutter CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - feature/**
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Flutter quality gates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2.21.0
+        with:
+          flutter-version: 3.44.2
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Reject tracked secret files
+        shell: bash
+        run: |
+          blocked_files="$(git ls-files | grep -E '(^|/)(\.env(\..+)?|id_rsa|id_ed25519|.+\.(pem|p12|pfx|key))$' | grep -vE '(^|/)\.env\.example$' || true)"
+          if [[ -n "$blocked_files" ]]; then
+            echo "Tracked sensitive files are not allowed:"
+            echo "$blocked_files"
+            exit 1
+          fi
+
+      - name: Reject literal credentials and private endpoints
+        shell: bash
+        run: |
+          if git grep -nE 'sk-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9_]{20,}' -- lib test; then
+            echo "Possible credential found in Flutter source."
+            exit 1
+          fi
+          if git grep -nE '(192\.168\.|127\.0\.0\.1|10\.[0-9]{1,3}\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|localhost)' -- lib; then
+            echo "Private network endpoint found in distributed Flutter source."
+            exit 1
+          fi
+
+      - name: Verify formatting
+        run: dart format --set-exit-if-changed .
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run unit and widget tests
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter test --reporter expanded | tee flutter-test.log
+          skip_count="$(grep -c 'Skip:' flutter-test.log || true)"
+          if [[ "$skip_count" -ne 1 ]] || ! grep -Fq 'VS2_LIVE_BASE_URL' flutter-test.log; then
+            echo "Unexpected skipped test detected."
+            exit 1
+          fi
+
+      - name: Run golden regression tests
+        run: flutter test test/home/home_visual_regression_test.dart test/planos_official_golden_test.dart
+
+      - name: Run offline recovery and deduplication tests
+        run: >-
+          flutter test
+          test/workout_vertical_slice/workout_vertical_chaos_test.dart
+          test/workout_vertical_slice/workout_vertical_local_store_test.dart
+          test/workout_vertical_slice/workout_vertical_repository_test.dart
+          test/core_journey/core_journey_controller_test.dart
