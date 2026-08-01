@@ -1,56 +1,47 @@
-import 'package:flutter/foundation.dart';
+import '../config/environment_config.dart';
+
+class ApiConfigurationException implements Exception {
+  const ApiConfigurationException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'ApiConfigurationException: $message';
+}
 
 class ApiConfig {
   ApiConfig._();
 
-  static const String _urlConfigurada = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: '',
-  );
-
-  static String _baseUrl = _definirBaseUrlInicial();
+  static String? _baseUrl = EnvironmentConfig.apiBaseUrl;
   static Duration _timeout = const Duration(seconds: 20);
 
-  static String get baseUrl => _baseUrl;
+  static String? get baseUrl => _baseUrl;
+  static bool get isConfigured => _baseUrl != null;
   static Duration get timeout => _timeout;
 
   static Uri endpoint(String path) {
     final normalizedPath = path.startsWith('/') ? path : '/$path';
-    return Uri.parse('$_baseUrl$normalizedPath');
+    final baseUrl = _baseUrl;
+    if (baseUrl == null) {
+      throw const ApiConfigurationException(
+        'API_BASE_URL nao foi configurada para este ambiente.',
+      );
+    }
+    return Uri.parse('$baseUrl$normalizedPath');
   }
 
   static void configure({String? baseUrl, Duration? timeout}) {
-    if (baseUrl != null && baseUrl.trim().isNotEmpty) {
-      _baseUrl = _normalizeBaseUrl(baseUrl);
-    }
-
-    if (timeout != null) {
-      _timeout = timeout;
-    }
+    if (baseUrl != null) _baseUrl = _normalizeBaseUrl(baseUrl);
+    if (timeout != null) _timeout = timeout;
   }
 
-  static String _definirBaseUrlInicial() {
-    if (_urlConfigurada.trim().isNotEmpty) {
-      return _normalizeBaseUrl(_urlConfigurada);
-    }
-
-    // Flutter Web e Windows executados no próprio computador.
-    if (kIsWeb ||
-        defaultTargetPlatform == TargetPlatform.windows ||
-        defaultTargetPlatform == TargetPlatform.linux ||
-        defaultTargetPlatform == TargetPlatform.macOS) {
-      return 'http://localhost:3001';
-    }
-
-    // Android físico na mesma rede Wi-Fi do computador.
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://192.168.101.12:3001';
-    }
-
-    return 'http://localhost:3001';
+  static void reset() {
+    _baseUrl = EnvironmentConfig.apiBaseUrl;
+    _timeout = const Duration(seconds: 20);
   }
 
-  static String _normalizeBaseUrl(String value) {
-    return value.trim().replaceFirst(RegExp(r'/+$'), '');
+  static String? _normalizeBaseUrl(String value) {
+    final normalized = value.trim().replaceFirst(RegExp(r'/+$'), '');
+    return normalized.isEmpty ? null : normalized;
   }
 }

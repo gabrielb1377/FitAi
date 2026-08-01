@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fitai/core/api/api_config.dart';
 import 'package:fitai/models/exercicio_model.dart';
 import 'package:fitai/models/ready_plan_day_model.dart';
 import 'package:fitai/models/ready_plan_exercise_model.dart';
@@ -25,6 +26,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    ApiConfig.configure(baseUrl: 'https://api.fitia.test');
   });
 
   testWidgets('PLAN-001 preserva cabecalho, abas, busca e acao de criar', (

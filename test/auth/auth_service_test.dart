@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fitai/core/api/api_config.dart';
 import 'package:fitai/core/config/dev_config.dart';
 import 'package:fitai/features/auth/data/auth_session_store.dart';
 import 'package:fitai/features/auth/data/auth_service.dart';
@@ -9,7 +10,10 @@ import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    ApiConfig.configure(baseUrl: 'https://api.fitia.test');
+  });
 
   test('primeira abertura sem sessao inicia o onboarding', () async {
     final service = AuthService(

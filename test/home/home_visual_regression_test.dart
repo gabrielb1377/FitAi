@@ -9,6 +9,9 @@ void main() {
 
   for (final entry in homeOfficialScreens().entries) {
     testWidgets('${entry.key} golden mobile', (tester) async {
+      // Goldens existentes foram aprovados com o DPR padrao do test binding.
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.resetDevicePixelRatio);
       await tester.binding.setSurfaceSize(const Size(390, 844));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 

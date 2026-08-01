@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fitai/core/api/api_config.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,6 +9,8 @@ import 'package:fitai/models/ready_plan_model.dart';
 import 'package:fitai/services/ready_plans_service.dart';
 
 void main() {
+  setUp(() => ApiConfig.configure(baseUrl: 'https://api.fitia.test'));
+
   test('usa a lista salva quando o backend fica offline', () async {
     SharedPreferences.setMockInitialValues({});
     final payload = {
