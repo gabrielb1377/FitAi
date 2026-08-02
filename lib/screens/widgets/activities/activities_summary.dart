@@ -6,14 +6,12 @@ class ActivitiesSummary extends StatelessWidget {
   final String steps;
   final String distance;
   final String activeTime;
-  final String workouts;
 
   const ActivitiesSummary({
     super.key,
     required this.steps,
     required this.distance,
     required this.activeTime,
-    required this.workouts,
   });
 
   @override
@@ -33,11 +31,6 @@ class ActivitiesSummary extends StatelessWidget {
         label: 'Tempo ativo',
         value: activeTime,
         icon: Icons.timer_outlined,
-      ),
-      FitMetric(
-        label: 'Treinos',
-        value: workouts,
-        icon: Icons.check_circle_outline_rounded,
       ),
     ];
     return FitSection(

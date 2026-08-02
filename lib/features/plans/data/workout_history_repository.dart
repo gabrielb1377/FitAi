@@ -1,14 +1,14 @@
-import '../domain/activity_history_models.dart';
+import '../domain/workout_history_models.dart';
 import '../../workout_vertical_slice/data/workout_vertical_local_store.dart';
 import '../../workout_vertical_slice/domain/workout_vertical_models.dart';
 
-typedef ActivityExerciseNameResolver = String? Function(String exerciseId);
+typedef WorkoutExerciseNameResolver = String? Function(String exerciseId);
 
 /// Metadados de catalogo projetados para o historico sem criar uma segunda
 /// representacao persistida do exercicio. Os valores continuam pertencendo ao
 /// plano/catalogo que originou a serie.
-class ActivityExerciseMetadata {
-  const ActivityExerciseMetadata({
+class WorkoutExerciseMetadata {
+  const WorkoutExerciseMetadata({
     this.name,
     this.muscles = const [],
     this.category,
@@ -19,10 +19,10 @@ class ActivityExerciseMetadata {
   final String? category;
 }
 
-typedef ActivityExerciseMetadataResolver =
-    ActivityExerciseMetadata? Function(String exerciseId);
+typedef WorkoutExerciseMetadataResolver =
+    WorkoutExerciseMetadata? Function(String exerciseId);
 
-/// Projeta Atividades a partir do journal offline-first ja persistido pelo
+/// Projeta o historico de musculacao a partir do journal offline-first do
 /// treino. Nenhum evento, serie ou historico e copiado para outra base local.
 class WorkoutHistoryRepository {
   WorkoutHistoryRepository({
@@ -33,15 +33,15 @@ class WorkoutHistoryRepository {
   }) : _clock = clock ?? DateTime.now;
 
   final WorkoutVerticalLocalStore localStore;
-  final ActivityExerciseNameResolver? exerciseNameResolver;
-  final ActivityExerciseMetadataResolver? exerciseMetadataResolver;
+  final WorkoutExerciseNameResolver? exerciseNameResolver;
+  final WorkoutExerciseMetadataResolver? exerciseMetadataResolver;
   final DateTime Function() _clock;
 
-  Future<WorkoutActivityHistorySnapshot> load() async {
+  Future<PlanWorkoutHistorySnapshot> load() async {
     return project(await localStore.read());
   }
 
-  WorkoutActivityHistorySnapshot project(WorkoutSliceSnapshot source) {
+  PlanWorkoutHistorySnapshot project(WorkoutSliceSnapshot source) {
     final sessions =
         source.sessions
             .where(
@@ -53,7 +53,7 @@ class WorkoutHistoryRepository {
           ..sort(
             (left, right) => left.finishedAt!.compareTo(right.finishedAt!),
           );
-    if (sessions.isEmpty) return const WorkoutActivityHistorySnapshot.empty();
+    if (sessions.isEmpty) return const PlanWorkoutHistorySnapshot.empty();
 
     final setsBySession = <String, List<WorkoutSetLocal>>{};
     final logicalSetKeys = <String>{};
@@ -84,7 +84,7 @@ class WorkoutHistoryRepository {
     final timeline = _timeline(workouts, personalRecords, streak);
     final newestFirst = workouts.reversed.toList(growable: false);
 
-    return WorkoutActivityHistorySnapshot(
+    return PlanWorkoutHistorySnapshot(
       workouts: newestFirst,
       summaries: newestFirst.map((workout) => workout.summary).toList(),
       exercisePrs: exercisePrs,
@@ -292,7 +292,7 @@ class WorkoutHistoryRepository {
       ..sort((left, right) => right.achievedAt.compareTo(left.achievedAt));
   }
 
-  List<CalendarEntry> _calendar(
+  List<WorkoutCalendarEntry> _calendar(
     List<WorkoutHistory> workouts,
     List<PersonalRecord> records,
   ) {
@@ -308,7 +308,7 @@ class WorkoutHistoryRepository {
     final entries =
         byDay.entries
             .map(
-              (entry) => CalendarEntry(
+              (entry) => WorkoutCalendarEntry(
                 date: entry.key,
                 workoutCount: entry.value.length,
                 totalDurationSeconds: entry.value.fold(
@@ -368,18 +368,18 @@ class WorkoutHistoryRepository {
     );
   }
 
-  List<TimelineEvent> _timeline(
+  List<WorkoutTimelineEvent> _timeline(
     List<WorkoutHistory> workouts,
     List<PersonalRecord> records,
     WorkoutStreak streak,
   ) {
-    final timeline = <TimelineEvent>[];
+    final timeline = <WorkoutTimelineEvent>[];
     for (var index = 0; index < workouts.length; index++) {
       final workout = workouts[index];
       timeline.add(
-        TimelineEvent(
+        WorkoutTimelineEvent(
           id: 'workout:${workout.id}',
-          type: TimelineEventType.workoutCompleted,
+          type: WorkoutTimelineEventType.workoutCompleted,
           occurredAt: workout.finishedAt,
           title: 'Treino concluido',
           description:
@@ -389,9 +389,9 @@ class WorkoutHistoryRepository {
       );
       if (index == 0) {
         timeline.add(
-          TimelineEvent(
+          WorkoutTimelineEvent(
             id: 'first-workout:${workout.id}',
-            type: TimelineEventType.firstWorkout,
+            type: WorkoutTimelineEventType.firstWorkout,
             occurredAt: workout.finishedAt,
             title: 'Primeiro treino concluido',
             description: 'Seu historico de treino comecou.',
@@ -401,9 +401,9 @@ class WorkoutHistoryRepository {
       }
       if (index > 0 && workouts[index - 1].planId != workout.planId) {
         timeline.add(
-          TimelineEvent(
+          WorkoutTimelineEvent(
             id: 'plan-change:${workout.id}',
-            type: TimelineEventType.planChanged,
+            type: WorkoutTimelineEventType.planChanged,
             occurredAt: workout.startedAt,
             title: 'Plano alterado',
             description: workout.planName ?? 'Um novo plano foi iniciado.',
@@ -414,9 +414,9 @@ class WorkoutHistoryRepository {
     }
     for (final record in records) {
       timeline.add(
-        TimelineEvent(
+        WorkoutTimelineEvent(
           id: 'record:${record.id}',
-          type: TimelineEventType.personalRecord,
+          type: WorkoutTimelineEventType.personalRecord,
           occurredAt: record.achievedAt,
           title: 'Novo recorde pessoal',
           description: record.title,
@@ -426,9 +426,9 @@ class WorkoutHistoryRepository {
     }
     if (streak.currentDays >= 3) {
       timeline.add(
-        TimelineEvent(
+        WorkoutTimelineEvent(
           id: 'streak:${streak.lastWorkoutDate!.toIso8601String()}',
-          type: TimelineEventType.streak,
+          type: WorkoutTimelineEventType.streak,
           occurredAt: streak.lastWorkoutDate!,
           title: 'Sequencia ativa',
           description: '${streak.currentDays} dias consecutivos de treino.',

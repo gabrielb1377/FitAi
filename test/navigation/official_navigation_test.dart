@@ -63,14 +63,38 @@ void main() {
     final history = AppDeepLinkParser.parse(
       Uri.parse('/activities/workout/session-1'),
     );
+    final planHistory = AppDeepLinkParser.parse(
+      Uri.parse('/plans/plan-1/history'),
+    );
+    final workoutHistory = AppDeepLinkParser.parse(
+      Uri.parse('/plans/plan-1/workouts/upper-a/history'),
+    );
 
     expect(plan?.section, AppShellSection.plans);
     expect(plan?.routeName, AppRoutes.corePlanDetail);
     expect(workout?.section, AppShellSection.plans);
     expect(workout?.routeName, AppRoutes.coreWorkout);
     expect(summary?.routeName, AppRoutes.coreWorkoutSummary);
-    expect(history?.section, AppShellSection.activities);
-    expect(history?.routeName, AppRoutes.coreWorkoutHistory);
+    expect(history?.section, AppShellSection.plans);
+    expect(history?.routeName, AppRoutes.corePlanWorkoutHistory);
+    expect(planHistory?.section, AppShellSection.plans);
+    expect(planHistory?.routeName, AppRoutes.corePlanHistory);
+    expect(workoutHistory?.section, AppShellSection.plans);
+    expect(workoutHistory?.routeName, AppRoutes.corePlanHistory);
+  });
+
+  test('parser entrega contratos de detalhe para atividades de movimento', () {
+    final run = AppDeepLinkParser.parse(
+      Uri.parse('fitia://activities/runs/run-1'),
+    );
+    final steps = AppDeepLinkParser.parse(
+      Uri.parse('fitia://activities/steps/2026-08-02'),
+    );
+
+    expect(run?.section, AppShellSection.activities);
+    expect(run?.routeName, AppRoutes.activityRunDetail);
+    expect(steps?.section, AppShellSection.activities);
+    expect(steps?.routeName, AppRoutes.activityStepsByDate);
   });
 
   test('roteador raiz registra os contratos nomeados', () {

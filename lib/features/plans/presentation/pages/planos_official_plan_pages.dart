@@ -6,8 +6,11 @@ import '../../../../models/treino_model.dart';
 import '../../../../screens/treinos/controllers/plan_day_data.dart';
 import '../../../../screens/treinos/controllers/plan_progress_snapshot.dart';
 import '../../../../services/treino_service.dart';
+import '../../../core_journey/presentation/core_journey_scope.dart';
+import '../../domain/workout_history_models.dart';
 import '../../workout_execution/pages/workout_preview_page.dart';
 import '../widgets/planos_official_primitives.dart';
+import 'plan_workout_history_pages.dart';
 
 /// PLAN-013. Detalhes do plano salvo localmente.
 class PlanosPlanDetailPage extends StatefulWidget {
@@ -954,74 +957,21 @@ class PlanosComparePage extends StatelessWidget {
   }
 }
 
-/// PLAN-023. Historico preservando o armazenamento existente de planos.
+/// PLAN-023. Histórico real de musculação projetado do journal offline-first.
 class PlanosHistoryPage extends StatelessWidget {
   const PlanosHistoryPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return PlanosOfficialPage(
-      title: 'Meu historico',
-      onBack: () => Navigator.of(context).maybePop(),
-      child: ListView(
-        padding: const EdgeInsets.all(FitSpacing.s16),
-        children: [
-          const Wrap(
-            spacing: FitSpacing.s8,
-            children: [
-              FitChip(label: 'Concluidos', selected: true),
-              FitChip(label: 'Todos'),
-            ],
-          ),
-          const SizedBox(height: FitSpacing.s16),
-          for (final item in const [
-            ('Upper / Lower', '8 semanas - 2026'),
-            ('Definicao', '6 semanas - 2026'),
-            ('PPL', '9 semanas - 2025'),
-            ('Bulking Clean', '12 semanas - 2025'),
-          ]) ...[
-            FitCard(
-              child: Row(
-                children: [
-                  const Icon(FitIcons.success),
-                  const SizedBox(width: FitSpacing.s12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.$1,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const Text('Concluido'),
-                        Text(
-                          item.$2,
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: FitSpacing.s8),
-          ],
-          const PlanosMetricRow(
-            metrics: [
-              PlanosMetricData(
-                label: 'Planos concluidos',
-                value: '6',
-                icon: FitIcons.success,
-              ),
-              PlanosMetricData(
-                label: 'Semanas treinando',
-                value: '32',
-                icon: FitIcons.calendar,
-              ),
-            ],
-          ),
-        ],
-      ),
+    final controller = CoreJourneyScope.maybeOf(context)?.notifier;
+    return PlanWorkoutHistoryPage(
+      loadHistory: () async {
+        if (controller == null || !controller.isReady) {
+          return const PlanWorkoutHistorySnapshot.empty();
+        }
+        return controller.loadPlanWorkoutHistory();
+      },
+      source: controller,
     );
   }
 }

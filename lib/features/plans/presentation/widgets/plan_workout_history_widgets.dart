@@ -1,51 +1,57 @@
 import 'package:flutter/material.dart';
 
 import '../../../../design_system/fit_design_system.dart';
-import '../../domain/activity_history_models.dart';
+import '../../domain/workout_history_models.dart';
 import '../../../workout_vertical_slice/domain/workout_vertical_models.dart';
-import '../controllers/activities_history_controller.dart';
+import '../controllers/plan_workout_history_controller.dart';
 
-typedef ActivitiesHistoryViewBuilder =
+typedef PlanWorkoutHistoryViewBuilder =
     Widget Function(
       BuildContext context,
-      ActivitiesHistoryController controller,
+      PlanWorkoutHistoryController controller,
     );
 
 /// Mantem o controlador visual ligado somente a fonte canonica do historico.
-class ActivitiesHistoryHost extends StatefulWidget {
-  const ActivitiesHistoryHost({
+class PlanWorkoutHistoryHost extends StatefulWidget {
+  const PlanWorkoutHistoryHost({
     super.key,
     required this.loadHistory,
     required this.builder,
     this.source,
     this.clock,
+    this.initialPlanId,
+    this.initialWorkoutId,
   });
 
-  final ActivitiesHistoryLoader loadHistory;
+  final PlanWorkoutHistoryLoader loadHistory;
   final Listenable? source;
   final DateTime Function()? clock;
-  final ActivitiesHistoryViewBuilder builder;
+  final String? initialPlanId;
+  final String? initialWorkoutId;
+  final PlanWorkoutHistoryViewBuilder builder;
 
   @override
-  State<ActivitiesHistoryHost> createState() => _ActivitiesHistoryHostState();
+  State<PlanWorkoutHistoryHost> createState() => _PlanWorkoutHistoryHostState();
 }
 
-class _ActivitiesHistoryHostState extends State<ActivitiesHistoryHost> {
-  late ActivitiesHistoryController _controller;
+class _PlanWorkoutHistoryHostState extends State<PlanWorkoutHistoryHost> {
+  late PlanWorkoutHistoryController _controller;
 
   @override
   void initState() {
     super.initState();
-    _controller = ActivitiesHistoryController(
+    _controller = PlanWorkoutHistoryController(
       loadHistory: widget.loadHistory,
       clock: widget.clock,
+      planId: widget.initialPlanId,
+      workoutId: widget.initialWorkoutId,
     );
     widget.source?.addListener(_refreshFromSource);
     _controller.refresh();
   }
 
   @override
-  void didUpdateWidget(covariant ActivitiesHistoryHost oldWidget) {
+  void didUpdateWidget(covariant PlanWorkoutHistoryHost oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.source, widget.source)) {
       oldWidget.source?.removeListener(_refreshFromSource);
@@ -71,21 +77,23 @@ class _ActivitiesHistoryHostState extends State<ActivitiesHistoryHost> {
   );
 }
 
-class ActivitySearchInput extends StatefulWidget {
-  const ActivitySearchInput({
+class PlanWorkoutHistorySearchInput extends StatefulWidget {
+  const PlanWorkoutHistorySearchInput({
     super.key,
     required this.controller,
     this.autofocus = false,
   });
 
-  final ActivitiesHistoryController controller;
+  final PlanWorkoutHistoryController controller;
   final bool autofocus;
 
   @override
-  State<ActivitySearchInput> createState() => _ActivitySearchInputState();
+  State<PlanWorkoutHistorySearchInput> createState() =>
+      _PlanWorkoutHistorySearchInputState();
 }
 
-class _ActivitySearchInputState extends State<ActivitySearchInput> {
+class _PlanWorkoutHistorySearchInputState
+    extends State<PlanWorkoutHistorySearchInput> {
   late final TextEditingController _textController;
 
   @override
@@ -95,7 +103,7 @@ class _ActivitySearchInputState extends State<ActivitySearchInput> {
   }
 
   @override
-  void didUpdateWidget(covariant ActivitySearchInput oldWidget) {
+  void didUpdateWidget(covariant PlanWorkoutHistorySearchInput oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (_textController.text != widget.controller.query) {
       _textController.value = _textController.value.copyWith(
@@ -117,7 +125,7 @@ class _ActivitySearchInputState extends State<ActivitySearchInput> {
   Widget build(BuildContext context) => FitSearchField(
     controller: _textController,
     autofocus: widget.autofocus,
-    label: 'Pesquisar atividades',
+    label: 'Pesquisar treinos',
     hintText: 'Treino, plano, exercicio ou data',
     semanticLabel: 'Pesquisar por treino, plano, exercicio ou data',
     onChanged: widget.controller.setQuery,
@@ -125,14 +133,14 @@ class _ActivitySearchInputState extends State<ActivitySearchInput> {
   );
 }
 
-class ActivityPeriodFilters extends StatelessWidget {
-  const ActivityPeriodFilters({
+class PlanWorkoutHistoryPeriodFilters extends StatelessWidget {
+  const PlanWorkoutHistoryPeriodFilters({
     super.key,
     required this.controller,
     required this.onOpenFilters,
   });
 
-  final ActivitiesHistoryController controller;
+  final PlanWorkoutHistoryController controller;
   final VoidCallback onOpenFilters;
 
   @override
@@ -140,7 +148,7 @@ class ActivityPeriodFilters extends StatelessWidget {
     scrollDirection: Axis.horizontal,
     child: Row(
       children: [
-        for (final period in ActivityHistoryPeriod.values) ...[
+        for (final period in PlanWorkoutHistoryPeriod.values) ...[
           FitFilterChip(
             label: period.label,
             selected: controller.period == period,
@@ -150,7 +158,7 @@ class ActivityPeriodFilters extends StatelessWidget {
         ],
         FitIconButton(
           icon: Icons.tune_rounded,
-          tooltip: 'Filtrar atividades',
+          tooltip: 'Filtrar treinos',
           variant: FitIconButtonVariant.outlined,
           onPressed: onOpenFilters,
         ),
@@ -159,8 +167,8 @@ class ActivityPeriodFilters extends StatelessWidget {
   );
 }
 
-class ActivitySummaryGrid extends StatelessWidget {
-  const ActivitySummaryGrid({
+class PlanWorkoutHistorySummaryGrid extends StatelessWidget {
+  const PlanWorkoutHistorySummaryGrid({
     super.key,
     required this.workouts,
     required this.streak,
@@ -187,12 +195,12 @@ class ActivitySummaryGrid extends StatelessWidget {
       ),
       FitMetricCard(
         label: 'Duracao',
-        value: formatActivityDuration(Duration(seconds: duration)),
+        value: formatWorkoutDuration(Duration(seconds: duration)),
         icon: FitIcons.time,
       ),
       FitMetricCard(
         label: 'Volume',
-        value: formatActivityVolume(volume),
+        value: formatWorkoutVolume(volume),
         icon: FitIcons.weight,
       ),
     ];
@@ -247,8 +255,8 @@ class ActivitySummaryGrid extends StatelessWidget {
   }
 }
 
-class ActivityTimelineCard extends StatelessWidget {
-  const ActivityTimelineCard({
+class PlanWorkoutTimelineCard extends StatelessWidget {
+  const PlanWorkoutTimelineCard({
     super.key,
     required this.workout,
     this.hasPersonalRecord = false,
@@ -265,7 +273,7 @@ class ActivityTimelineCard extends StatelessWidget {
       variant: FitCardVariant.clickable,
       onTap: onTap,
       semanticLabel:
-          '${workout.summary.title}, ${formatActivityDate(workout.finishedAt)}',
+          '${workout.summary.title}, ${formatWorkoutDate(workout.finishedAt)}',
       padding: const EdgeInsets.all(FitSpacing.s12),
       child: constraints.maxWidth <= FitBreakpoints.mobile
           ? _CompactTimelineCardContent(
@@ -336,7 +344,7 @@ class _CompactTimelineCardContent extends StatelessWidget {
         runSpacing: FitSpacing.s8,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          activitySyncStatusChip(workout.syncStatus),
+          workoutSyncStatusChip(workout.syncStatus),
           if (hasPersonalRecord) ...[
             const FitStatusChip(label: 'PR', tone: FitStatusTone.warning),
           ],
@@ -426,11 +434,11 @@ class _ActivityMetrics extends StatelessWidget {
     children: [
       _ActivityMeta(
         icon: FitIcons.time,
-        label: formatActivityDuration(workout.metrics.duration),
+        label: formatWorkoutDuration(workout.metrics.duration),
       ),
       _ActivityMeta(
         icon: FitIcons.weight,
-        label: formatActivityVolume(workout.metrics.totalVolume),
+        label: formatWorkoutVolume(workout.metrics.totalVolume),
       ),
       _ActivityMeta(
         icon: FitIcons.repetitions,
@@ -453,7 +461,7 @@ class _ActivityStatus extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.end,
     children: [
-      activitySyncStatusChip(status),
+      workoutSyncStatusChip(status),
       if (hasPersonalRecord) ...[
         const SizedBox(height: FitSpacing.s8),
         const FitStatusChip(label: 'PR', tone: FitStatusTone.warning),
@@ -489,8 +497,8 @@ class _ActivityMeta extends StatelessWidget {
   );
 }
 
-class ActivityHistorySkeleton extends StatelessWidget {
-  const ActivityHistorySkeleton({super.key, this.itemCount = 4});
+class PlanWorkoutHistorySkeleton extends StatelessWidget {
+  const PlanWorkoutHistorySkeleton({super.key, this.itemCount = 4});
 
   final int itemCount;
 
@@ -502,13 +510,13 @@ class ActivityHistorySkeleton extends StatelessWidget {
     itemBuilder: (_, index) => const FitSkeleton(
       height: FitLayout.skeletonListItemHeight,
       borderRadius: FitRadius.largeBorder,
-      semanticLabel: 'Carregando atividade',
+      semanticLabel: 'Carregando treino',
     ),
   );
 }
 
-class ActivityCalendarGrid extends StatelessWidget {
-  const ActivityCalendarGrid({
+class PlanWorkoutCalendarGrid extends StatelessWidget {
+  const PlanWorkoutCalendarGrid({
     super.key,
     required this.entries,
     required this.selectedDate,
@@ -516,7 +524,7 @@ class ActivityCalendarGrid extends StatelessWidget {
     required this.referenceDate,
   });
 
-  final List<CalendarEntry> entries;
+  final List<WorkoutCalendarEntry> entries;
   final DateTime selectedDate;
   final DateTime referenceDate;
   final ValueChanged<DateTime> onSelected;
@@ -572,7 +580,7 @@ class ActivityCalendarGrid extends StatelessWidget {
               button: true,
               selected: selected,
               label:
-                  '${formatActivityDate(date)}. ${entry?.workoutCount ?? 0} treinos.',
+                  '${formatWorkoutDate(date)}. ${entry?.workoutCount ?? 0} treinos.',
               child: Material(
                 color: selected
                     ? colors.primaryContainer
@@ -603,20 +611,20 @@ class ActivityCalendarGrid extends StatelessWidget {
   }
 }
 
-class ActivityFilterSheet extends StatelessWidget {
-  const ActivityFilterSheet({super.key, required this.controller});
+class PlanWorkoutHistoryFilterSheet extends StatelessWidget {
+  const PlanWorkoutHistoryFilterSheet({super.key, required this.controller});
 
-  final ActivitiesHistoryController controller;
+  final PlanWorkoutHistoryController controller;
 
   static Future<void> show(
     BuildContext context,
-    ActivitiesHistoryController controller,
+    PlanWorkoutHistoryController controller,
   ) => FitBottomSheet.show<void>(
     context: context,
     title: 'Filtros',
     subtitle: 'Refine seu historico salvo no dispositivo.',
     isScrollControlled: true,
-    child: ActivityFilterSheet(controller: controller),
+    child: PlanWorkoutHistoryFilterSheet(controller: controller),
   );
 
   @override
@@ -757,7 +765,7 @@ class _FilterGroup extends StatelessWidget {
   );
 }
 
-FitStatusChip activitySyncStatusChip(WorkoutSyncStatus status) => FitStatusChip(
+FitStatusChip workoutSyncStatusChip(WorkoutSyncStatus status) => FitStatusChip(
   label: switch (status) {
     WorkoutSyncStatus.synced => 'Sincronizado',
     WorkoutSyncStatus.syncing => 'Sincronizando',
@@ -776,22 +784,22 @@ FitStatusChip activitySyncStatusChip(WorkoutSyncStatus status) => FitStatusChip(
   },
 );
 
-String formatActivityDuration(Duration value) {
+String formatWorkoutDuration(Duration value) {
   final hours = value.inHours;
   final minutes = value.inMinutes.remainder(60);
   if (hours > 0) return '${hours}h ${minutes.toString().padLeft(2, '0')}m';
   return '$minutes min';
 }
 
-String formatActivityVolume(double value) => value >= 1000
+String formatWorkoutVolume(double value) => value >= 1000
     ? '${(value / 1000).toStringAsFixed(2)}k kg'
     : '${value.toStringAsFixed(0)} kg';
 
-String formatActivityDate(DateTime value) =>
+String formatWorkoutDate(DateTime value) =>
     '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')}/${value.year}';
 
-String formatActivityDateTime(DateTime value) =>
-    '${formatActivityDate(value)} as ${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
+String formatWorkoutDateTime(DateTime value) =>
+    '${formatWorkoutDate(value)} as ${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
 
 String _shortMonth(DateTime value) => const [
   'JAN',

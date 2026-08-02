@@ -10,12 +10,12 @@ class CoreJourneyScope extends InheritedNotifier<CoreJourneyController> {
     super.key,
     required CoreJourneyController controller,
     required this.onOpenHome,
-    required this.onOpenWorkoutHistory,
+    required this.onOpenPlanWorkoutHistory,
     required super.child,
   }) : super(notifier: controller);
 
   final VoidCallback onOpenHome;
-  final Future<void> Function(String sessionId) onOpenWorkoutHistory;
+  final Future<void> Function(String sessionId) onOpenPlanWorkoutHistory;
 
   static CoreJourneyScope? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<CoreJourneyScope>();

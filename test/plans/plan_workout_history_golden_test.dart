@@ -1,6 +1,6 @@
 import 'package:fitai/design_system/design_system.dart';
-import 'package:fitai/features/activities/domain/activity_history_models.dart';
-import 'package:fitai/features/activities/presentation/pages/activity_history_pages.dart';
+import 'package:fitai/features/plans/domain/workout_history_models.dart';
+import 'package:fitai/features/plans/presentation/pages/plan_workout_history_pages.dart';
 import 'package:fitai/features/workout_vertical_slice/domain/workout_vertical_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,7 +15,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: FitTheme.dark(),
-        home: ActivitiesTimelinePage(
+        home: PlanWorkoutHistoryPage(
           loadHistory: () async => _snapshot(),
           clock: () => DateTime(2026, 8, 1),
         ),
@@ -24,13 +24,13 @@ void main() {
     await tester.pumpAndSettle();
 
     await expectLater(
-      find.byType(ActivitiesTimelinePage),
-      matchesGoldenFile('goldens/activities_timeline.png'),
+      find.byType(PlanWorkoutHistoryPage),
+      matchesGoldenFile('goldens/plan_workout_history.png'),
     );
   });
 }
 
-WorkoutActivityHistorySnapshot _snapshot() {
+PlanWorkoutHistorySnapshot _snapshot() {
   final completedAt = DateTime(2026, 7, 25, 10);
   final workout = WorkoutHistory(
     id: 'golden-upper',
@@ -71,14 +71,14 @@ WorkoutActivityHistorySnapshot _snapshot() {
     ],
     syncStatus: WorkoutSyncStatus.pending,
   );
-  return WorkoutActivityHistorySnapshot(
+  return PlanWorkoutHistorySnapshot(
     workouts: [workout],
     summaries: [workout.summary],
     exercisePrs: const [],
     personalRecords: const [],
     timeline: const [],
     calendar: [
-      CalendarEntry(
+      WorkoutCalendarEntry(
         date: completedAt,
         workoutCount: 1,
         totalDurationSeconds: workout.metrics.durationSeconds,

@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:fitai/features/activities/domain/activity_history_models.dart';
-import 'package:fitai/features/activities/presentation/controllers/activities_history_controller.dart';
+import 'package:fitai/features/plans/domain/workout_history_models.dart';
+import 'package:fitai/features/plans/presentation/controllers/plan_workout_history_controller.dart';
 import 'package:fitai/features/workout_vertical_slice/domain/workout_vertical_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -10,7 +10,7 @@ void main() {
     'filtra a projecao canonica por busca, musculo e sincronizacao',
     () async {
       final history = _snapshot();
-      final controller = ActivitiesHistoryController(
+      final controller = PlanWorkoutHistoryController(
         loadHistory: () async => history,
       );
       addTearDown(controller.dispose);
@@ -36,8 +36,8 @@ void main() {
   );
 
   test('mantem estado vazio e erro sem fabricar atividades', () async {
-    final empty = ActivitiesHistoryController(
-      loadHistory: () async => const WorkoutActivityHistorySnapshot.empty(),
+    final empty = PlanWorkoutHistoryController(
+      loadHistory: () async => const PlanWorkoutHistorySnapshot.empty(),
     );
     addTearDown(empty.dispose);
 
@@ -48,10 +48,23 @@ void main() {
     expect(empty.errorMessage, isNull);
   });
 
+  test('filtra historico pelo plano sem criar uma fonte paralela', () async {
+    final controller = PlanWorkoutHistoryController(
+      loadHistory: () async => _snapshot(),
+      planId: 'plan-upper',
+    );
+    addTearDown(controller.dispose);
+
+    await controller.refresh();
+
+    expect(controller.filteredWorkouts, hasLength(1));
+    expect(controller.filteredWorkouts.single.planId, 'plan-upper');
+  });
+
   test('coalesce leituras simultaneas do historico local', () async {
-    final completer = Completer<WorkoutActivityHistorySnapshot>();
+    final completer = Completer<PlanWorkoutHistorySnapshot>();
     var reads = 0;
-    final controller = ActivitiesHistoryController(
+    final controller = PlanWorkoutHistoryController(
       loadHistory: () {
         reads += 1;
         return completer.future;
@@ -72,7 +85,7 @@ void main() {
   });
 }
 
-WorkoutActivityHistorySnapshot _snapshot() {
+PlanWorkoutHistorySnapshot _snapshot() {
   final now = DateTime.now();
   final upper = WorkoutHistory(
     id: 'session-upper',
@@ -152,7 +165,7 @@ WorkoutActivityHistorySnapshot _snapshot() {
     ],
     syncStatus: WorkoutSyncStatus.pending,
   );
-  return WorkoutActivityHistorySnapshot(
+  return PlanWorkoutHistorySnapshot(
     workouts: [upper, lower],
     summaries: [upper.summary, lower.summary],
     exercisePrs: const [],
@@ -170,7 +183,7 @@ WorkoutActivityHistorySnapshot _snapshot() {
     ],
     timeline: const [],
     calendar: [
-      CalendarEntry(
+      WorkoutCalendarEntry(
         date: upper.finishedAt,
         workoutCount: 1,
         totalDurationSeconds: upper.metrics.durationSeconds,
@@ -178,7 +191,7 @@ WorkoutActivityHistorySnapshot _snapshot() {
         personalRecordCount: 1,
         syncStatus: upper.syncStatus,
       ),
-      CalendarEntry(
+      WorkoutCalendarEntry(
         date: lower.finishedAt,
         workoutCount: 1,
         totalDurationSeconds: lower.metrics.durationSeconds,

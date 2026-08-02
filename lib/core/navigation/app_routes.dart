@@ -16,13 +16,24 @@ abstract final class AppRoutes {
   static const home = '/home';
   static const plans = '/plans';
   static const activities = '/activities';
+  static const activitiesRuns = '/activities/runs';
+  static const activityRunDetail = '/activities/runs/detail';
+  static const activitiesSteps = '/activities/steps';
+  static const activityStepsByDate = '/activities/steps/date';
 
   /// Destinos internos usados para entregar os caminhos publicos do Core V1
   /// aos Navigators aninhados. Os IDs ficam em [RouteSettings.arguments].
   static const corePlanDetail = '/plans/detail';
   static const coreWorkout = '/plans/session';
   static const coreWorkoutSummary = '/plans/completion';
-  static const coreWorkoutHistory = '/activities/workout';
+  static const corePlanHistory = '/plans/history';
+  static const corePlanWorkoutHistory = '/plans/history/detail';
+
+  /// Caminho publico legado. O parser o entrega explicitamente a Planos.
+  static const legacyActivitiesWorkoutHistory = '/activities/workout';
+
+  @Deprecated('Use corePlanWorkoutHistory; musculacao pertence a Planos.')
+  static const coreWorkoutHistory = corePlanWorkoutHistory;
 
   static bool isCoreJourneyPath(String? value) =>
       value == home ||
@@ -30,7 +41,7 @@ abstract final class AppRoutes {
       value == activities ||
       (value?.startsWith('$plans/') ?? false) ||
       (value?.startsWith('/workout/') ?? false) ||
-      (value?.startsWith('$activities/workout/') ?? false);
+      (value?.startsWith('$legacyActivitiesWorkoutHistory/') ?? false);
 
   /// Rota de prova tecnica, protegida por `kDebugMode` no [RootRouter].
   static const debugWorkoutVerticalSlice = '/debug/offline-workout-slice';

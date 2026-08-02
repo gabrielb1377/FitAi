@@ -9,7 +9,6 @@ class ActivitiesHubContent extends StatelessWidget {
   final String steps;
   final String distance;
   final String activeTime;
-  final String workouts;
   final bool showLocalBanner;
   final String runSubtitle;
   final String runDistance;
@@ -26,7 +25,6 @@ class ActivitiesHubContent extends StatelessWidget {
     required this.steps,
     required this.distance,
     required this.activeTime,
-    required this.workouts,
     required this.showLocalBanner,
     required this.runSubtitle,
     required this.runDistance,
@@ -63,7 +61,6 @@ class ActivitiesHubContent extends StatelessWidget {
                 steps: steps,
                 distance: distance,
                 activeTime: activeTime,
-                workouts: workouts,
               ),
               if (showLocalBanner) ...[
                 const SizedBox(height: FitSpacing.s20),

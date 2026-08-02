@@ -209,10 +209,10 @@ class _AppShellState extends State<AppShell> {
             controller: widget.coreJourney!,
             onOpenHome: () =>
                 _navigationController.selectSection(AppShellSection.home),
-            onOpenWorkoutHistory: (sessionId) async {
+            onOpenPlanWorkoutHistory: (sessionId) async {
               await _navigationController.pushNamed<void>(
-                AppShellSection.activities,
-                AppRoutes.coreWorkoutHistory,
+                AppShellSection.plans,
+                AppRoutes.corePlanWorkoutHistory,
                 arguments: sessionId,
               );
             },

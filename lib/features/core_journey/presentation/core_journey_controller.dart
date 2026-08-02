@@ -7,8 +7,8 @@ import '../../../core/config/dev_config.dart';
 import '../../../core/config/dev_data.dart';
 import '../../../core/config/dev_fixtures.dart';
 import '../../../features/auth/data/auth_service.dart';
-import '../../activities/data/workout_history_repository.dart';
-import '../../activities/domain/activity_history_models.dart';
+import '../../plans/data/workout_history_repository.dart';
+import '../../plans/domain/workout_history_models.dart';
 import '../../../features/workout_vertical_slice/data/workout_vertical_local_store.dart';
 import '../../../features/workout_vertical_slice/data/workout_vertical_log.dart';
 import '../../../features/workout_vertical_slice/data/workout_vertical_repository.dart';
@@ -131,15 +131,19 @@ class CoreJourneyController extends ChangeNotifier {
     sessionId,
   ).fold<double>(0, (total, item) => total + item.weight * item.reps);
 
-  /// Leitura do historico de Atividades sem criar um armazenamento paralelo.
+  /// Leitura do historico de musculacao de Planos sem armazenamento paralelo.
   /// O repositorio projeta as sessoes finalizadas e series do mesmo journal
   /// local que protege a recuperacao do treino offline.
-  Future<WorkoutActivityHistorySnapshot> loadActivityHistory() {
+  Future<PlanWorkoutHistorySnapshot> loadPlanWorkoutHistory() {
     return WorkoutHistoryRepository(
       localStore: _requiredRepository.localStore,
       exerciseMetadataResolver: _exerciseMetadataForId,
     ).load();
   }
+
+  @Deprecated('Use loadPlanWorkoutHistory; musculacao pertence a Planos.')
+  Future<PlanWorkoutHistorySnapshot> loadActivityHistory() =>
+      loadPlanWorkoutHistory();
 
   Duration durationFor(WorkoutSessionLocal session, {DateTime? now}) {
     final end = session.finishedAt ?? now ?? DateTime.now();
@@ -452,11 +456,11 @@ class CoreJourneyController extends ChangeNotifier {
     return day == null || day.codigo.trim().isEmpty ? plan.id : day.codigo;
   }
 
-  ActivityExerciseMetadata? _exerciseMetadataForId(String exerciseId) {
+  WorkoutExerciseMetadata? _exerciseMetadataForId(String exerciseId) {
     for (final plan in plans) {
       for (final exercise in plan.exercicios) {
         if (exercise.id == exerciseId) {
-          return ActivityExerciseMetadata(
+          return WorkoutExerciseMetadata(
             name: exercise.nome,
             muscles: exercise.musculos,
             category: exercise.categoria,

@@ -1,5 +1,5 @@
-import 'package:fitai/features/activities/data/workout_history_repository.dart';
-import 'package:fitai/features/activities/domain/activity_history_models.dart';
+import 'package:fitai/features/plans/data/workout_history_repository.dart';
+import 'package:fitai/features/plans/domain/workout_history_models.dart';
 import 'package:fitai/features/workout_vertical_slice/data/workout_vertical_local_store.dart';
 import 'package:fitai/features/workout_vertical_slice/data/workout_vertical_repository.dart';
 import 'package:fitai/features/workout_vertical_slice/data/workout_vertical_sync_transport.dart';
@@ -108,7 +108,7 @@ void main() {
         final recreatedReader = WorkoutHistoryRepository(
           localStore: store,
           exerciseMetadataResolver: (id) => id == 'agachamento-livre'
-              ? const ActivityExerciseMetadata(
+              ? const WorkoutExerciseMetadata(
                   name: 'Agachamento livre',
                   muscles: ['Quadriceps'],
                   category: 'Musculacao',
@@ -195,19 +195,19 @@ void main() {
       expect(history.streak.longestDays, 3);
       expect(
         history.timeline.where(
-          (event) => event.type == TimelineEventType.firstWorkout,
+          (event) => event.type == WorkoutTimelineEventType.firstWorkout,
         ),
         hasLength(1),
       );
       expect(
         history.timeline.where(
-          (event) => event.type == TimelineEventType.planChanged,
+          (event) => event.type == WorkoutTimelineEventType.planChanged,
         ),
         hasLength(1),
       );
       expect(
         history.timeline.where(
-          (event) => event.type == TimelineEventType.streak,
+          (event) => event.type == WorkoutTimelineEventType.streak,
         ),
         hasLength(1),
       );

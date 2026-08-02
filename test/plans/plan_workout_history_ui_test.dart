@@ -1,6 +1,6 @@
 import 'package:fitai/design_system/design_system.dart';
-import 'package:fitai/features/activities/domain/activity_history_models.dart';
-import 'package:fitai/features/activities/presentation/pages/activity_history_pages.dart';
+import 'package:fitai/features/plans/domain/workout_history_models.dart';
+import 'package:fitai/features/plans/presentation/pages/plan_workout_history_pages.dart';
 import 'package:fitai/features/workout_vertical_slice/domain/workout_vertical_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,7 +10,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      _app(ActivitiesTimelinePage(loadHistory: _loadHistory)),
+      _app(PlanWorkoutHistoryPage(loadHistory: _loadHistory)),
     );
     await tester.pumpAndSettle();
 
@@ -18,7 +18,7 @@ void main() {
     expect(find.text('Upper A'), findsOneWidget);
     expect(find.text('Lower A'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Filtrar atividades'));
+    await tester.tap(find.byTooltip('Filtrar treinos'));
     await tester.pumpAndSettle();
 
     expect(find.text('Grupo muscular'), findsOneWidget);
@@ -27,7 +27,7 @@ void main() {
 
   testWidgets('busca reduz a timeline sem excecao', (tester) async {
     await tester.pumpWidget(
-      _app(ActivitiesTimelinePage(loadHistory: _loadHistory)),
+      _app(PlanWorkoutHistoryPage(loadHistory: _loadHistory)),
     );
     await tester.pumpAndSettle();
 
@@ -40,7 +40,7 @@ void main() {
 
   testWidgets('calendario e detalhe usam o snapshot offline', (tester) async {
     await tester.pumpWidget(
-      _app(ActivitiesCalendarPage(loadHistory: _loadHistory)),
+      _app(PlanWorkoutHistoryCalendarPage(loadHistory: _loadHistory)),
     );
     await tester.pumpAndSettle();
 
@@ -50,7 +50,7 @@ void main() {
 
     await tester.pumpWidget(
       _app(
-        ActivityWorkoutDetailPage(
+        PlanWorkoutHistoryDetailPage(
           sessionId: 'session-upper',
           loadHistory: _loadHistory,
         ),
@@ -58,7 +58,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Detalhes da atividade'), findsOneWidget);
+    expect(find.text('Detalhes do treino'), findsOneWidget);
     expect(find.text('55 kg x 10'), findsOneWidget);
   });
 
@@ -72,7 +72,7 @@ void main() {
 
     await tester.pumpWidget(
       _app(
-        ActivitiesTimelinePage(loadHistory: _loadHistory),
+        PlanWorkoutHistoryPage(loadHistory: _loadHistory),
         textScaler: const TextScaler.linear(2),
       ),
     );
@@ -102,13 +102,13 @@ void main() {
       tester.view.physicalSize = viewport;
 
       await tester.pumpWidget(
-        _app(ActivitiesTimelinePage(loadHistory: _loadHistory)),
+        _app(PlanWorkoutHistoryPage(loadHistory: _loadHistory)),
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull, reason: 'timeline em $viewport');
 
       await tester.pumpWidget(
-        _app(ActivitiesCalendarPage(loadHistory: _loadHistory)),
+        _app(PlanWorkoutHistoryCalendarPage(loadHistory: _loadHistory)),
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull, reason: 'calendario em $viewport');
@@ -127,9 +127,9 @@ Widget _app(Widget home, {TextScaler? textScaler}) => MaterialApp(
   home: home,
 );
 
-Future<WorkoutActivityHistorySnapshot> _loadHistory() async => _snapshot();
+Future<PlanWorkoutHistorySnapshot> _loadHistory() async => _snapshot();
 
-WorkoutActivityHistorySnapshot _snapshot() {
+PlanWorkoutHistorySnapshot _snapshot() {
   final now = DateTime.now();
   final upper = WorkoutHistory(
     id: 'session-upper',
@@ -210,7 +210,7 @@ WorkoutActivityHistorySnapshot _snapshot() {
     ],
     syncStatus: WorkoutSyncStatus.pending,
   );
-  return WorkoutActivityHistorySnapshot(
+  return PlanWorkoutHistorySnapshot(
     workouts: [upper, lower],
     summaries: [upper.summary, lower.summary],
     exercisePrs: const [],

@@ -1,42 +1,31 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 
-import '../../../../core/navigation/app_section.dart';
 import '../../../../core/navigation/app_routes.dart';
+import '../../../../core/navigation/app_section.dart';
 import '../../../../core/navigation/section_router.dart';
 import '../../../core_journey/presentation/core_journey_route_pages.dart';
 import '../../../core_journey/presentation/core_journey_scope.dart';
-import '../../domain/activity_history_models.dart';
-import '../controllers/activities_history_controller.dart';
-import '../pages/activity_history_pages.dart';
 
-/// Rotas oficiais e reservadas do hub Atividades.
+/// Rotas de movimento. Treinos de musculacao pertencem ao modulo Planos.
 abstract final class ActivitiesRoutes {
-  static const root = '/activities';
-  static const weeklySummary = '/activities/weekly-summary';
-  static const challenges = '/activities/challenges';
-  static const reports = '/activities/reports';
-  static const history = '/activities/history';
-  static const calendar = '/activities/calendar';
-  static const search = '/activities/search';
-  static const detail = '/activities/history/detail';
-  static const goals = '/activities/goals';
-  static const running = '/activities/running';
-  static const steps = '/activities/steps';
-  static const workout = AppRoutes.coreWorkoutHistory;
+  static const root = AppRoutes.activities;
+  static const runs = AppRoutes.activitiesRuns;
+  static const runDetail = AppRoutes.activityRunDetail;
+  static const steps = AppRoutes.activitiesSteps;
+  static const stepsByDate = AppRoutes.activityStepsByDate;
+
+  /// Mantida para links antigos. O destino final e o historico em Planos.
+  static const legacyWorkoutHistory = AppRoutes.legacyActivitiesWorkoutHistory;
+  static const legacyRunning = '/activities/running';
 
   static const declared = <String>{
     root,
-    weeklySummary,
-    challenges,
-    reports,
-    history,
-    calendar,
-    search,
-    detail,
-    goals,
-    running,
+    runs,
+    runDetail,
     steps,
-    workout,
+    stepsByDate,
+    legacyWorkoutHistory,
+    legacyRunning,
   };
 
   static SectionRouter createRouter({required WidgetBuilder rootBuilder}) {
@@ -44,42 +33,43 @@ abstract final class ActivitiesRoutes {
       section: AppShellSection.activities,
       rootBuilder: rootBuilder,
       routes: {
-        workout: (_, settings) =>
-            CoreJourneySummaryRoutePage(arguments: settings.arguments),
-        history: (context, _) => ActivitiesTimelinePage(
-          loadHistory: _historyLoader(context),
-          source: _historySource(context),
-        ),
-        calendar: (context, _) => ActivitiesCalendarPage(
-          loadHistory: _historyLoader(context),
-          source: _historySource(context),
-        ),
-        search: (context, _) => ActivitiesSearchPage(
-          loadHistory: _historyLoader(context),
-          source: _historySource(context),
-        ),
-        detail: (context, settings) => ActivityWorkoutDetailPage(
-          sessionId: settings.arguments is String
-              ? settings.arguments! as String
-              : '',
-          loadHistory: _historyLoader(context),
-          source: _historySource(context),
-        ),
+        legacyWorkoutHistory: (_, settings) =>
+            _LegacyWorkoutHistoryRedirectPage(arguments: settings.arguments),
       },
       declaredRoutes: declared,
     );
   }
+}
 
-  static ActivitiesHistoryLoader _historyLoader(BuildContext context) {
-    final controller = CoreJourneyScope.maybeOf(context)?.notifier;
-    return () async {
-      if (controller == null || !controller.isReady) {
-        return const WorkoutActivityHistorySnapshot.empty();
-      }
-      return controller.loadActivityHistory();
-    };
+class _LegacyWorkoutHistoryRedirectPage extends StatefulWidget {
+  const _LegacyWorkoutHistoryRedirectPage({required this.arguments});
+
+  final Object? arguments;
+
+  @override
+  State<_LegacyWorkoutHistoryRedirectPage> createState() =>
+      _LegacyWorkoutHistoryRedirectPageState();
+}
+
+class _LegacyWorkoutHistoryRedirectPageState
+    extends State<_LegacyWorkoutHistoryRedirectPage> {
+  var _redirected = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_redirected) return;
+    _redirected = true;
+    final sessionId = coreJourneyRouteId(widget.arguments);
+    final scope = CoreJourneyScope.maybeOf(context);
+    if (sessionId == null || scope == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) scope.onOpenPlanWorkoutHistory(sessionId);
+    });
   }
 
-  static Listenable? _historySource(BuildContext context) =>
-      CoreJourneyScope.maybeOf(context)?.notifier;
+  @override
+  Widget build(BuildContext context) => const Scaffold(
+    body: SafeArea(child: Center(child: CircularProgressIndicator())),
+  );
 }

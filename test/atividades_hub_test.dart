@@ -25,12 +25,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Atividades'), findsOneWidget);
+    expect(find.text('Volume'), findsNothing);
+    expect(find.text('Series'), findsNothing);
     await tester.scrollUntilVisible(
       find.text('Corridas'),
       320,
       scrollable: find
           .descendant(
-            of: find.byKey(const PageStorageKey('activities-overview-scroll')),
+            of: find.byKey(const PageStorageKey('atividades-hub-scroll')),
             matching: find.byType(Scrollable),
           )
           .first,
@@ -42,7 +44,7 @@ void main() {
       320,
       scrollable: find
           .descendant(
-            of: find.byKey(const PageStorageKey('activities-overview-scroll')),
+            of: find.byKey(const PageStorageKey('atividades-hub-scroll')),
             matching: find.byType(Scrollable),
           )
           .first,

@@ -243,7 +243,7 @@ class PersonalRecord {
   final String? exerciseId;
 }
 
-enum TimelineEventType {
+enum WorkoutTimelineEventType {
   workoutCompleted,
   personalRecord,
   firstWorkout,
@@ -252,8 +252,8 @@ enum TimelineEventType {
   goalAchieved,
 }
 
-class TimelineEvent {
-  const TimelineEvent({
+class WorkoutTimelineEvent {
+  const WorkoutTimelineEvent({
     required this.id,
     required this.type,
     required this.occurredAt,
@@ -263,15 +263,15 @@ class TimelineEvent {
   });
 
   final String id;
-  final TimelineEventType type;
+  final WorkoutTimelineEventType type;
   final DateTime occurredAt;
   final String title;
   final String description;
   final String? sessionId;
 }
 
-class CalendarEntry {
-  const CalendarEntry({
+class WorkoutCalendarEntry {
+  const WorkoutCalendarEntry({
     required this.date,
     required this.workoutCount,
     required this.totalDurationSeconds,
@@ -300,8 +300,8 @@ class WorkoutStreak {
   final DateTime? lastWorkoutDate;
 }
 
-class WorkoutActivityHistorySnapshot {
-  const WorkoutActivityHistorySnapshot({
+class PlanWorkoutHistorySnapshot {
+  const PlanWorkoutHistorySnapshot({
     required this.workouts,
     required this.summaries,
     required this.exercisePrs,
@@ -311,7 +311,7 @@ class WorkoutActivityHistorySnapshot {
     required this.streak,
   });
 
-  const WorkoutActivityHistorySnapshot.empty()
+  const PlanWorkoutHistorySnapshot.empty()
     : workouts = const [],
       summaries = const [],
       exercisePrs = const [],
@@ -324,7 +324,7 @@ class WorkoutActivityHistorySnapshot {
   final List<WorkoutSummary> summaries;
   final List<ExercisePR> exercisePrs;
   final List<PersonalRecord> personalRecords;
-  final List<TimelineEvent> timeline;
-  final List<CalendarEntry> calendar;
+  final List<WorkoutTimelineEvent> timeline;
+  final List<WorkoutCalendarEntry> calendar;
   final WorkoutStreak streak;
 }

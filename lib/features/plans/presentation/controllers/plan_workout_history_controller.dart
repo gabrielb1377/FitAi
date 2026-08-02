@@ -1,31 +1,34 @@
 import 'package:flutter/foundation.dart';
 
-import '../../domain/activity_history_models.dart';
+import '../../domain/workout_history_models.dart';
 import '../../../workout_vertical_slice/domain/workout_vertical_models.dart';
 
-typedef ActivitiesHistoryLoader =
-    Future<WorkoutActivityHistorySnapshot> Function();
+typedef PlanWorkoutHistoryLoader =
+    Future<PlanWorkoutHistorySnapshot> Function();
 
 /// Estado de apresentacao para consultar a projecao canônica do historico.
 ///
 /// Nao persiste e nao transforma eventos do treino: filtros e busca sao
 /// aplicados apenas sobre o snapshot produzido por [WorkoutHistoryRepository].
-class ActivitiesHistoryController extends ChangeNotifier {
-  ActivitiesHistoryController({
+class PlanWorkoutHistoryController extends ChangeNotifier {
+  PlanWorkoutHistoryController({
     required this.loadHistory,
     DateTime Function()? clock,
+    this.planId,
+    this.workoutId,
   }) : _clock = clock ?? DateTime.now;
 
-  final ActivitiesHistoryLoader loadHistory;
+  final PlanWorkoutHistoryLoader loadHistory;
   final DateTime Function() _clock;
 
-  WorkoutActivityHistorySnapshot snapshot =
-      const WorkoutActivityHistorySnapshot.empty();
+  PlanWorkoutHistorySnapshot snapshot =
+      const PlanWorkoutHistorySnapshot.empty();
   bool isLoading = true;
   String? errorMessage;
   String query = '';
-  ActivityHistoryPeriod period = ActivityHistoryPeriod.last30Days;
+  PlanWorkoutHistoryPeriod period = PlanWorkoutHistoryPeriod.last30Days;
   String? planId;
+  String? workoutId;
   String? muscle;
   String? category;
   bool onlyOffline = false;
@@ -52,6 +55,9 @@ class ActivitiesHistoryController extends ChangeNotifier {
             return false;
           }
           if (planId != null && workout.planId != planId) return false;
+          if (workoutId != null && workout.workoutId != workoutId) {
+            return false;
+          }
           if (onlyOffline && workout.syncStatus == WorkoutSyncStatus.synced) {
             return false;
           }
@@ -161,7 +167,7 @@ class ActivitiesHistoryController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setPeriod(ActivityHistoryPeriod value) {
+  void setPeriod(PlanWorkoutHistoryPeriod value) {
     if (period == value) return;
     period = value;
     notifyListeners();
@@ -170,6 +176,8 @@ class ActivitiesHistoryController extends ChangeNotifier {
   void updateFilters({
     String? nextPlanId,
     bool clearPlan = false,
+    String? nextWorkoutId,
+    bool clearWorkout = false,
     String? nextMuscle,
     bool clearMuscle = false,
     String? nextCategory,
@@ -178,6 +186,7 @@ class ActivitiesHistoryController extends ChangeNotifier {
     bool? nextOnlyPersonalRecords,
   }) {
     planId = clearPlan ? null : nextPlanId ?? planId;
+    workoutId = clearWorkout ? null : nextWorkoutId ?? workoutId;
     muscle = clearMuscle ? null : nextMuscle ?? muscle;
     category = clearCategory ? null : nextCategory ?? category;
     onlyOffline = nextOnlyOffline ?? onlyOffline;
@@ -186,8 +195,9 @@ class ActivitiesHistoryController extends ChangeNotifier {
   }
 
   void clearFilters() {
-    period = ActivityHistoryPeriod.last30Days;
+    period = PlanWorkoutHistoryPeriod.last30Days;
     planId = null;
+    workoutId = null;
     muscle = null;
     category = null;
     onlyOffline = false;
@@ -232,18 +242,20 @@ class ActivitiesHistoryController extends ChangeNotifier {
       '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')}/${value.year}';
 }
 
-enum ActivityHistoryPeriod {
+enum PlanWorkoutHistoryPeriod {
   last7Days('7 dias'),
   last30Days('30 dias'),
   all('Tudo');
 
-  const ActivityHistoryPeriod(this.label);
+  const PlanWorkoutHistoryPeriod(this.label);
 
   final String label;
 
   DateTime? cutoff(DateTime now) => switch (this) {
-    ActivityHistoryPeriod.last7Days => now.subtract(const Duration(days: 7)),
-    ActivityHistoryPeriod.last30Days => now.subtract(const Duration(days: 30)),
-    ActivityHistoryPeriod.all => null,
+    PlanWorkoutHistoryPeriod.last7Days => now.subtract(const Duration(days: 7)),
+    PlanWorkoutHistoryPeriod.last30Days => now.subtract(
+      const Duration(days: 30),
+    ),
+    PlanWorkoutHistoryPeriod.all => null,
   };
 }

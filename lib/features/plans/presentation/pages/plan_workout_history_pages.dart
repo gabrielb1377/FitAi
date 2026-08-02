@@ -1,32 +1,38 @@
 import 'package:flutter/material.dart';
 
 import '../../../../design_system/fit_design_system.dart';
-import '../../domain/activity_history_models.dart';
-import '../controllers/activities_history_controller.dart';
-import '../routes/activities_routes.dart';
-import '../widgets/activity_history_widgets.dart';
+import '../../domain/workout_history_models.dart';
+import '../controllers/plan_workout_history_controller.dart';
+import '../routes/plans_routes.dart';
+import '../widgets/plan_workout_history_widgets.dart';
 
-class ActivitiesTimelinePage extends StatelessWidget {
-  const ActivitiesTimelinePage({
+class PlanWorkoutHistoryPage extends StatelessWidget {
+  const PlanWorkoutHistoryPage({
     super.key,
     required this.loadHistory,
     this.source,
     this.title = 'Historico',
     this.autofocusSearch = false,
     this.clock,
+    this.initialPlanId,
+    this.initialWorkoutId,
   });
 
-  final ActivitiesHistoryLoader loadHistory;
+  final PlanWorkoutHistoryLoader loadHistory;
   final Listenable? source;
   final String title;
   final bool autofocusSearch;
   final DateTime Function()? clock;
+  final String? initialPlanId;
+  final String? initialWorkoutId;
 
   @override
-  Widget build(BuildContext context) => ActivitiesHistoryHost(
+  Widget build(BuildContext context) => PlanWorkoutHistoryHost(
     loadHistory: loadHistory,
     source: source,
     clock: clock,
+    initialPlanId: initialPlanId,
+    initialWorkoutId: initialWorkoutId,
     builder: (context, history) => Scaffold(
       body: SafeArea(
         bottom: false,
@@ -42,7 +48,7 @@ class ActivitiesTimelinePage extends StatelessWidget {
                   tooltip: 'Abrir calendario',
                   onPressed: () => Navigator.of(
                     context,
-                  ).pushNamed(ActivitiesRoutes.calendar),
+                  ).pushNamed(PlansRoutes.workoutHistoryCalendar),
                 ),
               ],
             ),
@@ -59,38 +65,44 @@ class ActivitiesTimelinePage extends StatelessWidget {
   );
 }
 
-class ActivitiesSearchPage extends StatelessWidget {
-  const ActivitiesSearchPage({
+class PlanWorkoutHistorySearchPage extends StatelessWidget {
+  const PlanWorkoutHistorySearchPage({
     super.key,
     required this.loadHistory,
     this.source,
     this.clock,
+    this.initialPlanId,
+    this.initialWorkoutId,
   });
 
-  final ActivitiesHistoryLoader loadHistory;
+  final PlanWorkoutHistoryLoader loadHistory;
   final Listenable? source;
   final DateTime Function()? clock;
+  final String? initialPlanId;
+  final String? initialWorkoutId;
 
   @override
-  Widget build(BuildContext context) => ActivitiesTimelinePage(
+  Widget build(BuildContext context) => PlanWorkoutHistoryPage(
     loadHistory: loadHistory,
     source: source,
-    title: 'Pesquisar atividades',
+    title: 'Pesquisar treinos',
     autofocusSearch: true,
     clock: clock,
+    initialPlanId: initialPlanId,
+    initialWorkoutId: initialWorkoutId,
   );
 }
 
 class _TimelineBody extends StatelessWidget {
   const _TimelineBody({required this.history, required this.autofocusSearch});
 
-  final ActivitiesHistoryController history;
+  final PlanWorkoutHistoryController history;
   final bool autofocusSearch;
 
   @override
   Widget build(BuildContext context) {
     if (history.isLoading && !history.hasData) {
-      return const ActivityHistorySkeleton();
+      return const PlanWorkoutHistorySkeleton();
     }
     if (history.errorMessage != null && !history.hasData) {
       return FitErrorState(
@@ -122,22 +134,22 @@ class _TimelineBody extends StatelessWidget {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ActivitySearchInput(
+                PlanWorkoutHistorySearchInput(
                   controller: history,
                   autofocus: autofocusSearch,
                 ),
                 const SizedBox(height: FitSpacing.s12),
-                ActivityPeriodFilters(
+                PlanWorkoutHistoryPeriodFilters(
                   controller: history,
                   onOpenFilters: () =>
-                      ActivityFilterSheet.show(context, history),
+                      PlanWorkoutHistoryFilterSheet.show(context, history),
                 ),
                 if (history.isShowingCachedOfflineData) ...[
                   const SizedBox(height: FitSpacing.s16),
                   FitOfflineState(
                     compact: true,
                     title: 'Dados locais disponiveis',
-                    description: 'Algumas atividades aguardam sincronizacao.',
+                    description: 'Alguns treinos aguardam sincronizacao.',
                     onRetry: history.refresh,
                   ),
                 ],
@@ -149,7 +161,7 @@ class _TimelineBody extends StatelessWidget {
               height: MediaQuery.sizeOf(context).height / 2,
               child: FitEmptyState(
                 icon: FitIcons.search,
-                title: 'Nenhuma atividade encontrada',
+                title: 'Nenhum treino encontrado',
                 description:
                     'Ajuste a busca ou os filtros para ver seu historico.',
                 actionLabel: 'Limpar filtros',
@@ -161,12 +173,13 @@ class _TimelineBody extends StatelessWidget {
             );
           }
           final workout = workouts[index - 1];
-          return ActivityTimelineCard(
+          return PlanWorkoutTimelineCard(
             workout: workout,
             hasPersonalRecord: prSessions.contains(workout.id),
-            onTap: () => Navigator.of(
-              context,
-            ).pushNamed(ActivitiesRoutes.detail, arguments: workout.id),
+            onTap: () => Navigator.of(context).pushNamed(
+              PlansRoutes.workoutHistoryDetail,
+              arguments: workout.id,
+            ),
           );
         },
       ),
@@ -174,28 +187,30 @@ class _TimelineBody extends StatelessWidget {
   }
 }
 
-class ActivitiesCalendarPage extends StatefulWidget {
-  const ActivitiesCalendarPage({
+class PlanWorkoutHistoryCalendarPage extends StatefulWidget {
+  const PlanWorkoutHistoryCalendarPage({
     super.key,
     required this.loadHistory,
     this.source,
     this.clock,
   });
 
-  final ActivitiesHistoryLoader loadHistory;
+  final PlanWorkoutHistoryLoader loadHistory;
   final Listenable? source;
   final DateTime Function()? clock;
 
   @override
-  State<ActivitiesCalendarPage> createState() => _ActivitiesCalendarPageState();
+  State<PlanWorkoutHistoryCalendarPage> createState() =>
+      _PlanWorkoutHistoryCalendarPageState();
 }
 
-class _ActivitiesCalendarPageState extends State<ActivitiesCalendarPage> {
+class _PlanWorkoutHistoryCalendarPageState
+    extends State<PlanWorkoutHistoryCalendarPage> {
   DateTime _referenceDate = DateTime.now();
   DateTime _selectedDate = DateTime.now();
 
   @override
-  Widget build(BuildContext context) => ActivitiesHistoryHost(
+  Widget build(BuildContext context) => PlanWorkoutHistoryHost(
     loadHistory: widget.loadHistory,
     source: widget.source,
     clock: widget.clock,
@@ -254,7 +269,7 @@ class _CalendarBody extends StatelessWidget {
     required this.onSelected,
   });
 
-  final ActivitiesHistoryController history;
+  final PlanWorkoutHistoryController history;
   final DateTime referenceDate;
   final DateTime selectedDate;
   final ValueChanged<DateTime> onSelected;
@@ -262,7 +277,7 @@ class _CalendarBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (history.isLoading && !history.hasData) {
-      return const ActivityHistorySkeleton(itemCount: 5);
+      return const PlanWorkoutHistorySkeleton(itemCount: 5);
     }
     if (history.errorMessage != null && !history.hasData) {
       return FitErrorState(
@@ -290,7 +305,7 @@ class _CalendarBody extends StatelessWidget {
         FitCard(
           variant: FitCardVariant.outlined,
           padding: const EdgeInsets.all(FitSpacing.s12),
-          child: ActivityCalendarGrid(
+          child: PlanWorkoutCalendarGrid(
             entries: history.snapshot.calendar,
             selectedDate: selectedDate,
             referenceDate: referenceDate,
@@ -299,26 +314,26 @@ class _CalendarBody extends StatelessWidget {
         ),
         const SizedBox(height: FitSpacing.s24),
         FitSection(
-          title: formatActivityDate(selectedDate),
+          title: formatWorkoutDate(selectedDate),
           subtitle: '${selectedWorkouts.length} treinos registrados',
           padding: EdgeInsets.zero,
           child: selectedWorkouts.isEmpty
               ? const FitEmptyState(
                   icon: FitIcons.calendar,
-                  title: 'Nenhuma atividade neste dia',
+                  title: 'Nenhum treino neste dia',
                   description:
                       'Quando voce concluir um treino, ele aparecera aqui.',
                 )
               : Column(
                   children: [
                     for (final workout in selectedWorkouts) ...[
-                      ActivityTimelineCard(
+                      PlanWorkoutTimelineCard(
                         workout: workout,
                         hasPersonalRecord: history.snapshot.personalRecords.any(
                           (record) => record.sessionId == workout.id,
                         ),
                         onTap: () => Navigator.of(context).pushNamed(
-                          ActivitiesRoutes.detail,
+                          PlansRoutes.workoutHistoryDetail,
                           arguments: workout.id,
                         ),
                       ),
@@ -333,8 +348,8 @@ class _CalendarBody extends StatelessWidget {
   }
 }
 
-class ActivityWorkoutDetailPage extends StatelessWidget {
-  const ActivityWorkoutDetailPage({
+class PlanWorkoutHistoryDetailPage extends StatelessWidget {
+  const PlanWorkoutHistoryDetailPage({
     super.key,
     required this.sessionId,
     required this.loadHistory,
@@ -343,18 +358,20 @@ class ActivityWorkoutDetailPage extends StatelessWidget {
   });
 
   final String sessionId;
-  final ActivitiesHistoryLoader loadHistory;
+  final PlanWorkoutHistoryLoader loadHistory;
   final Listenable? source;
   final DateTime Function()? clock;
 
   @override
-  Widget build(BuildContext context) => ActivitiesHistoryHost(
+  Widget build(BuildContext context) => PlanWorkoutHistoryHost(
     loadHistory: loadHistory,
     source: source,
     clock: clock,
     builder: (context, history) {
       if (history.isLoading && !history.hasData) {
-        return const Scaffold(body: SafeArea(child: ActivityHistorySkeleton()));
+        return const Scaffold(
+          body: SafeArea(child: PlanWorkoutHistorySkeleton()),
+        );
       }
       final workout = history.workoutById(sessionId);
       return Scaffold(
@@ -363,7 +380,7 @@ class ActivityWorkoutDetailPage extends StatelessWidget {
           child: Column(
             children: [
               FitHeader(
-                title: 'Detalhes da atividade',
+                title: 'Detalhes do treino',
                 showBackButton: true,
                 onBack: () => Navigator.of(context).maybePop(),
               ),
@@ -371,7 +388,7 @@ class ActivityWorkoutDetailPage extends StatelessWidget {
                 child: workout == null
                     ? FitEmptyState(
                         icon: FitIcons.history,
-                        title: 'Atividade indisponivel',
+                        title: 'Treino indisponivel',
                         description:
                             history.errorMessage ??
                             'Este treino nao esta salvo neste dispositivo.',
@@ -409,10 +426,10 @@ class _WorkoutDetailBody extends StatelessWidget {
           FitIcons.workout,
           color: Theme.of(context).colorScheme.primary,
         ),
-        trailing: activitySyncStatusChip(workout.syncStatus),
+        trailing: workoutSyncStatusChip(workout.syncStatus),
         variant: FitCardVariant.outlined,
         child: Text(
-          formatActivityDateTime(workout.finishedAt),
+          formatWorkoutDateTime(workout.finishedAt),
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ),
@@ -448,12 +465,12 @@ class _DetailMetrics extends StatelessWidget {
     final metrics = [
       (
         label: 'Duracao',
-        value: formatActivityDuration(workout.metrics.duration),
+        value: formatWorkoutDuration(workout.metrics.duration),
         icon: FitIcons.time,
       ),
       (
         label: 'Volume',
-        value: formatActivityVolume(workout.metrics.totalVolume),
+        value: formatWorkoutVolume(workout.metrics.totalVolume),
         icon: FitIcons.weight,
       ),
       (

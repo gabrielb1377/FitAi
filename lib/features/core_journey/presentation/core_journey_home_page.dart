@@ -97,7 +97,7 @@ class CoreJourneyHomePage extends StatelessWidget {
   void _openSummary(BuildContext context, WorkoutSessionLocal session) {
     final scope = CoreJourneyScope.maybeOf(context);
     if (scope != null) {
-      scope.onOpenWorkoutHistory(session.id);
+      scope.onOpenPlanWorkoutHistory(session.id);
       return;
     }
     Navigator.of(context).push<void>(

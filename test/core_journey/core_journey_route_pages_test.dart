@@ -18,8 +18,8 @@ void main() {
     );
     final history = AppDeepLinkTarget(
       uri: Uri.parse('/activities/workout/session-2'),
-      section: AppShellSection.activities,
-      routeName: AppRoutes.coreWorkoutHistory,
+      section: AppShellSection.plans,
+      routeName: AppRoutes.corePlanWorkoutHistory,
     );
 
     expect(coreJourneyRouteId(appPlan), 'plan-1');

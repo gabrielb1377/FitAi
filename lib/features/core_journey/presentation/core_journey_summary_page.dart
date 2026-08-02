@@ -78,7 +78,7 @@ class CoreJourneySummaryPage extends StatelessWidget {
               onPressed: () {
                 final scope = CoreJourneyScope.maybeOf(context);
                 if (scope != null) {
-                  scope.onOpenWorkoutHistory(session.id);
+                  scope.onOpenPlanWorkoutHistory(session.id);
                   return;
                 }
                 Navigator.of(context).push<void>(

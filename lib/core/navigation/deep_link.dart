@@ -52,8 +52,49 @@ abstract final class AppDeepLinkParser {
         segments[1].toLowerCase() == 'workout') {
       return AppDeepLinkTarget(
         uri: uri,
+        section: AppShellSection.plans,
+        routeName: AppRoutes.corePlanWorkoutHistory,
+      );
+    }
+
+    if (section == AppShellSection.activities &&
+        segments.length >= 3 &&
+        segments[1].toLowerCase() == 'runs') {
+      return AppDeepLinkTarget(
+        uri: uri,
         section: section,
-        routeName: AppRoutes.coreWorkoutHistory,
+        routeName: AppRoutes.activityRunDetail,
+      );
+    }
+
+    if (section == AppShellSection.activities &&
+        segments.length >= 3 &&
+        segments[1].toLowerCase() == 'steps') {
+      return AppDeepLinkTarget(
+        uri: uri,
+        section: section,
+        routeName: AppRoutes.activityStepsByDate,
+      );
+    }
+
+    if (section == AppShellSection.plans &&
+        segments.length >= 3 &&
+        segments[2].toLowerCase() == 'history') {
+      return AppDeepLinkTarget(
+        uri: uri,
+        section: section,
+        routeName: AppRoutes.corePlanHistory,
+      );
+    }
+
+    if (section == AppShellSection.plans &&
+        segments.length >= 5 &&
+        segments[2].toLowerCase() == 'workouts' &&
+        segments[4].toLowerCase() == 'history') {
+      return AppDeepLinkTarget(
+        uri: uri,
+        section: section,
+        routeName: AppRoutes.corePlanHistory,
       );
     }
 
