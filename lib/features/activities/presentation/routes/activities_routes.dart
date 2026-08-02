@@ -6,6 +6,7 @@ import '../../../../core/navigation/deep_link.dart';
 import '../../../../core/navigation/section_router.dart';
 import '../../../../screens/corridas/corrida_detalhe_page.dart';
 import '../../../../screens/corridas/corridas_page.dart';
+import '../../../../screens/passos_page.dart';
 import '../../../core_journey/presentation/core_journey_route_pages.dart';
 import '../../../core_journey/presentation/core_journey_scope.dart';
 
@@ -39,6 +40,9 @@ abstract final class ActivitiesRoutes {
         runs: (_, _) => const CorridasPage(),
         runDetail: (_, settings) =>
             CorridaDetalhePorIdPage(runId: _runId(settings.arguments)),
+        steps: (_, _) => const PassosPage(passos: 0),
+        stepsByDate: (_, settings) =>
+            PassosPage(passos: 0, initialDate: _stepsDate(settings.arguments)),
         legacyWorkoutHistory: (_, settings) =>
             _LegacyWorkoutHistoryRedirectPage(arguments: settings.arguments),
       },
@@ -60,6 +64,23 @@ abstract final class ActivitiesRoutes {
       return arguments.uri.queryParameters['id']?.trim() ?? '';
     }
     return '';
+  }
+
+  static DateTime? _stepsDate(Object? arguments) {
+    if (arguments is DateTime) return arguments;
+    if (arguments is String) return DateTime.tryParse(arguments);
+    if (arguments is AppDeepLinkTarget) {
+      final segments = <String>[
+        if (arguments.uri.scheme == 'fitia' && arguments.uri.host.isNotEmpty)
+          arguments.uri.host,
+        ...arguments.uri.pathSegments,
+      ];
+      if (segments.length >= 3 && segments[1].toLowerCase() == 'steps') {
+        return DateTime.tryParse(segments[2]);
+      }
+      return DateTime.tryParse(arguments.uri.queryParameters['date'] ?? '');
+    }
+    return null;
   }
 }
 

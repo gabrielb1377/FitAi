@@ -53,13 +53,19 @@ class RunningActivityDetails implements ActivityDetails {
 class StepsActivityDetails implements ActivityDetails {
   const StepsActivityDetails({
     required this.steps,
-    this.distanceKm,
-    this.activeMinutes,
+    this.goal = 0,
+    this.source = 'local',
+    this.estimatedDistanceMeters,
+    this.estimatedCalories,
   });
 
   final int steps;
-  final double? distanceKm;
-  final int? activeMinutes;
+  final int goal;
+  final String source;
+  final double? estimatedDistanceMeters;
+  final double? estimatedCalories;
+
+  bool get goalReached => goal > 0 && steps >= goal;
 }
 
 /// Agregado generico para um dia de calendario, sem metricas de musculacao.

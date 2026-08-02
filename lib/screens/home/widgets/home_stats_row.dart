@@ -30,6 +30,8 @@ class HomeStatsRow extends StatelessWidget {
         final bestDay = stepsService.bestDayThisWeek;
         final goal = stepsService.dailyGoal;
         final progress = stepsService.progressToday;
+        final estimatedDistanceKm = stepsService.estimatedDistanceKm;
+        final estimatedCalories = stepsService.estimatedCalories;
 
         return Column(
           children: [
@@ -86,16 +88,18 @@ class HomeStatsRow extends StatelessWidget {
                   value: '${stepsService.remainingSteps}',
                   icon: Icons.trending_up_rounded,
                 ),
-                _HomeStepMiniMetric(
-                  label: 'Passos km',
-                  value: stepsService.estimatedDistanceKm.toStringAsFixed(2),
-                  icon: Icons.route_rounded,
-                ),
-                _HomeStepMiniMetric(
-                  label: 'Kcal',
-                  value: stepsService.estimatedCalories.toStringAsFixed(0),
-                  icon: Icons.local_fire_department_rounded,
-                ),
+                if (estimatedDistanceKm != null)
+                  _HomeStepMiniMetric(
+                    label: 'Distância estimada',
+                    value: '${estimatedDistanceKm.toStringAsFixed(2)} km',
+                    icon: Icons.route_rounded,
+                  ),
+                if (estimatedCalories != null)
+                  _HomeStepMiniMetric(
+                    label: 'Calorias estimadas',
+                    value: '${estimatedCalories.toStringAsFixed(0)} kcal',
+                    icon: Icons.local_fire_department_rounded,
+                  ),
               ],
             ),
             const SizedBox(height: 10),
@@ -104,7 +108,7 @@ class HomeStatsRow extends StatelessWidget {
               child: TextButton.icon(
                 onPressed: stepsService.syncing
                     ? null
-                    : () => stepsService.syncNow(requestPermission: true),
+                    : () => stepsService.syncNow(),
                 icon: stepsService.syncing
                     ? const SizedBox(
                         width: 16,

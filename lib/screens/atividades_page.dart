@@ -125,9 +125,8 @@ class _AtividadesPageState extends State<AtividadesPage> {
       (sum, run) => sum + run.distancia,
     );
     final runSeconds = runsToday.fold<int>(0, (sum, run) => sum + run.segundos);
-    final activeSeconds =
-        runSeconds + _running.elapsedSeconds + _stepsActiveMinutes * 60;
-    final distanceToday = runDistance + _running.distanceKm + _stepsDistanceKm;
+    final activeSeconds = runSeconds + _running.elapsedSeconds;
+    final distanceToday = runDistance + _running.distanceKm;
     final latestRun = data.runs.isEmpty ? null : data.runs.first;
 
     return ActivitiesHubContent(
@@ -174,10 +173,6 @@ class _AtividadesPageState extends State<AtividadesPage> {
   double get _stepsProgress => _steps.initialized
       ? _steps.progressToday
       : (_stepsToday / _stepsGoal).clamp(0.0, 1.0);
-  double get _stepsDistanceKm =>
-      _steps.initialized ? _steps.estimatedDistanceKm : 0;
-  int get _stepsActiveMinutes =>
-      _steps.initialized ? _steps.estimatedActiveMinutes : 0;
   bool get _showLocalBanner => _steps.initialized && !_steps.usingHealthConnect;
   String get _lastSyncLabel {
     final syncedAt = _steps.initialized ? _steps.today.syncedAt : null;

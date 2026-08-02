@@ -244,56 +244,66 @@ class StorageService {
     List<DailyStepsModel> registros,
   ) async {
     final prefs = await SharedPreferences.getInstance();
-    final porData = {
+    final porRegistro = {
       for (final registro in await carregarDailyStepsHistory())
-        if (registro.date.trim().isNotEmpty) registro.date: registro,
+        if (registro.date.trim().isNotEmpty) registro.recordId: registro,
     };
 
     for (final registro in registros) {
       if (registro.date.trim().isEmpty) continue;
 
-      final existente = porData[registro.date];
-      porData[registro.date] = _reconciliarDailySteps(existente, registro);
+      final existente = porRegistro[registro.recordId];
+      porRegistro[registro.recordId] = _reconciliarDailySteps(
+        existente,
+        registro,
+      );
     }
 
-    final atualizados = porData.values.toList()
+    final atualizados = porRegistro.values.toList()
       ..sort((a, b) => b.date.compareTo(a.date));
-    final limitados = atualizados.take(180).toList();
 
     await prefs.setStringList(
       _dailyStepsHistoryKey,
-      limitados.map((item) => jsonEncode(item.toJson())).toList(),
+      atualizados.map((item) => jsonEncode(item.toJson())).toList(),
     );
 
-    for (final registro in limitados) {
+    for (final registro in atualizados) {
       await salvarHistoricoPassos(_dailyStepsToPassosDiarios(registro));
     }
 
     final hoje = _formatarDataChave(DateTime.now());
-    for (final registro in limitados) {
+    for (final registro in atualizados) {
       if (registro.date == hoje) {
         await salvarPassos(registro.steps);
         break;
       }
     }
 
-    return limitados;
+    return atualizados;
   }
 
   static Future<List<DailyStepsModel>> carregarDailyStepsHistory() async {
     final prefs = await SharedPreferences.getInstance();
     final lista = prefs.getStringList(_dailyStepsHistoryKey) ?? [];
-    final historico = <DailyStepsModel>[];
+    final porRegistro = <String, DailyStepsModel>{};
 
     for (final item in lista) {
       try {
         final decoded = jsonDecode(item);
 
         if (decoded is Map<String, dynamic>) {
-          historico.add(DailyStepsModel.fromJson(decoded));
+          final registro = DailyStepsModel.fromJson(decoded);
+          porRegistro[registro.recordId] = _reconciliarDailySteps(
+            porRegistro[registro.recordId],
+            registro,
+          );
         } else if (decoded is Map) {
-          historico.add(
-            DailyStepsModel.fromJson(Map<String, dynamic>.from(decoded)),
+          final registro = DailyStepsModel.fromJson(
+            Map<String, dynamic>.from(decoded),
+          );
+          porRegistro[registro.recordId] = _reconciliarDailySteps(
+            porRegistro[registro.recordId],
+            registro,
           );
         }
       } catch (erro) {
@@ -301,23 +311,56 @@ class StorageService {
       }
     }
 
-    if (historico.isEmpty) {
+    if (porRegistro.isEmpty) {
       final legado = await carregarHistoricoPassos();
-      historico.addAll(
-        legado.map((registro) {
-          return DailyStepsModel(
-            date: registro.data,
-            steps: registro.passos,
-            goal: registro.metaDiaria,
-            source: _normalizarFontePassos(registro.origem),
-            updatedAt: DateTime.now(),
-          );
-        }),
-      );
+      for (final registro in legado) {
+        final convertido = DailyStepsModel(
+          date: registro.data,
+          steps: registro.passos,
+          goal: registro.metaDiaria,
+          source: _normalizarFontePassos(registro.origem),
+          recordedAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+        porRegistro[convertido.recordId] = _reconciliarDailySteps(
+          porRegistro[convertido.recordId],
+          convertido,
+        );
+      }
     }
 
+    final historico = porRegistro.values.toList();
     historico.sort((a, b) => b.date.compareTo(a.date));
     return historico;
+  }
+
+  /// Remove somente registros identificados por uma fonte específica. É usado
+  /// para impedir que dados seed persistidos em debug vazem para builds release.
+  static Future<List<DailyStepsModel>> removerDailyStepsPorFonte(
+    String source,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final normalized = _normalizarFontePassos(source);
+    final remaining = (await carregarDailyStepsHistory())
+        .where((record) => _normalizarFontePassos(record.source) != normalized)
+        .toList(growable: false);
+
+    await prefs.setStringList(
+      _dailyStepsHistoryKey,
+      remaining.map((record) => jsonEncode(record.toJson())).toList(),
+    );
+
+    final legacy = await carregarHistoricoPassos();
+    final legacyRemaining = legacy
+        .where((record) => _normalizarFontePassos(record.origem) != normalized)
+        .map((record) => jsonEncode(record.toJson()))
+        .toList(growable: false);
+    await prefs.setStringList('historicoPassosDiarios', legacyRemaining);
+
+    final today = _formatarDataChave(DateTime.now());
+    final todayRecord = remaining.where((record) => record.date == today);
+    await salvarPassos(todayRecord.isEmpty ? 0 : todayRecord.first.steps);
+    return remaining;
   }
 
   static Future<void> marcarDailyStepsSincronizado(String date) async {
@@ -326,7 +369,11 @@ class StorageService {
     await salvarDailyStepsHistory(
       historico.map((registro) {
         if (registro.date != date) return registro;
-        return registro.copyWith(syncedAt: agora);
+        return registro.copyWith(
+          syncedAt: agora,
+          syncStatus: DailyStepsSyncStatus.synced,
+          updatedAt: agora,
+        );
       }).toList(),
     );
   }
@@ -1624,28 +1671,35 @@ class StorageService {
   ) {
     if (existente == null) return recebido;
 
-    final recebidoConfiavel =
-        _prioridadeFontePassos(recebido.source) >=
-        _prioridadeFontePassos(existente.source);
-    final deveSubstituir =
-        recebido.steps > existente.steps ||
-        (recebido.steps == existente.steps && recebidoConfiavel);
-
-    if (!deveSubstituir) {
-      return existente.copyWith(
-        goal: recebido.goal > 0 ? recebido.goal : existente.goal,
-        updatedAt: recebido.updatedAt.isAfter(existente.updatedAt)
-            ? recebido.updatedAt
-            : existente.updatedAt,
-      );
+    // A versão é a regra principal: edições manuais incrementam a versão e
+    // nunca são reduzidas silenciosamente por uma fonte seed ou legada.
+    if (recebido.version < existente.version) return existente;
+    if (recebido.version == existente.version &&
+        _prioridadeFontePassos(recebido.source) <
+            _prioridadeFontePassos(existente.source)) {
+      return existente;
     }
 
+    final sameVersion = recebido.version == existente.version;
     return recebido.copyWith(
+      id: existente.recordId,
       goal: recebido.goal > 0 ? recebido.goal : existente.goal,
+      recordedAt: existente.recordedAt.isBefore(recebido.recordedAt)
+          ? existente.recordedAt
+          : recebido.recordedAt,
       syncedAt: recebido.syncedAt ?? existente.syncedAt,
+      syncStatus:
+          sameVersion &&
+              recebido.syncStatus == DailyStepsSyncStatus.local &&
+              existente.syncStatus == DailyStepsSyncStatus.synced
+          ? existente.syncStatus
+          : recebido.syncStatus,
       updatedAt: recebido.updatedAt.isAfter(existente.updatedAt)
           ? recebido.updatedAt
-          : DateTime.now(),
+          : existente.updatedAt,
+      version: recebido.version > existente.version
+          ? recebido.version
+          : existente.version,
     );
   }
 
@@ -1656,18 +1710,23 @@ class StorageService {
       data: registro.date,
       passos: registro.steps,
       metaDiaria: registro.goal,
-      distanciaKm: registro.estimatedDistanceKm,
-      calorias: registro.estimatedCalories,
-      tempoAtivoMinutos: registro.estimatedActiveMinutes,
+      distanciaKm: registro.estimatedDistanceMeters == null
+          ? 0
+          : registro.estimatedDistanceMeters! / 1000,
+      calorias: registro.estimatedCalories ?? 0,
+      tempoAtivoMinutos: 0,
       origem: registro.source,
     );
   }
 
   static int _prioridadeFontePassos(String source) {
     return switch (_normalizarFontePassos(source)) {
+      DailyStepsModel.sourceManual => 4,
       DailyStepsModel.sourceHealthConnect => 3,
-      DailyStepsModel.sourceManual => 2,
-      _ => 1,
+      DailyStepsModel.sourceDevice => 3,
+      DailyStepsModel.sourceLocal => 2,
+      DailyStepsModel.sourceSeed => 1,
+      _ => 0,
     };
   }
 
@@ -1680,6 +1739,12 @@ class StorageService {
     }
     if (normalized == DailyStepsModel.sourceManual) {
       return DailyStepsModel.sourceManual;
+    }
+    if (normalized == DailyStepsModel.sourceSeed) {
+      return DailyStepsModel.sourceSeed;
+    }
+    if (normalized == DailyStepsModel.sourceDevice) {
+      return DailyStepsModel.sourceDevice;
     }
 
     return DailyStepsModel.sourceLocal;

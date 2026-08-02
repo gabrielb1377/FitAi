@@ -11,6 +11,10 @@ import 'network_service.dart';
 /// e pode ser reenviada sem bloquear o usuario.
 enum RunningSyncDispatchResult { delivered, queued }
 
+/// Resultado imediato da tentativa de envio de passos. O dado local permanece
+/// canônico em ambos os casos e uma entrega em fila pode ser tentada depois.
+enum StepsSyncDispatchResult { delivered, queued }
+
 class SyncService {
   SyncService._({NetworkService? networkService})
     : _networkService = networkService ?? NetworkService();
@@ -100,12 +104,21 @@ class SyncService {
         : RunningSyncDispatchResult.queued;
   }
 
-  Future<void> syncSteps(List<Map<String, dynamic>> steps) {
-    return _sendOrQueue(
+  Future<StepsSyncDispatchResult> syncSteps(
+    List<Map<String, dynamic>> steps,
+  ) async {
+    final stepId = steps.length == 1
+        ? steps.single['id']?.toString().trim()
+        : '';
+    final delivered = await _sendOrQueueWithResult(
       type: 'steps',
       path: '/steps/sync',
       payload: {'items': steps},
+      queueId: stepId == null || stepId.isEmpty ? null : 'steps_$stepId',
     );
+    return delivered
+        ? StepsSyncDispatchResult.delivered
+        : StepsSyncDispatchResult.queued;
   }
 
   Future<void> flushPending() async {

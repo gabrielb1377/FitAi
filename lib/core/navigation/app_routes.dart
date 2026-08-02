@@ -40,6 +40,7 @@ abstract final class AppRoutes {
       value == plans ||
       value == activities ||
       (value?.startsWith('$plans/') ?? false) ||
+      (value?.startsWith('$activities/') ?? false) ||
       (value?.startsWith('/workout/') ?? false) ||
       (value?.startsWith('$legacyActivitiesWorkoutHistory/') ?? false);
 
