@@ -70,6 +70,10 @@ void main() {
       expect(controller.completedSessions, hasLength(1));
       expect(controller.setsFor(session.id), hasLength(1));
       expect(controller.volumeFor(session.id), 550);
+      final history = await controller.loadActivityHistory();
+      expect(history.workouts, hasLength(1));
+      expect(history.workouts.single.id, session.id);
+      expect(history.workouts.single.exercises.single.name, exercise.nome);
     });
 
     test('troca de usuario nao mistura sessao nem outbox local', () async {

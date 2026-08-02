@@ -31,6 +31,9 @@ class WorkoutSessionLocal {
     required this.version,
     this.finishedAt,
     this.restEndsAt,
+    this.planName,
+    this.workoutName,
+    this.calories,
   });
 
   final String id;
@@ -45,6 +48,9 @@ class WorkoutSessionLocal {
   final DateTime updatedAt;
   final WorkoutSyncStatus syncStatus;
   final int version;
+  final String? planName;
+  final String? workoutName;
+  final double? calories;
 
   bool get isOpen =>
       status == WorkoutSessionStatus.active ||
@@ -60,6 +66,9 @@ class WorkoutSessionLocal {
     DateTime? updatedAt,
     WorkoutSyncStatus? syncStatus,
     int? version,
+    String? planName,
+    String? workoutName,
+    double? calories,
   }) {
     return WorkoutSessionLocal(
       id: id,
@@ -74,6 +83,9 @@ class WorkoutSessionLocal {
       updatedAt: updatedAt ?? this.updatedAt,
       syncStatus: syncStatus ?? this.syncStatus,
       version: version ?? this.version,
+      planName: planName ?? this.planName,
+      workoutName: workoutName ?? this.workoutName,
+      calories: calories ?? this.calories,
     );
   }
 
@@ -90,6 +102,9 @@ class WorkoutSessionLocal {
     'updatedAt': updatedAt.toIso8601String(),
     'syncStatus': syncStatus.name,
     'version': version,
+    'planName': planName,
+    'workoutName': workoutName,
+    'calories': calories,
   };
 
   factory WorkoutSessionLocal.fromJson(Map<String, dynamic> json) {
@@ -106,6 +121,9 @@ class WorkoutSessionLocal {
       updatedAt: DateTime.parse(json['updatedAt'] as String),
       syncStatus: WorkoutSyncStatus.values.byName(json['syncStatus'] as String),
       version: json['version'] as int,
+      planName: _nullableString(json['planName']),
+      workoutName: _nullableString(json['workoutName']),
+      calories: _nullableDouble(json['calories']),
     );
   }
 }
@@ -122,6 +140,10 @@ class WorkoutSetLocal {
     required this.updatedAt,
     required this.syncStatus,
     required this.version,
+    this.exerciseName,
+    this.restSeconds,
+    this.rpe,
+    this.notes,
   });
 
   final String id;
@@ -134,10 +156,18 @@ class WorkoutSetLocal {
   final DateTime updatedAt;
   final WorkoutSyncStatus syncStatus;
   final int version;
+  final String? exerciseName;
+  final int? restSeconds;
+  final double? rpe;
+  final String? notes;
 
   WorkoutSetLocal copyWith({
     WorkoutSyncStatus? syncStatus,
     DateTime? updatedAt,
+    String? exerciseName,
+    int? restSeconds,
+    double? rpe,
+    String? notes,
   }) {
     return WorkoutSetLocal(
       id: id,
@@ -150,6 +180,10 @@ class WorkoutSetLocal {
       updatedAt: updatedAt ?? this.updatedAt,
       syncStatus: syncStatus ?? this.syncStatus,
       version: version,
+      exerciseName: exerciseName ?? this.exerciseName,
+      restSeconds: restSeconds ?? this.restSeconds,
+      rpe: rpe ?? this.rpe,
+      notes: notes ?? this.notes,
     );
   }
 
@@ -164,6 +198,10 @@ class WorkoutSetLocal {
     'updatedAt': updatedAt.toIso8601String(),
     'syncStatus': syncStatus.name,
     'version': version,
+    'exerciseName': exerciseName,
+    'restSeconds': restSeconds,
+    'rpe': rpe,
+    'notes': notes,
   };
 
   factory WorkoutSetLocal.fromJson(Map<String, dynamic> json) =>
@@ -180,6 +218,10 @@ class WorkoutSetLocal {
           json['syncStatus'] as String,
         ),
         version: json['version'] as int,
+        exerciseName: _nullableString(json['exerciseName']),
+        restSeconds: json['restSeconds'] as int?,
+        rpe: _nullableDouble(json['rpe']),
+        notes: _nullableString(json['notes']),
       );
 }
 
@@ -379,3 +421,11 @@ Duration outboxBackoffForAttempt(int attempts) {
 
 DateTime? _nullableDate(Object? value) =>
     value == null ? null : DateTime.parse(value as String);
+
+String? _nullableString(Object? value) {
+  final normalized = value?.toString().trim() ?? '';
+  return normalized.isEmpty ? null : normalized;
+}
+
+double? _nullableDouble(Object? value) =>
+    value is num ? value.toDouble() : double.tryParse(value?.toString() ?? '');

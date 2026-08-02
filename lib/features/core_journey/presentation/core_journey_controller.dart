@@ -7,6 +7,8 @@ import '../../../core/config/dev_config.dart';
 import '../../../core/config/dev_data.dart';
 import '../../../core/config/dev_fixtures.dart';
 import '../../../features/auth/data/auth_service.dart';
+import '../../activities/data/workout_history_repository.dart';
+import '../../activities/domain/activity_history_models.dart';
 import '../../../features/workout_vertical_slice/data/workout_vertical_local_store.dart';
 import '../../../features/workout_vertical_slice/data/workout_vertical_log.dart';
 import '../../../features/workout_vertical_slice/data/workout_vertical_repository.dart';
@@ -129,6 +131,16 @@ class CoreJourneyController extends ChangeNotifier {
     sessionId,
   ).fold<double>(0, (total, item) => total + item.weight * item.reps);
 
+  /// Leitura do historico de Atividades sem criar um armazenamento paralelo.
+  /// O repositorio projeta as sessoes finalizadas e series do mesmo journal
+  /// local que protege a recuperacao do treino offline.
+  Future<WorkoutActivityHistorySnapshot> loadActivityHistory() {
+    return WorkoutHistoryRepository(
+      localStore: _requiredRepository.localStore,
+      exerciseNameResolver: _exerciseNameForId,
+    ).load();
+  }
+
   Duration durationFor(WorkoutSessionLocal session, {DateTime? now}) {
     final end = session.finishedAt ?? now ?? DateTime.now();
     return end.difference(session.startedAt).isNegative
@@ -202,6 +214,8 @@ class CoreJourneyController extends ChangeNotifier {
         final session = await _requiredRepository.startOrRecover(
           planId: plan.id,
           workoutId: _workoutIdFor(plan),
+          planName: plan.nome,
+          workoutName: plan.nome,
         );
         await _reload();
         unawaited(_flushOutbox());
@@ -213,6 +227,8 @@ class CoreJourneyController extends ChangeNotifier {
     required ExercicioModel exercise,
     required double weight,
     required int reps,
+    double? rpe,
+    String? notes,
   }) => _perform(() async {
     final session = sessionById(sessionId);
     if (session == null || !session.isOpen) {
@@ -242,6 +258,9 @@ class CoreJourneyController extends ChangeNotifier {
       nextSetIndex: isLastSet && hasNextExercise
           ? 0
           : session.currentSetIndex + 1,
+      exerciseName: exercise.nome,
+      rpe: rpe,
+      notes: notes,
     );
     await _reload();
     unawaited(_flushOutbox());
@@ -431,6 +450,15 @@ class CoreJourneyController extends ChangeNotifier {
   String _workoutIdFor(TreinoModel plan) {
     final day = plan.planoDias.isEmpty ? null : plan.planoDias.first;
     return day == null || day.codigo.trim().isEmpty ? plan.id : day.codigo;
+  }
+
+  String? _exerciseNameForId(String exerciseId) {
+    for (final plan in plans) {
+      for (final exercise in plan.exercicios) {
+        if (exercise.id == exerciseId) return exercise.nome;
+      }
+    }
+    return null;
   }
 
   @override

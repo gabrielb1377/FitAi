@@ -48,6 +48,9 @@ class WorkoutVerticalRepository {
   Future<WorkoutSessionLocal> startOrRecover({
     required String planId,
     required String workoutId,
+    String? planName,
+    String? workoutName,
+    double? calories,
   }) => _serial(() async {
     final snapshot = await load();
     for (final session in snapshot.sessions.reversed) {
@@ -68,6 +71,9 @@ class WorkoutVerticalRepository {
       updatedAt: now,
       syncStatus: WorkoutSyncStatus.pending,
       version: 1,
+      planName: planName,
+      workoutName: workoutName,
+      calories: calories,
     );
     await _persist(
       snapshot.copyWith(
@@ -96,6 +102,9 @@ class WorkoutVerticalRepository {
     Duration restDuration = const Duration(seconds: 90),
     int? nextExerciseIndex,
     int? nextSetIndex,
+    String? exerciseName,
+    double? rpe,
+    String? notes,
   }) => _serial(() async {
     if (weight < 0 || reps <= 0 || setIndex < 0) {
       throw ArgumentError('Carga, repeticoes ou indice da serie invalidos.');
@@ -128,6 +137,10 @@ class WorkoutVerticalRepository {
       updatedAt: now,
       syncStatus: WorkoutSyncStatus.pending,
       version: 1,
+      exerciseName: exerciseName,
+      restSeconds: restDuration.inSeconds,
+      rpe: rpe,
+      notes: notes,
     );
     final sessions = [...snapshot.sessions];
     sessions[sessionIndex] = session.copyWith(
