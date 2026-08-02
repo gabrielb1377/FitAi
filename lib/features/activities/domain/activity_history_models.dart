@@ -117,6 +117,8 @@ class ExerciseHistory {
     required this.volume,
     required this.totalRepetitions,
     required this.completedAt,
+    this.muscles = const [],
+    this.category,
     this.averageRpe,
     this.notes,
   });
@@ -127,6 +129,8 @@ class ExerciseHistory {
   final double volume;
   final int totalRepetitions;
   final DateTime completedAt;
+  final List<String> muscles;
+  final String? category;
   final double? averageRpe;
   final List<String>? notes;
 
@@ -148,6 +152,8 @@ class ExerciseHistory {
     'volume': volume,
     'totalRepetitions': totalRepetitions,
     'completedAt': completedAt.toIso8601String(),
+    'muscles': muscles,
+    'category': category,
     'averageRpe': averageRpe,
     'notes': notes,
   };

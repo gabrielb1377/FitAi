@@ -25,9 +25,29 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Atividades'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Corridas'),
+      320,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const PageStorageKey('activities-overview-scroll')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
     expect(find.text('Corridas'), findsOneWidget);
-    expect(find.text('Passos'), findsOneWidget);
     expect(find.text('Abrir Corridas'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Passos'),
+      320,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const PageStorageKey('activities-overview-scroll')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    expect(find.text('Passos'), findsOneWidget);
     expect(find.text('Abrir Passos'), findsOneWidget);
   });
 }

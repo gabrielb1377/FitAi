@@ -107,8 +107,13 @@ void main() {
 
         final recreatedReader = WorkoutHistoryRepository(
           localStore: store,
-          exerciseNameResolver: (id) =>
-              id == 'agachamento-livre' ? 'Agachamento livre' : null,
+          exerciseMetadataResolver: (id) => id == 'agachamento-livre'
+              ? const ActivityExerciseMetadata(
+                  name: 'Agachamento livre',
+                  muscles: ['Quadriceps'],
+                  category: 'Musculacao',
+                )
+              : null,
           clock: clock.call,
         );
         final history = await recreatedReader.load();
@@ -119,6 +124,10 @@ void main() {
           history.workouts.single.exercises.single.name,
           'Agachamento livre',
         );
+        expect(history.workouts.single.exercises.single.muscles, [
+          'Quadriceps',
+        ]);
+        expect(history.workouts.single.exercises.single.category, 'Musculacao');
         expect(history.workouts.single.syncStatus, WorkoutSyncStatus.pending);
       },
     );
@@ -220,19 +229,19 @@ void main() {
         final discarded = completed.copyWith(
           status: WorkoutSessionStatus.discarded,
         );
-      final legacySession = completed.toJson()
-        ..remove('planName')
-        ..remove('workoutName')
-        ..remove('calories');
-      final legacySet = _set('set-1', 'completed', 50, 10).toJson()
-        ..remove('exerciseName')
-        ..remove('restSeconds')
-        ..remove('rpe')
-        ..remove('notes');
-      final snapshot = WorkoutSliceSnapshot.fromJson({
-        'schemaVersion': 1,
-        'sessions': [legacySession, active.toJson(), discarded.toJson()],
-        'sets': [legacySet],
+        final legacySession = completed.toJson()
+          ..remove('planName')
+          ..remove('workoutName')
+          ..remove('calories');
+        final legacySet = _set('set-1', 'completed', 50, 10).toJson()
+          ..remove('exerciseName')
+          ..remove('restSeconds')
+          ..remove('rpe')
+          ..remove('notes');
+        final snapshot = WorkoutSliceSnapshot.fromJson({
+          'schemaVersion': 1,
+          'sessions': [legacySession, active.toJson(), discarded.toJson()],
+          'sets': [legacySet],
           'outbox': const [],
         });
 

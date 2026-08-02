@@ -137,7 +137,7 @@ class CoreJourneyController extends ChangeNotifier {
   Future<WorkoutActivityHistorySnapshot> loadActivityHistory() {
     return WorkoutHistoryRepository(
       localStore: _requiredRepository.localStore,
-      exerciseNameResolver: _exerciseNameForId,
+      exerciseMetadataResolver: _exerciseMetadataForId,
     ).load();
   }
 
@@ -452,10 +452,16 @@ class CoreJourneyController extends ChangeNotifier {
     return day == null || day.codigo.trim().isEmpty ? plan.id : day.codigo;
   }
 
-  String? _exerciseNameForId(String exerciseId) {
+  ActivityExerciseMetadata? _exerciseMetadataForId(String exerciseId) {
     for (final plan in plans) {
       for (final exercise in plan.exercicios) {
-        if (exercise.id == exerciseId) return exercise.nome;
+        if (exercise.id == exerciseId) {
+          return ActivityExerciseMetadata(
+            name: exercise.nome,
+            muscles: exercise.musculos,
+            category: exercise.categoria,
+          );
+        }
       }
     }
     return null;

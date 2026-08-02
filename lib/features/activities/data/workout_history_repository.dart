@@ -4,17 +4,37 @@ import '../../workout_vertical_slice/domain/workout_vertical_models.dart';
 
 typedef ActivityExerciseNameResolver = String? Function(String exerciseId);
 
+/// Metadados de catalogo projetados para o historico sem criar uma segunda
+/// representacao persistida do exercicio. Os valores continuam pertencendo ao
+/// plano/catalogo que originou a serie.
+class ActivityExerciseMetadata {
+  const ActivityExerciseMetadata({
+    this.name,
+    this.muscles = const [],
+    this.category,
+  });
+
+  final String? name;
+  final List<String> muscles;
+  final String? category;
+}
+
+typedef ActivityExerciseMetadataResolver =
+    ActivityExerciseMetadata? Function(String exerciseId);
+
 /// Projeta Atividades a partir do journal offline-first ja persistido pelo
 /// treino. Nenhum evento, serie ou historico e copiado para outra base local.
 class WorkoutHistoryRepository {
   WorkoutHistoryRepository({
     required this.localStore,
     this.exerciseNameResolver,
+    this.exerciseMetadataResolver,
     DateTime Function()? clock,
   }) : _clock = clock ?? DateTime.now;
 
   final WorkoutVerticalLocalStore localStore;
   final ActivityExerciseNameResolver? exerciseNameResolver;
+  final ActivityExerciseMetadataResolver? exerciseMetadataResolver;
   final DateTime Function() _clock;
 
   Future<WorkoutActivityHistorySnapshot> load() async {
@@ -145,9 +165,12 @@ class WorkoutHistoryRepository {
         .where((note) => note.isNotEmpty)
         .toSet()
         .toList(growable: false);
+    final metadata = exerciseMetadataResolver?.call(exerciseId);
     return ExerciseHistory(
       exerciseId: exerciseId,
-      name: _exerciseName(ordered.first),
+      name: metadata?.name?.trim().isNotEmpty == true
+          ? metadata!.name!.trim()
+          : _exerciseName(ordered.first),
       sets: completed,
       volume: completed.fold(0, (total, set) => total + set.volume),
       totalRepetitions: completed.fold(
@@ -155,6 +178,16 @@ class WorkoutHistoryRepository {
         (total, set) => total + set.repetitions,
       ),
       completedAt: completed.last.completedAt,
+      muscles:
+          metadata?.muscles
+              .map((muscle) => muscle.trim())
+              .where((muscle) => muscle.isNotEmpty)
+              .toSet()
+              .toList(growable: false) ??
+          const [],
+      category: metadata?.category?.trim().isNotEmpty == true
+          ? metadata!.category!.trim()
+          : null,
       averageRpe: rpes.isEmpty
           ? null
           : rpes.reduce((left, right) => left + right) / rpes.length,

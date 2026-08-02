@@ -3,13 +3,17 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../design_system/fit_design_system.dart';
+import '../features/activities/domain/activity_history_models.dart';
+import '../features/activities/presentation/controllers/activities_history_controller.dart';
+import '../features/activities/presentation/widgets/activities_overview_content.dart';
+import '../features/core_journey/presentation/core_journey_controller.dart';
+import '../features/core_journey/presentation/core_journey_scope.dart';
 import '../models/corrida_model.dart';
 import '../services/running_session_service.dart';
 import '../services/steps_service.dart';
 import '../services/storage_service.dart';
 import 'corridas/corridas_page.dart';
 import 'passos_page.dart';
-import 'widgets/activities/activities_hub_content.dart';
 import 'widgets/activities/activities_hub_data.dart';
 import 'widgets/activities/activities_hub_state.dart';
 import 'widgets/activities/recent_activity.dart';
@@ -42,6 +46,8 @@ class _AtividadesPageState extends State<AtividadesPage> {
   final _running = RunningSessionService.instance;
   final _steps = StepsService.instance;
   late Future<ActivitiesHubData> _dataFuture;
+  ActivitiesHistoryController? _historyController;
+  CoreJourneyController? _journeyController;
 
   @override
   void initState() {
@@ -54,14 +60,48 @@ class _AtividadesPageState extends State<AtividadesPage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final nextJourney = CoreJourneyScope.maybeOf(context)?.notifier;
+    if (identical(nextJourney, _journeyController) &&
+        _historyController != null) {
+      return;
+    }
+    _journeyController?.removeListener(_refreshHistoryFromJourney);
+    _historyController?.dispose();
+    _journeyController = nextJourney;
+    _historyController = ActivitiesHistoryController(
+      loadHistory: () async {
+        final journey = _journeyController;
+        if (journey == null || !journey.isReady) {
+          return const WorkoutActivityHistorySnapshot.empty();
+        }
+        return journey.loadActivityHistory();
+      },
+    );
+    _journeyController?.addListener(_refreshHistoryFromJourney);
+    unawaited(_historyController!.refresh());
+  }
+
+  @override
   void dispose() {
     _running.removeListener(_refreshView);
     _steps.removeListener(_refreshView);
+    _journeyController?.removeListener(_refreshHistoryFromJourney);
+    _historyController?.dispose();
     super.dispose();
   }
 
   void _refreshView() {
     if (mounted) setState(() {});
+  }
+
+  void _refreshHistoryFromJourney() {
+    if (_journeyController?.isReady == true) {
+      unawaited(
+        _historyController?.refresh(preserveError: true) ?? Future.value(),
+      );
+    }
   }
 
   Future<ActivitiesHubData> _loadData() async {
@@ -79,7 +119,10 @@ class _AtividadesPageState extends State<AtividadesPage> {
   Future<void> _reload() async {
     final next = _loadData();
     if (mounted) setState(() => _dataFuture = next);
-    await next;
+    await Future.wait([
+      next,
+      _historyController?.refresh(preserveError: true) ?? Future.value(),
+    ]);
   }
 
   Future<void> _openRuns() async {
@@ -109,33 +152,40 @@ class _AtividadesPageState extends State<AtividadesPage> {
 
   @override
   Widget build(BuildContext context) {
+    final history = _historyController;
+    if (history == null) return const SizedBox.shrink();
     return ListenableBuilder(
       listenable: Listenable.merge([_running, _steps]),
-      builder: (context, _) => FutureBuilder<ActivitiesHubData>(
-        future: _dataFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting &&
-              !snapshot.hasData) {
-            return const ActivitiesHubState(
-              content: FitListSkeleton(itemCount: 4),
+      builder: (context, _) => AnimatedBuilder(
+        animation: history,
+        builder: (context, _) => FutureBuilder<ActivitiesHubData>(
+          future: _dataFuture,
+          builder: (context, snapshot) {
+            if (snapshot.hasError && !snapshot.hasData) {
+              return ActivitiesHubState(
+                content: FitErrorState(
+                  title: 'Atividades indisponiveis',
+                  error: 'Nao foi possivel carregar seus dados locais.',
+                  onRetry: _reload,
+                ),
+              );
+            }
+            return _buildOverview(
+              history: history,
+              data: snapshot.data ?? const ActivitiesHubData.empty(),
+              hubLoading: snapshot.connectionState == ConnectionState.waiting,
             );
-          }
-          if (snapshot.hasError && !snapshot.hasData) {
-            return ActivitiesHubState(
-              content: FitErrorState(
-                title: 'Atividades indisponiveis',
-                error: 'Nao foi possivel carregar seus dados locais.',
-                onRetry: _reload,
-              ),
-            );
-          }
-          return _buildHub(snapshot.data ?? const ActivitiesHubData.empty());
-        },
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildHub(ActivitiesHubData data) {
+  Widget _buildOverview({
+    required ActivitiesHistoryController history,
+    required ActivitiesHubData data,
+    required bool hubLoading,
+  }) {
     final runsToday = data.runs
         .where((run) => _isToday(_runDate(run)))
         .toList();
@@ -149,11 +199,13 @@ class _AtividadesPageState extends State<AtividadesPage> {
     final distanceToday = runDistance + _running.distanceKm + _stepsDistanceKm;
     final latestRun = data.runs.isEmpty ? null : data.runs.first;
 
-    return ActivitiesHubContent(
+    return ActivitiesOverviewContent(
+      history: history,
+      hubData: data,
+      hubLoading: hubLoading,
       steps: '$_stepsToday',
       distance: '${distanceToday.toStringAsFixed(2)} km',
       activeTime: _formatDuration(activeSeconds),
-      workouts: '${data.workoutsToday}',
       showLocalBanner: _showLocalBanner,
       runSubtitle: latestRun == null
           ? 'Sua proxima corrida comeca aqui.'
