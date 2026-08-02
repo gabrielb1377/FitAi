@@ -192,12 +192,30 @@ class LibraryCatalogController extends ChangeNotifier {
     'Mobilidade',
   ];
 
+  static final _freeEquipmentPattern = RegExp(r'barra|anilha|banco|livre');
+  static final _machineEquipmentPattern = RegExp(r'maquina|smith|leg press');
+  static final _cableEquipmentPattern = RegExp(r'cabo|polia');
+  static final _bodyweightEquipmentPattern = RegExp(r'corpo|peso corporal');
+  static final _elasticEquipmentPattern = RegExp(r'elastico|faixa|band');
+  static final _pushMovementPattern = RegExp(
+    r'supino|flexao|desenvolvimento|press',
+  );
+  static final _pullMovementPattern = RegExp(r'remada|puxada|barra fixa|pull');
+  static final _squatMovementPattern = RegExp(r'agachamento|afundo|leg press');
+  static final _hingeMovementPattern = RegExp(
+    r'terra|stiff|romeno|good morning',
+  );
+  static final _isolationMovementPattern = RegExp(
+    r'rosca|extensora|flexora|elevacao|triceps',
+  );
+
   final LibraryCatalogLoader _catalogLoader;
   final ExerciseLibraryLocalStore _localStore;
   final ExerciseLibraryIntelligence _intelligence;
   final String? initialCategory;
 
   List<ExercicioModel> _exercises = const [];
+  Map<String, _LibrarySearchIndex> _searchIndex = const {};
   Set<String> _favoriteIds = const {};
   List<String> _recentIds = const [];
   Map<String, int> _usageScoreById = const {};
@@ -234,6 +252,7 @@ class LibraryCatalogController extends ChangeNotifier {
 
     try {
       _exercises = List<ExercicioModel>.from(await _catalogLoader());
+      _searchIndex = _buildSearchIndex(_exercises);
       if (_exercises.isEmpty) {
         _status = LibraryLoadStatus.empty;
         notifyListeners();
@@ -397,8 +416,12 @@ class LibraryCatalogController extends ChangeNotifier {
   int countForFilters(LibraryFilterSelection filters) =>
       _filteredExercises(filters: filters, query: _query).length;
 
-  int countForMuscleGroup(String group) =>
-      _exercises.where((exercise) => _matchesGroup(exercise, group)).length;
+  int countForMuscleGroup(String group) {
+    final aliases = _normalizedGroupAliases(group);
+    return _exercises
+        .where((exercise) => _matchesGroup(_indexFor(exercise), aliases))
+        .length;
+  }
 
   List<ExercicioModel> get visibleExercises {
     final favoriteOnly = _section == LibrarySection.favorites;
@@ -446,15 +469,17 @@ class LibraryCatalogController extends ChangeNotifier {
     required LibraryFilterSelection filters,
     required String query,
   }) {
+    final filterQuery = _filterQuery(filters: filters, query: query);
     return _exercises
         .where((exercise) {
-          return _matchesGroup(exercise, filters.muscleGroup) &&
-              _matchesLevel(exercise, filters.level) &&
-              _matchesEquipment(exercise, filters.equipment) &&
-              _matchesCategory(exercise, filters.category) &&
-              _matchesMovement(exercise, filters.movement) &&
-              _matchesObjective(exercise, filters.objective) &&
-              _matchesSearch(exercise, query);
+          final index = _indexFor(exercise);
+          return _matchesGroup(index, filterQuery.groupAliases) &&
+              _matchesLevel(index, filterQuery.level) &&
+              _matchesEquipment(index, filterQuery.equipment) &&
+              _matchesCategory(index, filterQuery.category) &&
+              _matchesMovement(index, filterQuery.movement) &&
+              _matchesObjective(index, filterQuery.objective) &&
+              _matchesSearch(index, filterQuery.searchTokens);
         })
         .toList(growable: false);
   }
@@ -487,47 +512,39 @@ class LibraryCatalogController extends ChangeNotifier {
       ? exercise.id.trim()
       : ExerciseIdentity.buildExerciseKey(exerciseName: exercise.nome);
 
-  bool _matchesGroup(ExercicioModel exercise, String? group) {
-    if (group == null || group.trim().isEmpty) return true;
-    final selected = muscleGroups.where((item) => item.label == group);
-    final aliases = selected.isEmpty ? <String>[group] : selected.first.aliases;
-    final text = normalizeLibraryText(
-      [
-        exercise.categoria,
-        ...exercise.musculos,
-        ...exercise.musculosSecundarios,
-      ].join(' '),
-    );
-    return aliases.any((alias) => text.contains(normalizeLibraryText(alias)));
+  bool _matchesGroup(
+    _LibrarySearchIndex index,
+    List<String>? normalizedAliases,
+  ) {
+    if (normalizedAliases == null || normalizedAliases.isEmpty) return true;
+    final text = index.groupText;
+    return normalizedAliases.any(text.contains);
   }
 
-  bool _matchesLevel(ExercicioModel exercise, String? level) {
+  bool _matchesLevel(_LibrarySearchIndex index, String? level) {
     if (level == null) return true;
-    return normalizeLibraryText(exercise.dificuldade) ==
-        normalizeLibraryText(level);
+    return index.difficulty == level;
   }
 
-  bool _matchesEquipment(ExercicioModel exercise, String? equipmentFilter) {
+  bool _matchesEquipment(_LibrarySearchIndex index, String? equipmentFilter) {
     if (equipmentFilter == null) return true;
-    final text = normalizeLibraryText(exercise.equipamentos.join(' '));
-    final selected = normalizeLibraryText(equipmentFilter);
+    final text = index.equipmentText;
+    final selected = equipmentFilter;
     return switch (selected) {
-      'livre' => RegExp(r'barra|anilha|banco|livre').hasMatch(text),
-      'maquina' => RegExp(r'maquina|smith|leg press').hasMatch(text),
+      'livre' => _freeEquipmentPattern.hasMatch(text),
+      'maquina' => _machineEquipmentPattern.hasMatch(text),
       'halteres' => text.contains('halter'),
-      'cabo' => RegExp(r'cabo|polia').hasMatch(text),
-      'corpo livre' => RegExp(r'corpo|peso corporal').hasMatch(text),
-      'elastico' => RegExp(r'elastico|faixa|band').hasMatch(text),
+      'cabo' => _cableEquipmentPattern.hasMatch(text),
+      'corpo livre' => _bodyweightEquipmentPattern.hasMatch(text),
+      'elastico' => _elasticEquipmentPattern.hasMatch(text),
       _ => text.contains(selected),
     };
   }
 
-  bool _matchesCategory(ExercicioModel exercise, String? category) {
+  bool _matchesCategory(_LibrarySearchIndex index, String? category) {
     if (category == null) return true;
-    final text = normalizeLibraryText(
-      [exercise.categoria, exercise.objetivo, ...exercise.tags].join(' '),
-    );
-    return switch (normalizeLibraryText(category)) {
+    final text = index.categoryText;
+    return switch (category) {
       'forca' => !text.contains('cardio') && !text.contains('mobilidade'),
       'cardio' => text.contains('cardio') || text.contains('condicionamento'),
       'mobilidade' => text.contains('mobilidade'),
@@ -537,34 +554,26 @@ class LibraryCatalogController extends ChangeNotifier {
     };
   }
 
-  bool _matchesMovement(ExercicioModel exercise, String? movement) {
+  bool _matchesMovement(_LibrarySearchIndex index, String? movement) {
     if (movement == null) return true;
-    final text = _searchableText(exercise);
-    return switch (normalizeLibraryText(movement)) {
-      'empurrar' => RegExp(
-        r'supino|flexao|desenvolvimento|press',
-      ).hasMatch(text),
-      'puxar' => RegExp(r'remada|puxada|barra fixa|pull').hasMatch(text),
-      'agachar' => RegExp(r'agachamento|afundo|leg press').hasMatch(text),
-      'hinge' => RegExp(r'terra|stiff|romeno|good morning').hasMatch(text),
-      'isolado' => RegExp(
-        r'rosca|extensora|flexora|elevacao|triceps',
-      ).hasMatch(text),
+    final text = index.searchableText;
+    return switch (movement) {
+      'empurrar' => _pushMovementPattern.hasMatch(text),
+      'puxar' => _pullMovementPattern.hasMatch(text),
+      'agachar' => _squatMovementPattern.hasMatch(text),
+      'hinge' => _hingeMovementPattern.hasMatch(text),
+      'isolado' => _isolationMovementPattern.hasMatch(text),
       _ => true,
     };
   }
 
-  bool _matchesObjective(ExercicioModel exercise, String? objective) {
+  bool _matchesObjective(_LibrarySearchIndex index, String? objective) {
     if (objective == null) return true;
-    return normalizeLibraryText(exercise.objetivo) ==
-        normalizeLibraryText(objective);
+    return index.objective == objective;
   }
 
-  bool _matchesSearch(ExercicioModel exercise, String query) {
-    final normalizedQuery = normalizeLibraryText(query);
-    if (normalizedQuery.isEmpty) return true;
-    final searchable = _searchableText(exercise);
-    return _searchTokens(normalizedQuery).every(searchable.contains);
+  bool _matchesSearch(_LibrarySearchIndex index, List<String> tokens) {
+    return tokens.every(index.searchableText.contains);
   }
 
   Iterable<String> _searchTokens(String query) sync* {
@@ -605,6 +614,60 @@ class LibraryCatalogController extends ChangeNotifier {
     );
   }
 
+  Map<String, _LibrarySearchIndex> _buildSearchIndex(
+    Iterable<ExercicioModel> exercises,
+  ) {
+    final result = <String, _LibrarySearchIndex>{};
+    for (final exercise in exercises) {
+      final id = _idFor(exercise);
+      result.putIfAbsent(
+        id,
+        () => _LibrarySearchIndex.fromExercise(
+          exercise,
+          searchableText: _searchableText(exercise),
+        ),
+      );
+    }
+    return result;
+  }
+
+  _LibrarySearchIndex _indexFor(ExercicioModel exercise) {
+    final id = _idFor(exercise);
+    return _searchIndex[id] ??= _LibrarySearchIndex.fromExercise(
+      exercise,
+      searchableText: _searchableText(exercise),
+    );
+  }
+
+  _LibraryFilterQuery _filterQuery({
+    required LibraryFilterSelection filters,
+    required String query,
+  }) {
+    return _LibraryFilterQuery(
+      groupAliases: _normalizedGroupAliases(filters.muscleGroup),
+      level: _normalizedValue(filters.level),
+      equipment: _normalizedValue(filters.equipment),
+      category: _normalizedValue(filters.category),
+      movement: _normalizedValue(filters.movement),
+      objective: _normalizedValue(filters.objective),
+      searchTokens: _searchTokens(
+        normalizeLibraryText(query),
+      ).toList(growable: false),
+    );
+  }
+
+  List<String>? _normalizedGroupAliases(String? group) {
+    if (group == null || group.trim().isEmpty) return null;
+    final selected = muscleGroups.where((item) => item.label == group);
+    final aliases = selected.isEmpty ? <String>[group] : selected.first.aliases;
+    return aliases.map(normalizeLibraryText).toList(growable: false);
+  }
+
+  String? _normalizedValue(String? value) =>
+      value == null || value.trim().isEmpty
+      ? null
+      : normalizeLibraryText(value);
+
   Iterable<String> _exerciseAliases(ExercicioModel exercise) sync* {
     final name = normalizeLibraryText(exercise.nome);
     if (name.contains('supino')) {
@@ -644,6 +707,68 @@ class LibraryCatalogController extends ChangeNotifier {
     debugPrint('[Biblioteca] $message: $error');
     debugPrintStack(stackTrace: stackTrace);
   }
+}
+
+@immutable
+class _LibrarySearchIndex {
+  const _LibrarySearchIndex({
+    required this.searchableText,
+    required this.groupText,
+    required this.equipmentText,
+    required this.categoryText,
+    required this.difficulty,
+    required this.objective,
+  });
+
+  factory _LibrarySearchIndex.fromExercise(
+    ExercicioModel exercise, {
+    required String searchableText,
+  }) {
+    return _LibrarySearchIndex(
+      searchableText: searchableText,
+      groupText: normalizeLibraryText(
+        [
+          exercise.categoria,
+          ...exercise.musculos,
+          ...exercise.musculosSecundarios,
+        ].join(' '),
+      ),
+      equipmentText: normalizeLibraryText(exercise.equipamentos.join(' ')),
+      categoryText: normalizeLibraryText(
+        [exercise.categoria, exercise.objetivo, ...exercise.tags].join(' '),
+      ),
+      difficulty: normalizeLibraryText(exercise.dificuldade),
+      objective: normalizeLibraryText(exercise.objetivo),
+    );
+  }
+
+  final String searchableText;
+  final String groupText;
+  final String equipmentText;
+  final String categoryText;
+  final String difficulty;
+  final String objective;
+}
+
+@immutable
+class _LibraryFilterQuery {
+  const _LibraryFilterQuery({
+    required this.groupAliases,
+    required this.level,
+    required this.equipment,
+    required this.category,
+    required this.movement,
+    required this.objective,
+    required this.searchTokens,
+  });
+
+  final List<String>? groupAliases;
+  final String? level;
+  final String? equipment;
+  final String? category;
+  final String? movement;
+  final String? objective;
+  final List<String> searchTokens;
 }
 
 String normalizeLibraryText(String value) {

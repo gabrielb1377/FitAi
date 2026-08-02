@@ -41,7 +41,7 @@ final List<ExercicioModel> exerciciosCardio = [
         "Use tênis adequado para corrida. Evite correr no asfalto em excesso — prefira grama ou terra. Hidrate-se e use protetor solar. Preste atenção no terreno para evitar entorses. Aumente a distância em no máximo 10% por semana.",
     musculos: ["Quadríceps", "Isquiotibiais", "Glúteos", "Panturrilha"],
     musculosSecundarios: ["Core", "Hip Flexores", "Tibial Anterior"],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Casa"],
     tags: ["corrida", "rua", "parque", "aeróbico", "cardio", "ao ar livre"],
     dificuldade: "Iniciante",
@@ -144,7 +144,7 @@ final List<ExercicioModel> exerciciosCardio = [
       "Panturrilha",
       "Latíssimo do Dorso",
     ],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Academia", "Casa"],
     tags: ["burpee", "HIIT", "funcional", "cardio", "corpo inteiro", "intenso"],
     dificuldade: "Intermediário",
@@ -165,7 +165,7 @@ final List<ExercicioModel> exerciciosCardio = [
         "Não deixe o quadril subir ou cair durante o movimento. Mantenha os braços firmes. O movimento deve partir do quadril — não dos joelhos. Inicie em ritmo mais lento para aprender a técnica antes de acelerar. Mantenha a respiração constante.",
     musculos: ["Core", "Hip Flexores", "Quadríceps"],
     musculosSecundarios: ["Peitoral", "Tríceps", "Deltóide", "Glúteos"],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Academia", "Casa"],
     tags: [
       "mountain climber",
@@ -193,7 +193,7 @@ final List<ExercicioModel> exerciciosCardio = [
         "Aterrisse suavemente para proteger os joelhos e tornozelos. Mantenha os joelhos levemente flexionados na aterrissagem. Ideal como aquecimento antes de treino mais intenso. Pessoas com problemas nos tornozelos devem fazer de forma mais controlada.",
     musculos: ["Deltóide", "Glúteos", "Panturrilha", "Quadríceps"],
     musculosSecundarios: ["Core", "Adutores", "Abdutores"],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Academia", "Casa"],
     tags: [
       "jumping jacks",
@@ -379,7 +379,7 @@ final List<ExercicioModel> exerciciosCardio = [
         "Aterrisse sempre com os joelhos flexionados para absorver o impacto. Não execute em superfícies duras como concreto sem calçado adequado. Evite em casos de problemas nas articulações dos membros inferiores. Requer bom condicionamento básico.",
     musculos: ["Glúteos", "Quadríceps", "Deltóide", "Panturrilha"],
     musculosSecundarios: ["Core", "Adutores", "Abdutores"],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Academia", "Casa"],
     tags: ["polichinelo", "salto", "explosivo", "cardio", "HIIT", "casa"],
     dificuldade: "Intermediário",
@@ -400,7 +400,7 @@ final List<ExercicioModel> exerciciosCardio = [
         "Use tênis adequado. Inicie com coreografias simples e aumente a complexidade progressivamente. Mantenha-se hidratado. Evite em caso de tonteiras ou desconforto. Respeite os limites do corpo — não force movimentos além da mobilidade atual.",
     musculos: ["Quadríceps", "Glúteos", "Panturrilha", "Deltóide"],
     musculosSecundarios: ["Core", "Adutores", "Abdutores", "Isquiotibiais"],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Academia", "Casa"],
     tags: [
       "dança",
@@ -429,7 +429,7 @@ final List<ExercicioModel> exerciciosCardio = [
         "Mantenha a postura ereta — não incline o tronco para frente. Não faça o joelho ultrapassar o quadril em altura (90 graus é suficiente). Comece em ritmo moderado e aumente a velocidade com o condicionamento. Use calçado com boa absorção.",
     musculos: ["Quadríceps", "Hip Flexores", "Panturrilha"],
     musculosSecundarios: ["Core", "Glúteos", "Isquiotibiais"],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Academia", "Casa"],
     tags: [
       "skipping",
@@ -458,7 +458,7 @@ final List<ExercicioModel> exerciciosCardio = [
         "Monitore a frequência cardíaca — não ultrapasse 90% da FCM por tempo prolongado. Mantenha a técnica de cada exercício mesmo cansado. Adapte os exercícios ao nível de condicionamento. Hidrate-se bem. Não realize mais de 3 vezes por semana.",
     musculos: ["Quadríceps", "Glúteos", "Peitoral", "Deltóide", "Core"],
     musculosSecundarios: ["Isquiotibiais", "Tríceps", "Panturrilha", "Bíceps"],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Academia", "Casa"],
     tags: [
       "circuito",
@@ -542,7 +542,7 @@ final List<ExercicioModel> exerciciosCardio = [
         "Aterrisse sempre com os joelhos flexionados para absorver o impacto. Não deixe os joelhos colapsarem para dentro na aterrissagem. Evite em caso de problemas nos joelhos ou tornozelos. Use calçado com boa absorção de impacto. Mantenha o tronco ereto durante todo o movimento.",
     musculos: ["Quadríceps", "Glúteos", "Panturrilha"],
     musculosSecundarios: ["Isquiotibiais", "Core", "Hip Flexores"],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Academia", "Casa"],
     tags: [
       "agachamento salto",
@@ -640,7 +640,7 @@ final List<ExercicioModel> exerciciosCardio = [
         "Evite balançar o quadril de lado a lado — mantenha-o nivelado. O movimento dos braços deve ser sequencial, não simultâneo. Mantenha o core fortemente contraído. Iniciantes podem elevar a cadência lentamente para aprender o padrão.",
     musculos: ["Core", "Deltóide", "Peitoral", "Tríceps"],
     musculosSecundarios: ["Glúteos", "Quadríceps", "Romboides"],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Academia", "Casa"],
     tags: [
       "prancha dinâmica",
@@ -762,7 +762,7 @@ final List<ExercicioModel> exerciciosCardio = [
         "Aquecimento obrigatório para evitar distensões musculares. Não force a velocidade máxima sem preparo adequado. Descanse completamente entre sprints. Monitore sinais de fadiga muscular excessiva. Recomendado apenas 1-2 vezes por semana. Evite em superfícies escorregadias.",
     musculos: ["Quadríceps", "Glúteos", "Isquiotibiais", "Panturrilha"],
     musculosSecundarios: ["Core", "Hip Flexores", "Deltóide"],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Casa"],
     tags: [
       "sprint",

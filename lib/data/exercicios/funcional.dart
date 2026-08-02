@@ -18,7 +18,7 @@ final List<ExercicioModel> exerciciosFuncional = [
       "Adutores",
       "Eretores da Espinha",
     ],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Academia", "Casa"],
     tags: [
       "agachamento",
@@ -46,7 +46,7 @@ final List<ExercicioModel> exerciciosFuncional = [
         "Não deixe o quadril subir ou cair. Mantenha o core contraído. Não deixe os cotovelos abrirem excessivamente — mantenha-os a 45 graus do tronco. Iniciantes podem fazer com joelhos apoiados. Progrida para versões mais difíceis gradualmente.",
     musculos: ["Peitoral Maior", "Tríceps", "Deltóide Anterior"],
     musculosSecundarios: ["Core", "Serrátil Anterior", "Romboides"],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Academia", "Casa"],
     tags: [
       "flexão",
@@ -75,7 +75,7 @@ final List<ExercicioModel> exerciciosFuncional = [
         "Não deixe o joelho da frente ultrapassar a ponta do pé excessivamente. Não deixe o joelho traseiro tocar o chão com impacto. Mantenha o tronco ereto. Inicie sem peso para aprender o padrão. Mantenha o equilíbrio antes de adicionar carga.",
     musculos: ["Quadríceps", "Glúteos"],
     musculosSecundarios: ["Isquiotibiais", "Panturrilha", "Core", "Adutores"],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Academia", "Casa"],
     tags: [
       "afundo",
@@ -108,7 +108,7 @@ final List<ExercicioModel> exerciciosFuncional = [
       "Deltóide",
       "Eretores da Espinha",
     ],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Academia", "Casa"],
     tags: [
       "prancha",
@@ -205,7 +205,7 @@ final List<ExercicioModel> exerciciosFuncional = [
         "A lombar deve permanecer pressionada no chão durante todo o movimento — esse é o elemento crucial. Se a lombar descolar, reduza a amplitude. Mova-se devagar e de forma controlada. Respire normalmente.",
     musculos: ["Core", "Reto Abdominal", "Transverso do Abdômen"],
     musculosSecundarios: ["Eretores da Espinha", "Hip Flexores", "Deltóide"],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Academia", "Casa"],
     tags: [
       "dead bug",
@@ -273,7 +273,7 @@ final List<ExercicioModel> exerciciosFuncional = [
       "Adutores",
       "Hip Flexores",
     ],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Academia", "Casa"],
     tags: [
       "pistol squat",
@@ -339,7 +339,7 @@ final List<ExercicioModel> exerciciosFuncional = [
       "Isquiotibiais",
       "Serrátil Anterior",
     ],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Academia", "Casa"],
     tags: [
       "bear crawl",
@@ -367,7 +367,7 @@ final List<ExercicioModel> exerciciosFuncional = [
         "Garanta boa amplitude de movimento no ombro antes de tentar. Inicie com apoio parcial na mão que fica estendida. Mantenha o core contraído. Progressão para a flexão unilateral — não force se não houver força suficiente.",
     musculos: ["Peitoral Maior", "Tríceps", "Deltóide Anterior"],
     musculosSecundarios: ["Core", "Serrátil Anterior", "Romboides"],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Academia", "Casa"],
     tags: [
       "archer push-up",
@@ -400,7 +400,7 @@ final List<ExercicioModel> exerciciosFuncional = [
       "Quadríceps",
       "Deltóide",
     ],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Academia", "Casa"],
     tags: [
       "hollow body",
@@ -512,7 +512,7 @@ final List<ExercicioModel> exerciciosFuncional = [
         "Não deixe o quadril cair. Mantenha o ombro estável — não deixe colapsar. Respire normalmente. Iniciantes podem apoiar o joelho inferior no chão. Progrida adicionando elevação de quadril ou abdução da perna de cima.",
     musculos: ["Oblíquos", "Quadrado Lombar", "Glúteo Médio"],
     musculosSecundarios: ["Core", "Adutores", "Deltóide", "Trapézio"],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Academia", "Casa"],
     tags: [
       "prancha lateral",
@@ -634,7 +634,7 @@ final List<ExercicioModel> exerciciosFuncional = [
       "Eretores da Espinha",
       "Hip Flexores",
     ],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Academia", "Casa"],
     tags: [
       "lunge rotação",
@@ -695,7 +695,7 @@ final List<ExercicioModel> exerciciosFuncional = [
       "Eretores da Espinha",
       "Romboides",
     ],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Academia", "Casa"],
     tags: [
       "prancha alternada",
@@ -789,7 +789,7 @@ final List<ExercicioModel> exerciciosFuncional = [
         "A aterrissagem controlada é o elemento mais importante — não aterrisse em pé com joelhos estendidos. Mantenha os joelhos alinhados com os pés. Não deixe os joelhos colapsarem. A ênfase na recepção diferencia este do agachamento com salto convencional.",
     musculos: ["Quadríceps", "Glúteos", "Panturrilha"],
     musculosSecundarios: ["Isquiotibiais", "Core", "Eretores da Espinha"],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Academia", "Casa"],
     tags: [
       "salto recepção",
@@ -911,7 +911,7 @@ final List<ExercicioModel> exerciciosFuncional = [
         "Domine o agachamento unilateral estático antes de fazer o salto. Aterrisse com joelho alinhado — não deixe colapsar para dentro. A aterrissagem controlada é mais importante que a distância. Evite se tiver lesões no joelho ou tornozelo.",
     musculos: ["Quadríceps", "Glúteos", "Panturrilha"],
     musculosSecundarios: ["Isquiotibiais", "Core", "Adutores", "Abdutores"],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Academia", "Casa"],
     tags: [
       "salto unilateral",

@@ -686,7 +686,7 @@ final List<ExercicioModel> exerciciosCostas = [
         "Não eleve excessivamente — mantenha o movimento dentro de uma amplitude confortável. Contraia os glúteos ativamente para proteger a lombar. Respire normalmente durante a contração. Iniciantes podem elevar apenas uma metade por vez.",
     musculos: ["Eretores da Espinha", "Glúteos"],
     musculosSecundarios: ["Isquiotibiais", "Deltóide", "Trapézio", "Core"],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Academia", "Casa"],
     tags: [
       "superman",
@@ -741,7 +741,7 @@ final List<ExercicioModel> exerciciosCostas = [
         "Foque em juntar as escápulas sem elevar os ombros — são movimentos diferentes. Não force o pescoço. Excelente exercício corretivo para quem trabalha muito tempo sentado. Realize com frequência ao longo do dia.",
     musculos: ["Romboides", "Trapézio Médio"],
     musculosSecundarios: ["Infraespinhal", "Deltóide Posterior"],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Academia", "Casa"],
     tags: [
       "retração escapular",

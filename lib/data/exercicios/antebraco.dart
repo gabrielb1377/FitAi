@@ -617,7 +617,7 @@ final List<ExercicioModel> exerciciosAntebraco = [
         "Exercício desconfortável nos pulsos — comece com pouco peso. Progrida muito gradualmente. Não recomendado para quem tem histórico de lesão nos pulsos.",
     musculos: ["Flexores do Punho", "Flexores dos Dedos"],
     musculosSecundarios: ["Músculos Intrínsecos da Mão"],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Casa", "Academia"],
     tags: ["punho", "parede", "peso corporal", "flexores", "progressão"],
     dificuldade: "Intermediário",

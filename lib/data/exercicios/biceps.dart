@@ -624,7 +624,7 @@ final List<ExercicioModel> exerciciosBiceps = [
         "Este exercício exercerá pressão nos pulsos — interrompa se houver desconforto articular. Mantenha o corpo alinhado da cabeça aos calcanhares. A amplitude pode ser limitada no início. Iniciantes podem realizar com os joelhos apoiados.",
     musculos: ["Bíceps Braquial"],
     musculosSecundarios: ["Braquial", "Peitoral", "Tríceps"],
-    equipamentos: [],
+    equipamentos: const ['Peso corporal'],
     locais: ["Casa", "Academia"],
     tags: [
       "flexão",

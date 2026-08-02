@@ -404,9 +404,22 @@ class _GifResolver {
 
     return _unique([
       _assetPath(manifestValue),
+      _legacyRootFallback(gifPath),
+      _legacyRootFallback(imagem),
       _assetPath(gifPath),
       _assetPath(imagem),
     ]);
+  }
+
+  /// Old catalog rows may still contain category folders while bundled GIFs
+  /// live at the root of `assets/gifs`. Keep the original path as a final
+  /// candidate, but try the local basename first when no manifest entry exists.
+  static String? _legacyRootFallback(String? rawPath) {
+    final path = _assetPath(rawPath);
+    if (path == null || path.startsWith('http')) return path;
+    final separator = path.lastIndexOf('/');
+    if (separator < 0) return path;
+    return 'assets/gifs/${path.substring(separator + 1)}';
   }
 
   static String normalizarNome(String value) {
