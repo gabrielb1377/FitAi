@@ -192,7 +192,9 @@ class _PassosPageState extends State<PassosPage> {
                       : 'Visão mensal',
                   summary: summary,
                   streak: _steps.activeStreak,
+                  streakDataAvailable: _steps.streak.hasCompleteData,
                   comparisonWithYesterday: _steps.comparisonWithYesterday,
+                  comparisonDataAvailable: _steps.dayComparison.hasCompleteData,
                 ),
                 const SizedBox(height: FitSpacing.s16),
                 StepsPeriodChart(

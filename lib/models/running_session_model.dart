@@ -1,5 +1,23 @@
 enum RunningSyncStatus { local, syncing, queued, synced }
 
+/// Proveniência obrigatória para uma métrica calórica de corrida.
+///
+/// Distância e duração não permitem inferir gasto energético com precisão. Um
+/// valor sem fonte explícita é tratado como indisponível pela apresentação.
+enum RunningCaloriesSource { device, health, manual, seed }
+
+extension RunningCaloriesSourceStorage on RunningCaloriesSource {
+  String get storageValue => name;
+
+  static RunningCaloriesSource? fromStorage(Object? value) {
+    final normalized = value?.toString().trim().toLowerCase();
+    for (final source in RunningCaloriesSource.values) {
+      if (source.storageValue == normalized) return source;
+    }
+    return null;
+  }
+}
+
 extension RunningSyncStatusStorage on RunningSyncStatus {
   String get storageValue => name;
 
@@ -67,12 +85,18 @@ class RunningSessionModel {
   final double averageSpeed;
   final double currentSpeed;
   final double pace;
-  final double calories;
+  final double? calories;
+  final RunningCaloriesSource? caloriesSource;
   final int? steps;
   final List<RunningRoutePointModel> route;
   final bool paused;
+  final DateTime? pausedAt;
+  final int accumulatedPausedSeconds;
+  final bool finalizing;
   final bool finished;
   final DateTime lastUpdatedAt;
+
+  bool get hasReliableCalories => calories != null && caloriesSource != null;
 
   const RunningSessionModel({
     required this.id,
@@ -83,10 +107,14 @@ class RunningSessionModel {
     required this.averageSpeed,
     required this.currentSpeed,
     required this.pace,
-    required this.calories,
+    this.calories,
+    this.caloriesSource,
     this.steps,
     required this.route,
     required this.paused,
+    this.pausedAt,
+    this.accumulatedPausedSeconds = 0,
+    this.finalizing = false,
     required this.finished,
     required this.lastUpdatedAt,
   });
@@ -103,10 +131,13 @@ class RunningSessionModel {
       averageSpeed: 0,
       currentSpeed: 0,
       pace: 0,
-      calories: 0,
+      calories: null,
       steps: null,
       route: const [],
       paused: false,
+      pausedAt: null,
+      accumulatedPausedSeconds: 0,
+      finalizing: false,
       finished: false,
       lastUpdatedAt: startTime,
     );
@@ -121,9 +152,16 @@ class RunningSessionModel {
     double? currentSpeed,
     double? pace,
     double? calories,
+    RunningCaloriesSource? caloriesSource,
+    bool clearCalories = false,
+    bool clearCaloriesSource = false,
     int? steps,
     List<RunningRoutePointModel>? route,
     bool? paused,
+    DateTime? pausedAt,
+    bool clearPausedAt = false,
+    int? accumulatedPausedSeconds,
+    bool? finalizing,
     bool? finished,
     DateTime? lastUpdatedAt,
   }) {
@@ -136,10 +174,20 @@ class RunningSessionModel {
       averageSpeed: _nonNegative(averageSpeed ?? this.averageSpeed),
       currentSpeed: _nonNegative(currentSpeed ?? this.currentSpeed),
       pace: _nonNegative(pace ?? this.pace),
-      calories: _nonNegative(calories ?? this.calories),
+      calories: clearCalories
+          ? null
+          : _nullableNonNegative(calories ?? this.calories),
+      caloriesSource: clearCaloriesSource
+          ? null
+          : caloriesSource ?? this.caloriesSource,
       steps: steps ?? this.steps,
       route: route ?? this.route,
       paused: paused ?? this.paused,
+      pausedAt: clearPausedAt ? null : pausedAt ?? this.pausedAt,
+      accumulatedPausedSeconds: _nonNegativeInt(
+        accumulatedPausedSeconds ?? this.accumulatedPausedSeconds,
+      ),
+      finalizing: finalizing ?? this.finalizing,
       finished: finished ?? this.finished,
       lastUpdatedAt: lastUpdatedAt ?? this.lastUpdatedAt,
     );
@@ -155,10 +203,14 @@ class RunningSessionModel {
       'averageSpeed': averageSpeed,
       'currentSpeed': currentSpeed,
       'pace': pace,
-      'calories': calories,
+      'calories': hasReliableCalories ? calories : null,
+      'caloriesSource': caloriesSource?.storageValue,
       'steps': steps,
       'route': route.map((point) => point.toJson()).toList(),
       'paused': paused,
+      'pausedAt': pausedAt?.toIso8601String(),
+      'accumulatedPausedSeconds': accumulatedPausedSeconds,
+      'finalizing': finalizing,
       'finished': finished,
       'lastUpdatedAt': lastUpdatedAt.toIso8601String(),
     };
@@ -187,12 +239,22 @@ class RunningSessionModel {
           : _calculateAverageSpeed(distanceKm, elapsedSeconds),
       currentSpeed: _nonNegative(_doubleFromJson(json['currentSpeed'])),
       pace: pace > 0 ? pace : _calculatePace(distanceKm, elapsedSeconds),
-      calories: _nonNegative(
-        _doubleFromJson(json['calories'], fallback: distanceKm * 60),
+      calories: _nullableNonNegative(json['calories']),
+      caloriesSource: RunningCaloriesSourceStorage.fromStorage(
+        json['caloriesSource'],
       ),
       steps: _nullableIntFromJson(json['steps'] ?? json['passos']),
       route: route,
       paused: _boolFromJson(json['paused']),
+      pausedAt:
+          DateTime.tryParse(json['pausedAt']?.toString() ?? '') ??
+          (_boolFromJson(json['paused'])
+              ? DateTime.tryParse(json['lastUpdatedAt']?.toString() ?? '')
+              : null),
+      accumulatedPausedSeconds: _nonNegativeInt(
+        _intFromJson(json['accumulatedPausedSeconds']),
+      ),
+      finalizing: _boolFromJson(json['finalizing']),
       finished: _boolFromJson(json['finished']),
       lastUpdatedAt:
           DateTime.tryParse(json['lastUpdatedAt']?.toString() ?? '') ??
@@ -256,4 +318,12 @@ class RunningSessionModel {
 
     return value;
   }
+
+  static double? _nullableNonNegative(dynamic value) {
+    if (value is! num) return null;
+    final parsed = value.toDouble();
+    return parsed.isFinite && parsed >= 0 ? parsed : null;
+  }
+
+  static int _nonNegativeInt(int value) => value < 0 ? 0 : value;
 }

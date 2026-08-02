@@ -210,11 +210,12 @@ class _MetricsGrid extends StatelessWidget {
         value: '${corrida.averageSpeed.toStringAsFixed(1)} km/h',
         icon: Icons.speed_outlined,
       ),
-      (
-        label: 'Calorias',
-        value: '${corrida.calories.toStringAsFixed(0)} kcal',
-        icon: Icons.local_fire_department_outlined,
-      ),
+      if (corrida.hasReliableCalories)
+        (
+          label: 'Calorias',
+          value: '${corrida.calories!.toStringAsFixed(0)} kcal',
+          icon: Icons.local_fire_department_outlined,
+        ),
       if (corrida.steps != null)
         (
           label: 'Passos',

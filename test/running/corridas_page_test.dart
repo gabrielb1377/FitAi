@@ -38,12 +38,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Cancelar corrida?'), findsOneWidget);
 
-    await tester.tap(
-      find.descendant(
-        of: find.byType(AlertDialog),
-        matching: find.text('Cancelar corrida'),
-      ),
-    );
+    await tester.tap(find.text('Cancelar corrida').last);
     await tester.pumpAndSettle();
 
     expect(service.hasActiveSession, isFalse);

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../design_system/fit_design_system.dart';
 import '../../models/corrida_model.dart';
 import '../../services/storage_service.dart';
-import '../../theme/app_theme.dart';
-import '../../widgets/app_components.dart';
+import '../widgets/activities/activities_navigation_header.dart';
+import '../widgets/activities/activity_page_entrance.dart';
 import 'corrida_detalhe_page.dart';
 
 class HistoricoCorridasPage extends StatefulWidget {
@@ -14,104 +15,52 @@ class HistoricoCorridasPage extends StatefulWidget {
 }
 
 class _HistoricoCorridasPageState extends State<HistoricoCorridasPage> {
-  List<_CorridaHistoricoItem> _corridas = [];
-  bool _carregando = true;
+  List<_CorridaHistoricoItem> _corridas = const [];
+  var _loading = true;
+  Object? _error;
 
   @override
   void initState() {
     super.initState();
-    _carregarCorridas();
+    _loadRuns();
   }
 
-  Future<void> _carregarCorridas() async {
-    final corridas = await StorageService.carregarCorridas();
-    final itens = <_CorridaHistoricoItem>[];
-
-    for (var i = 0; i < corridas.length; i++) {
-      itens.add(_CorridaHistoricoItem(indexOriginal: i, corrida: corridas[i]));
-    }
-
-    if (!mounted) return;
-
+  Future<void> _loadRuns() async {
     setState(() {
-      _corridas = itens.reversed.toList();
-      _carregando = false;
+      _loading = true;
+      _error = null;
     });
+    try {
+      final corridas = await StorageService.carregarCorridas();
+      final items = [
+        for (var index = 0; index < corridas.length; index++)
+          _CorridaHistoricoItem(indexOriginal: index, corrida: corridas[index]),
+      ].reversed.toList(growable: false);
+      if (!mounted) return;
+      setState(() => _corridas = items);
+    } catch (error) {
+      if (mounted) setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
-  Future<void> _confirmarExclusao(_CorridaHistoricoItem item) async {
-    final confirmou = await showDialog<bool>(
+  Future<void> _confirmDelete(_CorridaHistoricoItem item) async {
+    final confirmed = await FitConfirmDialog.show(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Excluir corrida?'),
-          content: const Text(
-            'Essa corrida sera removida do historico e dos totais salvos.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancelar'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Excluir'),
-            ),
-          ],
-        );
-      },
+      title: 'Excluir corrida?',
+      message: 'Essa corrida será removida do histórico e dos totais locais.',
+      confirmLabel: 'Excluir',
+      isDestructive: true,
     );
-
-    if (confirmou != true) return;
+    if (confirmed != true) return;
 
     await StorageService.removerCorrida(item.indexOriginal);
-
     if (!mounted) return;
-
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Corrida excluida')));
-
-    await _carregarCorridas();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          SliverToBoxAdapter(child: _buildHeader(context)),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
-            sliver: _carregando
-                ? const SliverToBoxAdapter(
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                : _corridas.isEmpty
-                ? SliverToBoxAdapter(child: _buildEstadoVazio(context))
-                : SliverList.builder(
-                    itemCount: _corridas.length,
-                    itemBuilder: (context, index) {
-                      final item = _corridas[index];
-
-                      return Padding(
-                        padding: EdgeInsets.only(
-                          bottom: index == _corridas.length - 1 ? 0 : 14,
-                        ),
-                        child: _CorridaCard(
-                          corrida: item.corrida,
-                          onOpenDetails: () => _openDetails(item.corrida),
-                          onExcluir: () => _confirmarExclusao(item),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Corrida excluída do histórico.')),
     );
+    await _loadRuns();
   }
 
   Future<void> _openDetails(CorridaModel corrida) async {
@@ -119,228 +68,75 @@ class _HistoricoCorridasPageState extends State<HistoricoCorridasPage> {
       context,
       MaterialPageRoute(builder: (_) => CorridaDetalhePage(corrida: corrida)),
     );
-    if (mounted) await _carregarCorridas();
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        MediaQuery.of(context).padding.top + 16,
-        20,
-        22,
-      ),
-      child: AppPremiumHeader(
-        eyebrow: 'Atividades',
-        title: 'Historico de corridas',
-        subtitle: 'Revise distancia, tempo, ritmo, velocidade e calorias.',
-        icon: Icons.directions_run_rounded,
-        gradient: AppColors.gradientRun,
-        trailing: AppIconActionButton(
-          icon: Icons.close_rounded,
-          tooltip: 'Voltar',
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEstadoVazio(BuildContext context) {
-    return AppGradientCard(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 18),
-        child: Column(
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                gradient: AppColors.gradientRun,
-                borderRadius: BorderRadius.circular(AppRadii.xl),
-              ),
-              child: const Icon(
-                Icons.directions_run_rounded,
-                color: Colors.black,
-                size: 34,
-              ),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              'Nenhuma corrida salva',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Finalize uma corrida na aba Atividades para preencher seu historico.',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondary,
-                height: 1.45,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CorridaCard extends StatelessWidget {
-  final CorridaModel corrida;
-  final VoidCallback onOpenDetails;
-  final VoidCallback onExcluir;
-
-  const _CorridaCard({
-    required this.corrida,
-    required this.onOpenDetails,
-    required this.onExcluir,
-  });
-
-  double get _velocidadeMedia {
-    if (corrida.averageSpeed > 0) return corrida.averageSpeed;
-    if (corrida.segundos <= 0) return 0;
-
-    return corrida.distancia / (corrida.segundos / 3600);
-  }
-
-  double get _calorias {
-    if (corrida.calories > 0) return corrida.calories;
-
-    return corrida.distancia * 60;
-  }
-
-  String get _tempo {
-    final h = corrida.segundos ~/ 3600;
-    final m = (corrida.segundos % 3600) ~/ 60;
-    final s = corrida.segundos % 60;
-
-    if (h > 0) {
-      return '${h.toString().padLeft(2, '0')}:'
-          '${m.toString().padLeft(2, '0')}:'
-          '${s.toString().padLeft(2, '0')}';
-    }
-
-    return '${m.toString().padLeft(2, '0')}:'
-        '${s.toString().padLeft(2, '0')}';
-  }
-
-  String get _ritmo {
-    if (corrida.pace > 0) {
-      final totalSeconds = (corrida.pace * 60).round();
-      final minutos = totalSeconds ~/ 60;
-      final segundos = totalSeconds % 60;
-
-      return '$minutos:${segundos.toString().padLeft(2, '0')} min/km';
-    }
-
-    if (corrida.distancia <= 0 || corrida.segundos <= 0) return '--';
-
-    final segundosPorKm = (corrida.segundos / corrida.distancia).round();
-    final minutos = segundosPorKm ~/ 60;
-    final segundos = segundosPorKm % 60;
-
-    return '$minutos:${segundos.toString().padLeft(2, '0')} min/km';
-  }
-
-  String get _dataFormatada {
-    final data = DateTime.tryParse(corrida.data);
-    if (data == null) return corrida.data;
-
-    final dia = data.day.toString().padLeft(2, '0');
-    final mes = data.month.toString().padLeft(2, '0');
-    final ano = data.year.toString();
-    final hora = data.hour.toString().padLeft(2, '0');
-    final minuto = data.minute.toString().padLeft(2, '0');
-
-    return '$dia/$mes/$ano as $hora:$minuto';
+    if (mounted) await _loadRuns();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label:
-          'Abrir detalhes da corrida de ${corrida.distancia.toStringAsFixed(2)} quilometros',
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onOpenDetails,
-        child: AppGradientCard(
-          gradient: AppColors.gradientCard,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      gradient: AppColors.gradientRun,
-                      borderRadius: BorderRadius.circular(AppRadii.lg),
-                    ),
-                    child: const Icon(
-                      Icons.directions_run_rounded,
-                      color: Colors.black,
-                      size: 26,
-                    ),
+    return Scaffold(
+      body: SafeArea(
+        bottom: false,
+        child: ActivityPageEntrance(
+          child: CustomScrollView(
+            key: const PageStorageKey('historico-corridas-scroll'),
+            slivers: [
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    FitSpacing.s20,
+                    FitSpacing.s12,
+                    FitSpacing.s20,
+                    FitSpacing.s24,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${corrida.distancia.toStringAsFixed(2)} km',
-                          style: Theme.of(context).textTheme.headlineSmall,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _dataFormatada,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: AppColors.textSecondary),
-                        ),
-                      ],
-                    ),
+                  child: ActivitiesNavigationHeader(
+                    title: 'Histórico de corridas',
+                    subtitle: 'Revise seus dados locais de corrida.',
                   ),
-                  IconButton(
-                    tooltip: 'Excluir corrida',
-                    onPressed: onExcluir,
-                    icon: const Icon(
-                      Icons.delete_outline_rounded,
-                      color: Color(0xFFCF6679),
-                    ),
-                  ),
-                ],
+                ),
               ),
-              const SizedBox(height: 18),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  _RunMetric(
-                    icon: Icons.timer_rounded,
-                    label: 'Tempo',
-                    value: _tempo,
+              if (_loading)
+                const SliverToBoxAdapter(child: FitListSkeleton(itemCount: 4))
+              else if (_error != null)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: FitErrorState(
+                    title: 'Histórico indisponível',
+                    error: 'Não foi possível carregar as corridas salvas.',
+                    onRetry: _loadRuns,
                   ),
-                  _RunMetric(
-                    icon: Icons.speed_rounded,
-                    label: 'Vel. media',
-                    value: '${_velocidadeMedia.toStringAsFixed(1)} km/h',
+                )
+              else if (_corridas.isEmpty)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: FitEmptyState(
+                    icon: Icons.directions_run_rounded,
+                    title: 'Nenhuma corrida salva',
+                    description:
+                        'Finalize uma corrida para encontrá-la aqui, mesmo offline.',
                   ),
-                  _RunMetric(
-                    icon: Icons.route_rounded,
-                    label: 'Ritmo',
-                    value: _ritmo,
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(
+                    FitSpacing.s20,
+                    FitLayout.none,
+                    FitSpacing.s20,
+                    FitSpacing.s32,
                   ),
-                  _RunMetric(
-                    icon: Icons.local_fire_department_rounded,
-                    label: 'Calorias',
-                    value: '${_calorias.toStringAsFixed(0)} kcal',
+                  sliver: SliverList.separated(
+                    itemCount: _corridas.length,
+                    itemBuilder: (context, index) {
+                      final item = _corridas[index];
+                      return _CorridaCard(
+                        corrida: item.corrida,
+                        onOpenDetails: () => _openDetails(item.corrida),
+                        onDelete: () => _confirmDelete(item),
+                      );
+                    },
+                    separatorBuilder: (_, _) =>
+                        const SizedBox(height: FitSpacing.s12),
                   ),
-                ],
-              ),
+                ),
             ],
           ),
         ),
@@ -349,42 +145,93 @@ class _CorridaCard extends StatelessWidget {
   }
 }
 
-class _RunMetric extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-
-  const _RunMetric({
-    required this.icon,
-    required this.label,
-    required this.value,
+class _CorridaCard extends StatelessWidget {
+  const _CorridaCard({
+    required this.corrida,
+    required this.onOpenDetails,
+    required this.onDelete,
   });
+
+  final CorridaModel corrida;
+  final VoidCallback onOpenDetails;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 145,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceVariant,
-        borderRadius: BorderRadius.circular(AppRadii.md),
-        border: Border.all(color: Colors.white.withAlpha(14)),
+    return FitCard(
+      variant: FitCardVariant.clickable,
+      onTap: onOpenDetails,
+      semanticLabel:
+          'Abrir detalhes da corrida de ${corrida.distancia.toStringAsFixed(2)} quilômetros',
+      title: '${corrida.distancia.toStringAsFixed(2)} km',
+      subtitle: _dateLabel(corrida),
+      leading: const Icon(Icons.directions_run_rounded),
+      trailing: FitIconButton(
+        icon: Icons.delete_outline_rounded,
+        tooltip: 'Excluir corrida',
+        semanticLabel: 'Excluir esta corrida do histórico',
+        variant: FitIconButtonVariant.danger,
+        onPressed: onDelete,
       ),
+      child: Wrap(
+        spacing: FitSpacing.s20,
+        runSpacing: FitSpacing.s12,
+        children: [
+          _RunMetric(label: 'Tempo', value: _timeLabel(corrida.segundos)),
+          _RunMetric(
+            label: 'Velocidade média',
+            value: '${corrida.averageSpeed.toStringAsFixed(1)} km/h',
+          ),
+          _RunMetric(label: 'Ritmo', value: _paceLabel(corrida.pace)),
+          if (corrida.hasReliableCalories)
+            _RunMetric(
+              label: 'Calorias',
+              value: '${corrida.calories!.toStringAsFixed(0)} kcal',
+            ),
+        ],
+      ),
+    );
+  }
+
+  static String _timeLabel(int seconds) {
+    final hours = seconds ~/ 3600;
+    final minutes = (seconds % 3600) ~/ 60;
+    final remainder = seconds % 60;
+    return hours > 0
+        ? '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${remainder.toString().padLeft(2, '0')}'
+        : '${minutes.toString().padLeft(2, '0')}:${remainder.toString().padLeft(2, '0')}';
+  }
+
+  static String _paceLabel(double pace) {
+    if (pace <= 0) return '--';
+    final seconds = (pace * 60).round();
+    return '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')} min/km';
+  }
+
+  static String _dateLabel(CorridaModel corrida) {
+    final date = DateTime.tryParse(corrida.endTime ?? corrida.data);
+    if (date == null) return 'Corrida salva localmente';
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year} às ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+class _RunMetric extends StatelessWidget {
+  const _RunMetric({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: '$label: $value',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: AppColors.primary, size: 18),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 3),
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
+          Text(value, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: FitSpacing.s2),
+          Text(label, style: Theme.of(context).textTheme.labelSmall),
         ],
       ),
     );
@@ -392,11 +239,11 @@ class _RunMetric extends StatelessWidget {
 }
 
 class _CorridaHistoricoItem {
-  final int indexOriginal;
-  final CorridaModel corrida;
-
   const _CorridaHistoricoItem({
     required this.indexOriginal,
     required this.corrida,
   });
+
+  final int indexOriginal;
+  final CorridaModel corrida;
 }

@@ -82,6 +82,7 @@ class StepsCalendarCard extends StatelessWidget {
               crossAxisCount: 7,
               mainAxisSpacing: FitSpacing.s4,
               crossAxisSpacing: FitSpacing.s4,
+              mainAxisExtent: FitLayout.minimumTouchTarget,
             ),
             itemBuilder: (context, index) {
               final day = index - startOffset + 1;
@@ -196,6 +197,7 @@ class _CalendarCell extends StatelessWidget {
       button: true,
       selected: selected,
       label: label,
+      onTap: onTap,
       child: InkWell(
         borderRadius: FitRadius.mediumBorder,
         onTap: onTap,

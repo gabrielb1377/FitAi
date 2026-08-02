@@ -10,7 +10,8 @@ class CorridaModel {
   final double averageSpeed;
   final double currentSpeed;
   final double pace;
-  final double calories;
+  final double? calories;
+  final RunningCaloriesSource? caloriesSource;
   final int? steps;
   final RunningSyncStatus syncStatus;
   final List<RunningRoutePointModel> route;
@@ -27,7 +28,8 @@ class CorridaModel {
     double? averageSpeed,
     this.currentSpeed = 0,
     double? pace,
-    double? calories,
+    this.calories,
+    this.caloriesSource,
     this.steps,
     this.syncStatus = RunningSyncStatus.local,
     this.route = const [],
@@ -37,8 +39,9 @@ class CorridaModel {
        startTime = startTime ?? data,
        averageSpeed =
            averageSpeed ?? _calculateAverageSpeed(distancia, segundos),
-       pace = pace ?? _calculatePace(distancia, segundos),
-       calories = calories ?? distancia * 60;
+       pace = pace ?? _calculatePace(distancia, segundos);
+
+  bool get hasReliableCalories => calories != null && caloriesSource != null;
 
   factory CorridaModel.fromSession(RunningSessionModel session) {
     final endTime = session.endTime ?? DateTime.now();
@@ -54,6 +57,7 @@ class CorridaModel {
       currentSpeed: session.currentSpeed,
       pace: session.pace,
       calories: session.calories,
+      caloriesSource: session.caloriesSource,
       steps: session.steps,
       syncStatus: RunningSyncStatus.local,
       route: session.route,
@@ -76,7 +80,8 @@ class CorridaModel {
       'velocidadeMedia': averageSpeed,
       'currentSpeed': currentSpeed,
       'pace': pace,
-      'calories': calories,
+      'calories': hasReliableCalories ? calories : null,
+      'caloriesSource': caloriesSource?.storageValue,
       'steps': steps,
       'passos': steps,
       'syncStatus': syncStatus.storageValue,
@@ -112,7 +117,10 @@ class CorridaModel {
         json['pace'],
         fallback: _calculatePace(distancia, segundos),
       ),
-      calories: _doubleFromJson(json['calories'], fallback: distancia * 60),
+      calories: _nullableDouble(json['calories']),
+      caloriesSource: RunningCaloriesSourceStorage.fromStorage(
+        json['caloriesSource'],
+      ),
       steps: _nullableIntFromJson(json['steps'] ?? json['passos']),
       syncStatus: RunningSyncStatusStorage.fromStorage(json['syncStatus']),
       route: _routeFromJson(json['route']),
@@ -176,6 +184,9 @@ class CorridaModel {
     double? currentSpeed,
     double? pace,
     double? calories,
+    RunningCaloriesSource? caloriesSource,
+    bool clearCalories = false,
+    bool clearCaloriesSource = false,
     int? steps,
     List<RunningRoutePointModel>? route,
     RunningSyncStatus? syncStatus,
@@ -190,7 +201,10 @@ class CorridaModel {
       averageSpeed: averageSpeed ?? this.averageSpeed,
       currentSpeed: currentSpeed ?? this.currentSpeed,
       pace: pace ?? this.pace,
-      calories: calories ?? this.calories,
+      calories: clearCalories ? null : calories ?? this.calories,
+      caloriesSource: clearCaloriesSource
+          ? null
+          : caloriesSource ?? this.caloriesSource,
       steps: steps ?? this.steps,
       route: route ?? this.route,
       paused: paused,
@@ -206,5 +220,11 @@ class CorridaModel {
 
     return double.tryParse(value?.toString().replaceAll(',', '.') ?? '') ??
         fallback;
+  }
+
+  static double? _nullableDouble(dynamic value) {
+    if (value is! num) return null;
+    final parsed = value.toDouble();
+    return parsed.isFinite && parsed >= 0 ? parsed : null;
   }
 }

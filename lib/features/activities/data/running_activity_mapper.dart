@@ -23,7 +23,7 @@ extension RunningActivityMapper on CorridaModel {
         distanceKm: distancia,
         paceMinutesPerKm: pace > 0 ? pace : null,
         averageSpeedKmh: averageSpeed > 0 ? averageSpeed : null,
-        calories: calories > 0 ? calories : null,
+        calories: hasReliableCalories ? calories : null,
         steps: steps,
         routePointCount: route.isEmpty ? null : route.length,
       ),

@@ -10,17 +10,23 @@ class StepsPeriodOverview extends StatelessWidget {
     required this.title,
     required this.summary,
     required this.streak,
+    required this.streakDataAvailable,
     required this.comparisonWithYesterday,
+    required this.comparisonDataAvailable,
   });
 
   final String title;
   final StepsPeriodSummary summary;
   final int streak;
+  final bool streakDataAvailable;
   final int comparisonWithYesterday;
+  final bool comparisonDataAvailable;
 
   @override
   Widget build(BuildContext context) {
-    final comparison = comparisonWithYesterday == 0
+    final comparison = !comparisonDataAvailable
+        ? 'Dados insuficientes'
+        : comparisonWithYesterday == 0
         ? 'Igual a ontem'
         : comparisonWithYesterday > 0
         ? '+$comparisonWithYesterday vs. ontem'
@@ -39,7 +45,10 @@ class StepsPeriodOverview extends StatelessWidget {
             label: 'Metas',
             value: '${summary.goalReachedDays} dias',
           ),
-          _PeriodMetric(label: 'Sequência', value: '$streak dias'),
+          _PeriodMetric(
+            label: 'Sequência',
+            value: streakDataAvailable ? '$streak dias' : 'Aguardando dados',
+          ),
           _PeriodMetric(label: 'Melhor dia', value: _bestDay(summary.bestDay)),
           _PeriodMetric(label: 'Hoje', value: comparison),
         ],

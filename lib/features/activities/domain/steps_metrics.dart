@@ -17,6 +17,29 @@ class StepsPeriodSummary {
   final DailyStepsModel? bestDay;
 }
 
+/// Não trata ausência de leitura como quebra de sequência.
+class StepsStreakResult {
+  const StepsStreakResult({required this.days, required this.hasCompleteData});
+
+  final int days;
+  final bool hasCompleteData;
+}
+
+/// Não converte um dia ausente em zero passos para a comparação diária.
+class StepsDayComparison {
+  const StepsDayComparison({
+    required this.difference,
+    required this.hasTodayData,
+    required this.hasYesterdayData,
+  });
+
+  final int? difference;
+  final bool hasTodayData;
+  final bool hasYesterdayData;
+
+  bool get hasCompleteData => hasTodayData && hasYesterdayData;
+}
+
 /// Regras puras para visão semanal, mensal e sequência de passos.
 abstract final class StepsMetrics {
   static StepsPeriodSummary summarize(
@@ -54,6 +77,11 @@ abstract final class StepsMetrics {
   static int activeStreak(
     Iterable<DailyStepsModel> records, {
     required DateTime now,
+  }) => streak(records, now: now).days;
+
+  static StepsStreakResult streak(
+    Iterable<DailyStepsModel> records, {
+    required DateTime now,
   }) {
     final byDate = <String, DailyStepsModel>{
       for (final record in records) record.date: record,
@@ -65,12 +93,17 @@ abstract final class StepsMetrics {
       cursor = cursor.subtract(const Duration(days: 1));
     }
 
-    var streak = 0;
+    var days = 0;
     while (true) {
       final key = DailyStepsModel.normalizeDateKey(cursor.toIso8601String());
       final record = byDate[key];
-      if (record == null || !record.goalCompleted) return streak;
-      streak++;
+      if (record == null) {
+        return StepsStreakResult(days: days, hasCompleteData: false);
+      }
+      if (!record.goalCompleted) {
+        return StepsStreakResult(days: days, hasCompleteData: true);
+      }
+      days++;
       cursor = cursor.subtract(const Duration(days: 1));
     }
   }
@@ -78,16 +111,26 @@ abstract final class StepsMetrics {
   static int comparisonWithYesterday(
     Iterable<DailyStepsModel> records, {
     required DateTime now,
+  }) => dayComparison(records, now: now).difference ?? 0;
+
+  static StepsDayComparison dayComparison(
+    Iterable<DailyStepsModel> records, {
+    required DateTime now,
   }) {
     final today = _day(now);
     final yesterday = today.subtract(const Duration(days: 1));
     final byDate = {for (final record in records) record.date: record};
-    return (byDate[DailyStepsModel.normalizeDateKey(today.toIso8601String())]
-                ?.steps ??
-            0) -
-        (byDate[DailyStepsModel.normalizeDateKey(yesterday.toIso8601String())]
-                ?.steps ??
-            0);
+    final todayRecord =
+        byDate[DailyStepsModel.normalizeDateKey(today.toIso8601String())];
+    final yesterdayRecord =
+        byDate[DailyStepsModel.normalizeDateKey(yesterday.toIso8601String())];
+    return StepsDayComparison(
+      difference: todayRecord == null || yesterdayRecord == null
+          ? null
+          : todayRecord.steps - yesterdayRecord.steps,
+      hasTodayData: todayRecord != null,
+      hasYesterdayData: yesterdayRecord != null,
+    );
   }
 
   static bool _inRange(DailyStepsModel record, DateTime from, DateTime to) {

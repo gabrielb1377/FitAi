@@ -36,7 +36,6 @@ class RunningSessionService extends ChangeNotifier {
   bool _gpsConnected = false;
   bool _countdownActive = false;
   int _countdownSeconds = _defaultCountdownSeconds;
-  DateTime? _lastTickAt;
   Position? _lastAcceptedPosition;
 
   bool get initialized => _initialized;
@@ -46,16 +45,20 @@ class RunningSessionService extends ChangeNotifier {
   int get countdownSeconds => _countdownSeconds;
   RunningSessionModel? get session => _session;
   bool get hasActiveSession => _session != null && !_session!.finished;
+  bool get isFinalizing => hasActiveSession && _session!.finalizing;
   bool get isRunning =>
-      hasActiveSession && !_session!.paused && !_countdownActive;
-  bool get isPaused => hasActiveSession && _session!.paused;
+      hasActiveSession &&
+      !_session!.paused &&
+      !isFinalizing &&
+      !_countdownActive;
+  bool get isPaused => hasActiveSession && _session!.paused && !isFinalizing;
   bool get isFinished => _session?.finished == true;
   int get elapsedSeconds => _session?.elapsedSeconds ?? 0;
   double get distanceKm => _session?.distanceKm ?? 0;
   double get currentSpeed => _session?.currentSpeed ?? 0;
   double get averageSpeed => _session?.averageSpeed ?? 0;
   double get pace => _session?.pace ?? 0;
-  double get calories => _session?.calories ?? 0;
+  double? get calories => _session?.calories;
   List<RunningRoutePointModel> get route => _session?.route ?? const [];
 
   Future<void> initialize() async {
@@ -67,16 +70,22 @@ class RunningSessionService extends ChangeNotifier {
 
     if (restored != null && !restored.finished) {
       _session = _restoreElapsedTime(restored);
-      _lastTickAt = _clock();
       _lastAcceptedPosition = null;
 
-      if (!_session!.paused) {
+      if (_session!.finalizing) {
+        try {
+          await _commitFinalization(_session!);
+          _log('finalizacao recuperada');
+        } catch (error) {
+          _log('finalizacao pendente: $error');
+        }
+      } else if (!_session!.paused) {
         _ensureTimer();
         unawaited(_ensureGpsStream());
+        await _persistSession();
       }
 
       _log('sessao restaurada');
-      await _persistSession();
     }
 
     _initialized = true;
@@ -129,7 +138,6 @@ class RunningSessionService extends ChangeNotifier {
     if (!await StorageService.carregarPrimeiraCorrida()) {
       await StorageService.salvarPrimeiraCorrida(true);
     }
-    _lastTickAt = now;
     _lastAcceptedPosition = null;
     _countdownActive = false;
     _countdownTimer?.cancel();
@@ -143,16 +151,23 @@ class RunningSessionService extends ChangeNotifier {
 
   Future<void> pause() async {
     final session = _session;
-    if (session == null || session.finished || session.paused) return;
+    if (session == null ||
+        session.finished ||
+        session.paused ||
+        session.finalizing) {
+      return;
+    }
 
+    final now = _clock();
     _timer?.cancel();
     _timer = null;
     await _stopGpsStream();
 
-    _session = session.copyWith(
+    _session = _advanceSessionTo(session, now).copyWith(
       paused: true,
+      pausedAt: now,
       currentSpeed: 0,
-      lastUpdatedAt: _clock(),
+      lastUpdatedAt: now,
     );
     await _persistSession();
     _log('corrida pausada');
@@ -161,14 +176,21 @@ class RunningSessionService extends ChangeNotifier {
 
   Future<void> resume() async {
     final session = _session;
-    if (session == null || session.finished || !session.paused) return;
+    if (session == null ||
+        session.finished ||
+        !session.paused ||
+        session.finalizing) {
+      return;
+    }
 
+    final now = _clock();
     _session = session.copyWith(
       paused: false,
-      clearEndTime: true,
-      lastUpdatedAt: _clock(),
+      clearPausedAt: true,
+      accumulatedPausedSeconds:
+          session.accumulatedPausedSeconds + _pausedSeconds(session, now),
+      lastUpdatedAt: now,
     );
-    _lastTickAt = _clock();
     await _persistSession();
     _ensureTimer();
     unawaited(_ensureGpsStream());
@@ -180,7 +202,7 @@ class RunningSessionService extends ChangeNotifier {
     if (_saving) return null;
 
     final session = _session;
-    if (session == null || session.finished) return null;
+    if (session == null || session.finished || session.finalizing) return null;
 
     _saving = true;
     notifyListeners();
@@ -192,37 +214,21 @@ class RunningSessionService extends ChangeNotifier {
       _countdownActive = false;
       await _stopGpsStream();
 
-      final finishedSession = _withUpdatedMetrics(session).copyWith(
-        endTime: _clock(),
+      final now = _clock();
+      final finalizingSession = _advanceSessionTo(session, now).copyWith(
+        endTime: now,
         paused: false,
-        finished: true,
+        clearPausedAt: true,
+        accumulatedPausedSeconds:
+            session.accumulatedPausedSeconds + _pausedSeconds(session, now),
+        finalizing: true,
+        finished: false,
         currentSpeed: 0,
-        lastUpdatedAt: _clock(),
+        lastUpdatedAt: now,
       );
-      final corrida = CorridaModel.fromSession(finishedSession);
-      var persisted = false;
-
-      if (corrida.segundos > 0 || corrida.distancia > 0) {
-        persisted = true;
-        final inserted = await StorageService.salvarCorrida(corrida);
-        if (inserted) {
-          await _addTotals(corrida);
-        }
-        if (corrida.distancia >= 10) {
-          await StorageService.salvar10Km(true);
-        }
-        _log('sincronizacao enviada');
-      }
-
-      await StorageService.limparCorridaAtiva();
-      _session = null;
-      _lastTickAt = null;
-      _lastAcceptedPosition = null;
-      if (persisted) {
-        unawaited(_syncRun(corrida));
-      }
-
-      return corrida;
+      _session = finalizingSession;
+      await _persistSession();
+      return await _commitFinalization(finalizingSession);
     } finally {
       _saving = false;
       notifyListeners();
@@ -230,6 +236,10 @@ class RunningSessionService extends ChangeNotifier {
   }
 
   Future<void> discardActiveSession() async {
+    if (_session?.finalizing == true) {
+      _log('cancelamento ignorado: finalizacao pendente');
+      return;
+    }
     _timer?.cancel();
     _timer = null;
     _countdownTimer?.cancel();
@@ -237,7 +247,6 @@ class RunningSessionService extends ChangeNotifier {
     await _stopGpsStream();
     await StorageService.limparCorridaAtiva();
     _session = null;
-    _lastTickAt = null;
     _lastAcceptedPosition = null;
     notifyListeners();
   }
@@ -245,24 +254,17 @@ class RunningSessionService extends ChangeNotifier {
   void _ensureTimer() {
     if (_timer?.isActive ?? false) return;
 
-    _lastTickAt = _clock();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       final session = _session;
-      if (session == null || session.finished || session.paused) return;
+      if (session == null ||
+          session.finished ||
+          session.paused ||
+          session.finalizing) {
+        return;
+      }
 
       final now = _clock();
-      final lastTick = _lastTickAt ?? now;
-      final delta = now.difference(lastTick).inSeconds;
-      _lastTickAt = now;
-
-      if (delta > 0) {
-        _session = _withUpdatedMetrics(
-          session.copyWith(
-            elapsedSeconds: session.elapsedSeconds + delta,
-            lastUpdatedAt: now,
-          ),
-        );
-      }
+      _session = _advanceSessionTo(session, now);
 
       if (elapsedSeconds % 5 == 0) {
         unawaited(_persistSession());
@@ -332,13 +334,21 @@ class RunningSessionService extends ChangeNotifier {
 
   void _handlePosition(Position position) {
     final session = _session;
-    if (session == null || session.finished || session.paused) return;
+    if (session == null ||
+        session.finished ||
+        session.paused ||
+        session.finalizing) {
+      return;
+    }
+
+    final now = _clock();
+    final currentSession = _advanceSessionTo(session, now);
 
     if (position.accuracy > _maxAcceptedAccuracyMeters) {
       return;
     }
 
-    var distanceKm = session.distanceKm;
+    var distanceKm = currentSession.distanceKm;
     var currentSpeed = _speedMpsToKmh(position.speed);
     final previous = _lastAcceptedPosition;
 
@@ -369,23 +379,23 @@ class RunningSessionService extends ChangeNotifier {
 
     _lastAcceptedPosition = position;
     final route = [
-      ...session.route,
+      ...currentSession.route,
       RunningRoutePointModel(
         latitude: position.latitude,
         longitude: position.longitude,
         accuracy: position.accuracy,
         altitude: position.altitude,
         speed: currentSpeed,
-        timestamp: _clock().toIso8601String(),
+        timestamp: now.toIso8601String(),
       ),
     ];
 
     _session = _withUpdatedMetrics(
-      session.copyWith(
+      currentSession.copyWith(
         distanceKm: distanceKm,
         currentSpeed: currentSpeed,
         route: route,
-        lastUpdatedAt: _clock(),
+        lastUpdatedAt: now,
       ),
     );
     unawaited(_persistSession());
@@ -393,19 +403,35 @@ class RunningSessionService extends ChangeNotifier {
   }
 
   RunningSessionModel _restoreElapsedTime(RunningSessionModel session) {
-    if (session.paused || session.finished) return session;
+    return _advanceSessionTo(session, _clock());
+  }
 
-    final now = _clock();
+  /// Usa o timestamp persistido como fonte do cronômetro. O timer apenas
+  /// solicita repintura; não é a origem da duração da corrida.
+  RunningSessionModel _advanceSessionTo(
+    RunningSessionModel session,
+    DateTime now,
+  ) {
+    if (session.finished || session.paused || session.finalizing) {
+      return session;
+    }
     final delta = now.difference(session.lastUpdatedAt).inSeconds;
-
-    if (delta <= 0) return session;
-
+    if (delta <= 0) {
+      return session;
+    }
     return _withUpdatedMetrics(
       session.copyWith(
         elapsedSeconds: session.elapsedSeconds + delta,
         lastUpdatedAt: now,
       ),
     );
+  }
+
+  int _pausedSeconds(RunningSessionModel session, DateTime now) {
+    final pausedAt = session.pausedAt;
+    if (pausedAt == null) return 0;
+    final seconds = now.difference(pausedAt).inSeconds;
+    return seconds < 0 ? 0 : seconds;
   }
 
   RunningSessionModel _withUpdatedMetrics(RunningSessionModel session) {
@@ -415,14 +441,12 @@ class RunningSessionService extends ChangeNotifier {
     final pace = distance <= 0 || elapsed <= 0
         ? 0.0
         : (elapsed / 60) / distance;
-    final calories = distance * 60;
 
     return session.copyWith(
       distanceKm: distance,
       elapsedSeconds: elapsed,
       averageSpeed: averageSpeed,
       pace: pace,
-      calories: calories,
     );
   }
 
@@ -431,6 +455,29 @@ class RunningSessionService extends ChangeNotifier {
     if (session == null) return;
 
     await StorageService.salvarRunningSessionAtiva(session);
+  }
+
+  /// Conclui uma sessão que já foi marcada e persistida como finalizando.
+  /// Se o processo cair antes desta etapa, [initialize] tenta novamente com o
+  /// mesmo identificador, e o upsert evita duplicar a corrida.
+  Future<CorridaModel> _commitFinalization(
+    RunningSessionModel finalizingSession,
+  ) async {
+    final corrida = CorridaModel.fromSession(finalizingSession);
+    var persisted = false;
+    if (corrida.segundos > 0 || corrida.distancia > 0) {
+      persisted = true;
+      final inserted = await StorageService.salvarCorrida(corrida);
+      if (inserted) await _addTotals(corrida);
+      if (corrida.distancia >= 10) await StorageService.salvar10Km(true);
+      _log('sincronizacao enviada');
+    }
+
+    await StorageService.limparCorridaAtiva();
+    _session = null;
+    _lastAcceptedPosition = null;
+    if (persisted) unawaited(_syncRun(corrida));
+    return corrida;
   }
 
   Future<void> _syncPendingRuns() async {

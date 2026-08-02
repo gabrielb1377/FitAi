@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../design_system/fit_design_system.dart';
 import '../../models/coach_insight_model.dart';
+import '../../models/corrida_model.dart';
 import '../../services/coach_insight_service.dart';
 import '../../services/running_session_service.dart';
 import '../perfil/widgets/coach_insights_card.dart';
@@ -33,14 +34,7 @@ class _CorridasPageState extends State<CorridasPage> {
     super.initState();
     _running = widget.runningService ?? RunningSessionService.instance;
     _coachFuture = const CoachInsightService().gerarInsightsPorTipo('corrida');
-    _running.addListener(_onSessionChanged);
     unawaited(_initialize());
-  }
-
-  @override
-  void dispose() {
-    _running.removeListener(_onSessionChanged);
-    super.dispose();
   }
 
   Future<void> _initialize() async {
@@ -59,16 +53,26 @@ class _CorridasPageState extends State<CorridasPage> {
     }
   }
 
-  void _onSessionChanged() {
-    if (mounted) setState(() {});
-  }
-
   void _start() => unawaited(_running.start());
   void _pause() => unawaited(_running.pause());
   void _resume() => unawaited(_running.resume());
 
   Future<void> _finish() async {
-    final run = await _running.finish();
+    CorridaModel? run;
+    try {
+      run = await _running.finish();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'A finalização ficou salva localmente para tentar novamente.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
     if (!mounted || run == null) return;
     setState(() {
       _coachFuture = const CoachInsightService().gerarInsightsPorTipo(
@@ -81,24 +85,13 @@ class _CorridasPageState extends State<CorridasPage> {
   }
 
   Future<void> _cancel() async {
-    final shouldDiscard = await showDialog<bool>(
+    final shouldDiscard = await FitConfirmDialog.show(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Cancelar corrida?'),
-        content: const Text(
-          'Os dados desta sessao ainda nao serao salvos no historico.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Continuar corrida'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Cancelar corrida'),
-          ),
-        ],
-      ),
+      title: 'Cancelar corrida?',
+      message: 'Os dados desta sessão ainda não serão salvos no histórico.',
+      confirmLabel: 'Cancelar corrida',
+      cancelLabel: 'Continuar corrida',
+      isDestructive: true,
     );
     if (shouldDiscard != true) return;
 
@@ -138,57 +131,73 @@ class _CorridasPageState extends State<CorridasPage> {
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
             physics: const BouncingScrollPhysics(),
             children: [
-              ActivitiesNavigationHeader(
-                title: 'Corridas',
-                subtitle: _headerSubtitle,
-                trailing: _running.hasActiveSession
-                    ? const FitBadge(
-                        label: 'Ao vivo',
-                        tone: FitBadgeTone.danger,
-                        icon: Icons.fiber_manual_record_rounded,
-                      )
-                    : null,
-              ),
-              const SizedBox(height: FitSpacing.s24),
-              RunningSessionOverview(
-                distanceKm: _running.distanceKm,
-                elapsedSeconds: _running.elapsedSeconds,
-                averageSpeed: _running.averageSpeed,
-                currentSpeed: _running.currentSpeed,
-                pace: _running.pace,
-                isActive: _running.hasActiveSession,
-                isPaused: _running.isPaused,
-                gpsConnected: _running.gpsConnected,
-                onStart: _start,
-                onPause: _pause,
-                onResume: _resume,
-                onFinish: _finish,
-                onCancel: _cancel,
-              ),
-              const SizedBox(height: FitSpacing.s24),
-              ActivityStatsGrid(
-                items: [
-                  ActivityStat(
-                    label: 'Tempo',
-                    value: _formatTime(_running.elapsedSeconds),
-                    icon: Icons.timer_outlined,
-                  ),
-                  ActivityStat(
-                    label: 'Vel. media',
-                    value: '${_running.averageSpeed.toStringAsFixed(1)} km/h',
-                    icon: Icons.speed_outlined,
-                  ),
-                  ActivityStat(
-                    label: 'Vel. atual',
-                    value: '${_running.currentSpeed.toStringAsFixed(1)} km/h',
-                    icon: Icons.bolt_rounded,
-                  ),
-                  ActivityStat(
-                    label: 'Pace',
-                    value: _formatPace(_running.pace),
-                    icon: Icons.route_outlined,
-                  ),
-                ],
+              ListenableBuilder(
+                listenable: _running,
+                builder: (context, _) => Column(
+                  children: [
+                    ActivitiesNavigationHeader(
+                      title: 'Corridas',
+                      subtitle: _headerSubtitle,
+                      trailing: _running.isFinalizing
+                          ? const FitBadge(
+                              label: 'Salvando',
+                              tone: FitBadgeTone.info,
+                              icon: Icons.sync_rounded,
+                            )
+                          : _running.hasActiveSession
+                          ? const FitBadge(
+                              label: 'Ao vivo',
+                              tone: FitBadgeTone.danger,
+                              icon: Icons.fiber_manual_record_rounded,
+                            )
+                          : null,
+                    ),
+                    const SizedBox(height: FitSpacing.s24),
+                    RunningSessionOverview(
+                      distanceKm: _running.distanceKm,
+                      elapsedSeconds: _running.elapsedSeconds,
+                      averageSpeed: _running.averageSpeed,
+                      currentSpeed: _running.currentSpeed,
+                      pace: _running.pace,
+                      isActive: _running.hasActiveSession,
+                      isPaused: _running.isPaused,
+                      isFinalizing: _running.isFinalizing,
+                      gpsConnected: _running.gpsConnected,
+                      onStart: _start,
+                      onPause: _pause,
+                      onResume: _resume,
+                      onFinish: _finish,
+                      onCancel: _cancel,
+                    ),
+                    const SizedBox(height: FitSpacing.s24),
+                    ActivityStatsGrid(
+                      items: [
+                        ActivityStat(
+                          label: 'Tempo',
+                          value: _formatTime(_running.elapsedSeconds),
+                          icon: Icons.timer_outlined,
+                        ),
+                        ActivityStat(
+                          label: 'Vel. media',
+                          value:
+                              '${_running.averageSpeed.toStringAsFixed(1)} km/h',
+                          icon: Icons.speed_outlined,
+                        ),
+                        ActivityStat(
+                          label: 'Vel. atual',
+                          value:
+                              '${_running.currentSpeed.toStringAsFixed(1)} km/h',
+                          icon: Icons.bolt_rounded,
+                        ),
+                        ActivityStat(
+                          label: 'Pace',
+                          value: _formatPace(_running.pace),
+                          icon: Icons.route_outlined,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: FitSpacing.s24),
               _buildCoach(),
@@ -242,6 +251,9 @@ class _CorridasPageState extends State<CorridasPage> {
   }
 
   String get _headerSubtitle {
+    if (_running.isFinalizing) {
+      return 'Finalização protegida localmente.';
+    }
     if (_running.isPaused) return 'Corrida pausada. Retome quando quiser.';
     if (_running.hasActiveSession) {
       return _running.gpsConnected

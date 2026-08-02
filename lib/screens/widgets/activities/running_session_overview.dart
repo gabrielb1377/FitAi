@@ -10,6 +10,7 @@ class RunningSessionOverview extends StatelessWidget {
   final double pace;
   final bool isActive;
   final bool isPaused;
+  final bool isFinalizing;
   final bool gpsConnected;
   final VoidCallback onStart;
   final VoidCallback onPause;
@@ -26,6 +27,7 @@ class RunningSessionOverview extends StatelessWidget {
     required this.pace,
     required this.isActive,
     required this.isPaused,
+    required this.isFinalizing,
     required this.gpsConnected,
     required this.onStart,
     required this.onPause,
@@ -36,7 +38,14 @@ class RunningSessionOverview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final action = isActive
+    final action = isFinalizing
+        ? const FitButton(
+            label: 'Salvando corrida',
+            isLoading: true,
+            enabled: false,
+            expand: true,
+          )
+        : isActive
         ? Row(
             children: [
               Expanded(
@@ -72,7 +81,9 @@ class RunningSessionOverview extends StatelessWidget {
       elevation: 1,
       title: isActive ? 'Corrida em andamento' : 'Pronto para correr?',
       subtitle: isActive
-          ? (isPaused
+          ? (isFinalizing
+                ? 'Finalização protegida neste dispositivo.'
+                : isPaused
                 ? 'Sessao pausada.'
                 : gpsConnected
                 ? 'GPS conectado.'
@@ -103,7 +114,7 @@ class RunningSessionOverview extends StatelessWidget {
           ),
           const SizedBox(height: FitSpacing.s20),
           action,
-          if (isActive && onCancel != null) ...[
+          if (isActive && !isFinalizing && onCancel != null) ...[
             const SizedBox(height: FitSpacing.s8),
             Align(
               alignment: Alignment.center,

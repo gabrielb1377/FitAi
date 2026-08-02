@@ -129,9 +129,14 @@ class StepsService extends ChangeNotifier {
   int get monthlyAverage => _monthlySummary.average;
   DailyStepsModel? get bestDayThisWeek => _weeklySummary.bestDay;
   int get completedGoalDaysLast30 => _monthlySummary.goalReachedDays;
-  int get activeStreak => StepsMetrics.activeStreak(_history, now: _now());
-  int get comparisonWithYesterday =>
-      StepsMetrics.comparisonWithYesterday(_history, now: _now());
+  StepsStreakResult get streak => StepsMetrics.streak(_history, now: _now());
+
+  int get activeStreak => streak.days;
+
+  StepsDayComparison get dayComparison =>
+      StepsMetrics.dayComparison(_history, now: _now());
+
+  int get comparisonWithYesterday => dayComparison.difference ?? 0;
 
   StepsPeriodSummary get _weeklySummary => StepsMetrics.summarize(
     _history,

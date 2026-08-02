@@ -793,7 +793,7 @@ class StorageService {
       averageSpeed: averageSpeed,
       currentSpeed: 0,
       pace: distance > 0 && elapsed > 0 ? (elapsed / 60) / distance : 0,
-      calories: distance * 60,
+      calories: null,
       route: const [],
       paused: false,
       finished: false,
