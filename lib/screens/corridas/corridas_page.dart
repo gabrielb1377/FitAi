@@ -14,29 +14,16 @@ import '../widgets/activities/running_session_overview.dart';
 import 'historico_corridas_page.dart';
 
 class CorridasPage extends StatefulWidget {
-  final double distancia;
-  final double velocidadeMedia;
-  final int segundos;
-  final bool corridaIniciada;
-  final VoidCallback iniciarCorrida;
-  final VoidCallback pararCorrida;
+  final RunningSessionService? runningService;
 
-  const CorridasPage({
-    super.key,
-    required this.distancia,
-    required this.velocidadeMedia,
-    required this.segundos,
-    required this.corridaIniciada,
-    required this.iniciarCorrida,
-    required this.pararCorrida,
-  });
+  const CorridasPage({super.key, this.runningService});
 
   @override
   State<CorridasPage> createState() => _CorridasPageState();
 }
 
 class _CorridasPageState extends State<CorridasPage> {
-  final _running = RunningSessionService.instance;
+  late final RunningSessionService _running;
   late Future<List<CoachInsightModel>> _coachFuture;
   var _loading = true;
   var _hasError = false;
@@ -44,6 +31,7 @@ class _CorridasPageState extends State<CorridasPage> {
   @override
   void initState() {
     super.initState();
+    _running = widget.runningService ?? RunningSessionService.instance;
     _coachFuture = const CoachInsightService().gerarInsightsPorTipo('corrida');
     _running.addListener(_onSessionChanged);
     unawaited(_initialize());
@@ -90,6 +78,35 @@ class _CorridasPageState extends State<CorridasPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Corrida salva no historico.')),
     );
+  }
+
+  Future<void> _cancel() async {
+    final shouldDiscard = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancelar corrida?'),
+        content: const Text(
+          'Os dados desta sessao ainda nao serao salvos no historico.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Continuar corrida'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Cancelar corrida'),
+          ),
+        ],
+      ),
+    );
+    if (shouldDiscard != true) return;
+
+    await _running.discardActiveSession();
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Corrida cancelada.')));
   }
 
   Future<void> _openHistory() async {
@@ -146,6 +163,7 @@ class _CorridasPageState extends State<CorridasPage> {
                 onPause: _pause,
                 onResume: _resume,
                 onFinish: _finish,
+                onCancel: _cancel,
               ),
               const SizedBox(height: FitSpacing.s24),
               ActivityStatsGrid(

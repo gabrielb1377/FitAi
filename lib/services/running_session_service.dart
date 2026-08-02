@@ -10,14 +10,22 @@ import 'storage_service.dart';
 import 'sync_service.dart';
 
 class RunningSessionService extends ChangeNotifier {
-  RunningSessionService._();
+  RunningSessionService._({DateTime Function()? clock, this._trackGps = true})
+    : _clock = clock ?? DateTime.now;
 
   static final RunningSessionService instance = RunningSessionService._();
+
+  @visibleForTesting
+  factory RunningSessionService.forTesting({DateTime Function()? clock}) =>
+      RunningSessionService._(clock: clock, trackGps: false);
 
   static const int _defaultCountdownSeconds = 3;
   static const double _maxAcceptedSpeedKmh = 36;
   static const double _maxAcceptedAccuracyMeters = 60;
 
+  final DateTime Function() _clock;
+  final bool _trackGps;
+  final Set<String> _syncingRunIds = <String>{};
   Timer? _timer;
   Timer? _countdownTimer;
   StreamSubscription<Position>? _positionSubscription;
@@ -59,7 +67,7 @@ class RunningSessionService extends ChangeNotifier {
 
     if (restored != null && !restored.finished) {
       _session = _restoreElapsedTime(restored);
-      _lastTickAt = DateTime.now();
+      _lastTickAt = _clock();
       _lastAcceptedPosition = null;
 
       if (!_session!.paused) {
@@ -74,6 +82,7 @@ class RunningSessionService extends ChangeNotifier {
     _initialized = true;
     _initializing = false;
     notifyListeners();
+    unawaited(_syncPendingRuns());
   }
 
   Future<void> startWithCountdown({
@@ -112,7 +121,7 @@ class RunningSessionService extends ChangeNotifier {
       return;
     }
 
-    final now = DateTime.now();
+    final now = _clock();
     _session = RunningSessionModel.start(
       id: 'run_${now.microsecondsSinceEpoch}',
       startTime: now,
@@ -143,7 +152,7 @@ class RunningSessionService extends ChangeNotifier {
     _session = session.copyWith(
       paused: true,
       currentSpeed: 0,
-      lastUpdatedAt: DateTime.now(),
+      lastUpdatedAt: _clock(),
     );
     await _persistSession();
     _log('corrida pausada');
@@ -157,9 +166,9 @@ class RunningSessionService extends ChangeNotifier {
     _session = session.copyWith(
       paused: false,
       clearEndTime: true,
-      lastUpdatedAt: DateTime.now(),
+      lastUpdatedAt: _clock(),
     );
-    _lastTickAt = DateTime.now();
+    _lastTickAt = _clock();
     await _persistSession();
     _ensureTimer();
     unawaited(_ensureGpsStream());
@@ -184,17 +193,21 @@ class RunningSessionService extends ChangeNotifier {
       await _stopGpsStream();
 
       final finishedSession = _withUpdatedMetrics(session).copyWith(
-        endTime: DateTime.now(),
+        endTime: _clock(),
         paused: false,
         finished: true,
         currentSpeed: 0,
-        lastUpdatedAt: DateTime.now(),
+        lastUpdatedAt: _clock(),
       );
       final corrida = CorridaModel.fromSession(finishedSession);
+      var persisted = false;
 
       if (corrida.segundos > 0 || corrida.distancia > 0) {
-        await StorageService.salvarCorrida(corrida);
-        await _addTotals(corrida);
+        persisted = true;
+        final inserted = await StorageService.salvarCorrida(corrida);
+        if (inserted) {
+          await _addTotals(corrida);
+        }
         if (corrida.distancia >= 10) {
           await StorageService.salvar10Km(true);
         }
@@ -205,7 +218,9 @@ class RunningSessionService extends ChangeNotifier {
       _session = null;
       _lastTickAt = null;
       _lastAcceptedPosition = null;
-      unawaited(SyncService.instance.flushPending());
+      if (persisted) {
+        unawaited(_syncRun(corrida));
+      }
 
       return corrida;
     } finally {
@@ -230,12 +245,12 @@ class RunningSessionService extends ChangeNotifier {
   void _ensureTimer() {
     if (_timer?.isActive ?? false) return;
 
-    _lastTickAt = DateTime.now();
+    _lastTickAt = _clock();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       final session = _session;
       if (session == null || session.finished || session.paused) return;
 
-      final now = DateTime.now();
+      final now = _clock();
       final lastTick = _lastTickAt ?? now;
       final delta = now.difference(lastTick).inSeconds;
       _lastTickAt = now;
@@ -258,6 +273,7 @@ class RunningSessionService extends ChangeNotifier {
   }
 
   Future<void> _ensureGpsStream() async {
+    if (!_trackGps) return;
     final permissionGranted = await _ensureLocationPermission();
     if (!permissionGranted) {
       _setGpsConnected(false);
@@ -360,7 +376,7 @@ class RunningSessionService extends ChangeNotifier {
         accuracy: position.accuracy,
         altitude: position.altitude,
         speed: currentSpeed,
-        timestamp: DateTime.now().toIso8601String(),
+        timestamp: _clock().toIso8601String(),
       ),
     ];
 
@@ -369,7 +385,7 @@ class RunningSessionService extends ChangeNotifier {
         distanceKm: distanceKm,
         currentSpeed: currentSpeed,
         route: route,
-        lastUpdatedAt: DateTime.now(),
+        lastUpdatedAt: _clock(),
       ),
     );
     unawaited(_persistSession());
@@ -379,7 +395,7 @@ class RunningSessionService extends ChangeNotifier {
   RunningSessionModel _restoreElapsedTime(RunningSessionModel session) {
     if (session.paused || session.finished) return session;
 
-    final now = DateTime.now();
+    final now = _clock();
     final delta = now.difference(session.lastUpdatedAt).inSeconds;
 
     if (delta <= 0) return session;
@@ -415,6 +431,39 @@ class RunningSessionService extends ChangeNotifier {
     if (session == null) return;
 
     await StorageService.salvarRunningSessionAtiva(session);
+  }
+
+  Future<void> _syncPendingRuns() async {
+    final pending = await StorageService.carregarCorridasPendentes();
+    for (final corrida in pending) {
+      await _syncRun(corrida);
+    }
+  }
+
+  Future<void> _syncRun(CorridaModel corrida) async {
+    if (!_syncingRunIds.add(corrida.id)) return;
+
+    try {
+      await StorageService.atualizarCorrida(
+        corrida.copyWith(syncStatus: RunningSyncStatus.syncing),
+      );
+      final result = await SyncService.instance.syncRunning([corrida.toJson()]);
+      final status = result == RunningSyncDispatchResult.delivered
+          ? RunningSyncStatus.synced
+          : RunningSyncStatus.queued;
+      await StorageService.atualizarCorrida(
+        corrida.copyWith(syncStatus: status),
+      );
+      _log('corrida ${corrida.id} sincronizacao=${status.storageValue}');
+    } catch (error) {
+      await StorageService.atualizarCorrida(
+        corrida.copyWith(syncStatus: RunningSyncStatus.queued),
+      );
+      _log('sincronizacao pendente: $error');
+    } finally {
+      _syncingRunIds.remove(corrida.id);
+      notifyListeners();
+    }
   }
 
   Future<void> _stopGpsStream() async {

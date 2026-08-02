@@ -15,6 +15,7 @@ class RunningSessionOverview extends StatelessWidget {
   final VoidCallback onPause;
   final VoidCallback onResume;
   final VoidCallback onFinish;
+  final VoidCallback? onCancel;
 
   const RunningSessionOverview({
     super.key,
@@ -30,6 +31,7 @@ class RunningSessionOverview extends StatelessWidget {
     required this.onPause,
     required this.onResume,
     required this.onFinish,
+    this.onCancel,
   });
 
   @override
@@ -101,6 +103,20 @@ class RunningSessionOverview extends StatelessWidget {
           ),
           const SizedBox(height: FitSpacing.s20),
           action,
+          if (isActive && onCancel != null) ...[
+            const SizedBox(height: FitSpacing.s8),
+            Align(
+              alignment: Alignment.center,
+              child: FitButton(
+                label: 'Cancelar corrida',
+                icon: Icons.close_rounded,
+                onPressed: onCancel,
+                variant: FitButtonVariant.ghost,
+                size: FitButtonSize.small,
+                tooltip: 'Descartar sessao sem salvar no historico',
+              ),
+            ),
+          ],
         ],
       ),
     );

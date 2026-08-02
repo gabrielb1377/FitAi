@@ -7,6 +7,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'network_service.dart';
 
+/// Resultado imediato do envio local. Uma entrega em fila continua persistida
+/// e pode ser reenviada sem bloquear o usuario.
+enum RunningSyncDispatchResult { delivered, queued }
+
 class SyncService {
   SyncService._({NetworkService? networkService})
     : _networkService = networkService ?? NetworkService();
@@ -81,12 +85,19 @@ class SyncService {
     );
   }
 
-  Future<void> syncRunning(List<Map<String, dynamic>> runs) {
-    return _sendOrQueue(
+  Future<RunningSyncDispatchResult> syncRunning(
+    List<Map<String, dynamic>> runs,
+  ) async {
+    final runId = runs.length == 1 ? runs.single['id']?.toString().trim() : '';
+    final delivered = await _sendOrQueueWithResult(
       type: 'running',
       path: '/sync/running',
       payload: {'items': runs},
+      queueId: runId == null || runId.isEmpty ? null : 'running_$runId',
     );
+    return delivered
+        ? RunningSyncDispatchResult.delivered
+        : RunningSyncDispatchResult.queued;
   }
 
   Future<void> syncSteps(List<Map<String, dynamic>> steps) {
@@ -150,10 +161,19 @@ class SyncService {
     required String path,
     required Map<String, dynamic> payload,
   }) async {
+    await _sendOrQueueWithResult(type: type, path: path, payload: payload);
+  }
+
+  Future<bool> _sendOrQueueWithResult({
+    required String type,
+    required String path,
+    required Map<String, dynamic> payload,
+    String? queueId,
+  }) async {
     final clientId = await _clientId();
     final enrichedPayload = {...payload, 'clientId': clientId};
     final queueItem = {
-      'id': _queueId(type),
+      'id': queueId ?? _queueId(type),
       'type': type,
       'path': path,
       'payload': enrichedPayload,
@@ -165,10 +185,11 @@ class SyncService {
 
     if (!sent) {
       await _enqueue(queueItem);
-      return;
+      return false;
     }
 
     unawaited(flushPending());
+    return true;
   }
 
   Future<bool> _trySendQueued(Map<String, dynamic> item) async {

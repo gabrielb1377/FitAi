@@ -1,3 +1,15 @@
+enum RunningSyncStatus { local, syncing, queued, synced }
+
+extension RunningSyncStatusStorage on RunningSyncStatus {
+  String get storageValue => name;
+
+  static RunningSyncStatus fromStorage(Object? value) =>
+      RunningSyncStatus.values.firstWhere(
+        (status) => status.name == value?.toString().trim().toLowerCase(),
+        orElse: () => RunningSyncStatus.local,
+      );
+}
+
 class RunningRoutePointModel {
   final double latitude;
   final double longitude;
@@ -56,6 +68,7 @@ class RunningSessionModel {
   final double currentSpeed;
   final double pace;
   final double calories;
+  final int? steps;
   final List<RunningRoutePointModel> route;
   final bool paused;
   final bool finished;
@@ -71,6 +84,7 @@ class RunningSessionModel {
     required this.currentSpeed,
     required this.pace,
     required this.calories,
+    this.steps,
     required this.route,
     required this.paused,
     required this.finished,
@@ -90,6 +104,7 @@ class RunningSessionModel {
       currentSpeed: 0,
       pace: 0,
       calories: 0,
+      steps: null,
       route: const [],
       paused: false,
       finished: false,
@@ -106,6 +121,7 @@ class RunningSessionModel {
     double? currentSpeed,
     double? pace,
     double? calories,
+    int? steps,
     List<RunningRoutePointModel>? route,
     bool? paused,
     bool? finished,
@@ -121,6 +137,7 @@ class RunningSessionModel {
       currentSpeed: _nonNegative(currentSpeed ?? this.currentSpeed),
       pace: _nonNegative(pace ?? this.pace),
       calories: _nonNegative(calories ?? this.calories),
+      steps: steps ?? this.steps,
       route: route ?? this.route,
       paused: paused ?? this.paused,
       finished: finished ?? this.finished,
@@ -139,6 +156,7 @@ class RunningSessionModel {
       'currentSpeed': currentSpeed,
       'pace': pace,
       'calories': calories,
+      'steps': steps,
       'route': route.map((point) => point.toJson()).toList(),
       'paused': paused,
       'finished': finished,
@@ -172,6 +190,7 @@ class RunningSessionModel {
       calories: _nonNegative(
         _doubleFromJson(json['calories'], fallback: distanceKm * 60),
       ),
+      steps: _nullableIntFromJson(json['steps'] ?? json['passos']),
       route: route,
       paused: _boolFromJson(json['paused']),
       finished: _boolFromJson(json['finished']),
@@ -216,6 +235,11 @@ class RunningSessionModel {
     if (value is num) return value.round();
 
     return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  static int? _nullableIntFromJson(dynamic value) {
+    if (value == null) return null;
+    return _intFromJson(value);
   }
 
   static double _doubleFromJson(dynamic value, {double fallback = 0}) {

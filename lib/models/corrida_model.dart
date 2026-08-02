@@ -11,6 +11,8 @@ class CorridaModel {
   final double currentSpeed;
   final double pace;
   final double calories;
+  final int? steps;
+  final RunningSyncStatus syncStatus;
   final List<RunningRoutePointModel> route;
   final bool paused;
   final bool finished;
@@ -26,6 +28,8 @@ class CorridaModel {
     this.currentSpeed = 0,
     double? pace,
     double? calories,
+    this.steps,
+    this.syncStatus = RunningSyncStatus.local,
     this.route = const [],
     this.paused = false,
     this.finished = true,
@@ -50,6 +54,8 @@ class CorridaModel {
       currentSpeed: session.currentSpeed,
       pace: session.pace,
       calories: session.calories,
+      steps: session.steps,
+      syncStatus: RunningSyncStatus.local,
       route: session.route,
       paused: session.paused,
       finished: true,
@@ -71,6 +77,9 @@ class CorridaModel {
       'currentSpeed': currentSpeed,
       'pace': pace,
       'calories': calories,
+      'steps': steps,
+      'passos': steps,
+      'syncStatus': syncStatus.storageValue,
       'route': route.map((point) => point.toJson()).toList(),
       'paused': paused,
       'finished': finished,
@@ -104,6 +113,8 @@ class CorridaModel {
         fallback: _calculatePace(distancia, segundos),
       ),
       calories: _doubleFromJson(json['calories'], fallback: distancia * 60),
+      steps: _nullableIntFromJson(json['steps'] ?? json['passos']),
+      syncStatus: RunningSyncStatusStorage.fromStorage(json['syncStatus']),
       route: _routeFromJson(json['route']),
       paused: _boolFromJson(json['paused']),
       finished: json.containsKey('finished')
@@ -152,6 +163,40 @@ class CorridaModel {
     if (value is num) return value.round();
 
     return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  static int? _nullableIntFromJson(dynamic value) {
+    if (value == null) return null;
+    return _intFromJson(value);
+  }
+
+  CorridaModel copyWith({
+    String? endTime,
+    double? averageSpeed,
+    double? currentSpeed,
+    double? pace,
+    double? calories,
+    int? steps,
+    List<RunningRoutePointModel>? route,
+    RunningSyncStatus? syncStatus,
+  }) {
+    return CorridaModel(
+      id: id,
+      distancia: distancia,
+      segundos: segundos,
+      data: data,
+      startTime: startTime,
+      endTime: endTime ?? this.endTime,
+      averageSpeed: averageSpeed ?? this.averageSpeed,
+      currentSpeed: currentSpeed ?? this.currentSpeed,
+      pace: pace ?? this.pace,
+      calories: calories ?? this.calories,
+      steps: steps ?? this.steps,
+      route: route ?? this.route,
+      paused: paused,
+      finished: finished,
+      syncStatus: syncStatus ?? this.syncStatus,
+    );
   }
 
   static double _doubleFromJson(dynamic value, {double fallback = 0}) {

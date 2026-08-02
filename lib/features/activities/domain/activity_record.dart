@@ -4,7 +4,7 @@
 /// de Planos e nao devem ser adicionados a este contrato.
 enum ActivityType { running, steps, walking, cycling }
 
-enum ActivitySyncStatus { local, syncing, synced, failed, conflict }
+enum ActivitySyncStatus { local, syncing, queued, synced, failed, conflict }
 
 abstract interface class ActivityDetails {
   const ActivityDetails();
@@ -36,12 +36,18 @@ class RunningActivityDetails implements ActivityDetails {
   const RunningActivityDetails({
     required this.distanceKm,
     this.paceMinutesPerKm,
+    this.averageSpeedKmh,
     this.calories,
+    this.steps,
+    this.routePointCount,
   });
 
   final double distanceKm;
   final double? paceMinutesPerKm;
+  final double? averageSpeedKmh;
   final double? calories;
+  final int? steps;
+  final int? routePointCount;
 }
 
 class StepsActivityDetails implements ActivityDetails {

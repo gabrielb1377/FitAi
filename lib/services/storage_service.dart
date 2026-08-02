@@ -479,17 +479,42 @@ class StorageService {
     await prefs.remove('fitaiMemory');
   }
 
-  static Future<void> salvarCorrida(CorridaModel corrida) async {
+  /// Persiste uma corrida finalizada sem duplicar o mesmo [CorridaModel.id].
+  ///
+  /// O retorno informa se a corrida foi inserida pela primeira vez. Isso evita
+  /// totais duplicados quando o app e interrompido entre salvar o historico e
+  /// limpar a sessao ativa.
+  static Future<bool> salvarCorrida(CorridaModel corrida) async {
     final prefs = await SharedPreferences.getInstance();
 
-    List<String> lista = prefs.getStringList('historicoCorridas') ?? [];
+    final lista = prefs.getStringList('historicoCorridas') ?? <String>[];
+    final index = _indiceCorridaPorId(lista, corrida.id);
+    final inserted = index < 0;
 
-    lista.add(jsonEncode(corrida.toJson()));
+    if (inserted) {
+      lista.add(jsonEncode(corrida.toJson()));
+    } else {
+      lista[index] = jsonEncode(corrida.toJson());
+    }
 
     await prefs.setStringList('historicoCorridas', lista);
-    await _salvarRecordesCorrida(corrida);
+    if (inserted) {
+      await _salvarRecordesCorrida(corrida);
+    }
+    return inserted;
+  }
 
-    unawaited(SyncService.instance.syncRunning([corrida.toJson()]));
+  /// Atualiza campos locais, como o status de sincronizacao, sem recalcular
+  /// totais ou recordes.
+  static Future<bool> atualizarCorrida(CorridaModel corrida) async {
+    final prefs = await SharedPreferences.getInstance();
+    final lista = prefs.getStringList('historicoCorridas') ?? <String>[];
+    final index = _indiceCorridaPorId(lista, corrida.id);
+    if (index < 0) return false;
+
+    lista[index] = jsonEncode(corrida.toJson());
+    await prefs.setStringList('historicoCorridas', lista);
+    return true;
   }
 
   static Future<void> salvarRecordes(List<FitaiRecordeModel> recordes) async {
@@ -760,11 +785,16 @@ class StorageService {
   static Future<List<CorridaModel>> carregarCorridas() async {
     final prefs = await SharedPreferences.getInstance();
 
-    List<String> lista = prefs.getStringList('historicoCorridas') ?? [];
+    return _corridasDaLista(
+      prefs.getStringList('historicoCorridas') ?? const [],
+    );
+  }
 
-    return lista.map((item) {
-      return CorridaModel.fromJson(jsonDecode(item));
-    }).toList();
+  static Future<List<CorridaModel>> carregarCorridasPendentes() async {
+    final corridas = await carregarCorridas();
+    return corridas
+        .where((corrida) => corrida.syncStatus != RunningSyncStatus.synced)
+        .toList();
   }
 
   static Future<void> removerCorrida(int index) async {
@@ -791,6 +821,37 @@ class StorageService {
       (tempoAtual - removida.segundos).clamp(0, tempoAtual),
     );
     await prefs.setInt('totalCorridas', (totalAtual - 1).clamp(0, totalAtual));
+  }
+
+  static int _indiceCorridaPorId(List<String> lista, String id) {
+    for (var index = 0; index < lista.length; index++) {
+      try {
+        final decoded = jsonDecode(lista[index]);
+        if (decoded is Map && decoded['id']?.toString() == id) return index;
+      } catch (error) {
+        debugPrint('Erro ao ler corrida salva: $error');
+      }
+    }
+    return -1;
+  }
+
+  static List<CorridaModel> _corridasDaLista(List<String> lista) {
+    final corridas = <CorridaModel>[];
+    for (final item in lista) {
+      try {
+        final decoded = jsonDecode(item);
+        if (decoded is Map<String, dynamic>) {
+          corridas.add(CorridaModel.fromJson(decoded));
+        } else if (decoded is Map) {
+          corridas.add(
+            CorridaModel.fromJson(Map<String, dynamic>.from(decoded)),
+          );
+        }
+      } catch (error) {
+        debugPrint('Erro ao carregar corrida salva: $error');
+      }
+    }
+    return corridas;
   }
 
   static Future<void> salvarHistoricoTreino(

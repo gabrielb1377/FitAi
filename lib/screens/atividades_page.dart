@@ -79,16 +79,7 @@ class _AtividadesPageState extends State<AtividadesPage> {
   Future<void> _openRuns() async {
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => CorridasPage(
-          distancia: widget.distancia,
-          velocidadeMedia: widget.velocidadeMedia,
-          segundos: widget.segundos,
-          corridaIniciada: widget.corridaIniciada,
-          iniciarCorrida: widget.iniciarCorrida,
-          pararCorrida: widget.pararCorrida,
-        ),
-      ),
+      MaterialPageRoute(builder: (_) => const CorridasPage()),
     );
     if (mounted) await _reload();
   }

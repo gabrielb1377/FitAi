@@ -58,13 +58,4 @@ Widget _host(Widget destination) {
   );
 }
 
-CorridasPage _corridasPage() {
-  return CorridasPage(
-    distancia: 0,
-    velocidadeMedia: 0,
-    segundos: 0,
-    corridaIniciada: false,
-    iniciarCorrida: () {},
-    pararCorrida: () {},
-  );
-}
+CorridasPage _corridasPage() => const CorridasPage();

@@ -24,18 +24,9 @@ extension _HomePageNavigation on _HomePageState {
   }
 
   Future<void> _openRunning() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => CorridasPage(
-          distancia: widget.distancia,
-          velocidadeMedia: widget.velocidadeMedia,
-          segundos: widget.segundos,
-          corridaIniciada: widget.corridaIniciada,
-          iniciarCorrida: widget.iniciarCorrida ?? () {},
-          pararCorrida: widget.pararCorrida ?? () {},
-        ),
-      ),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const CorridasPage()));
     await _refresh();
   }
 

@@ -4,6 +4,7 @@ import '../../models/corrida_model.dart';
 import '../../services/storage_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_components.dart';
+import 'corrida_detalhe_page.dart';
 
 class HistoricoCorridasPage extends StatefulWidget {
   const HistoricoCorridasPage({super.key});
@@ -101,6 +102,7 @@ class _HistoricoCorridasPageState extends State<HistoricoCorridasPage> {
                         ),
                         child: _CorridaCard(
                           corrida: item.corrida,
+                          onOpenDetails: () => _openDetails(item.corrida),
                           onExcluir: () => _confirmarExclusao(item),
                         ),
                       );
@@ -110,6 +112,14 @@ class _HistoricoCorridasPageState extends State<HistoricoCorridasPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _openDetails(CorridaModel corrida) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => CorridaDetalhePage(corrida: corrida)),
+    );
+    if (mounted) await _carregarCorridas();
   }
 
   Widget _buildHeader(BuildContext context) {
@@ -178,9 +188,14 @@ class _HistoricoCorridasPageState extends State<HistoricoCorridasPage> {
 
 class _CorridaCard extends StatelessWidget {
   final CorridaModel corrida;
+  final VoidCallback onOpenDetails;
   final VoidCallback onExcluir;
 
-  const _CorridaCard({required this.corrida, required this.onExcluir});
+  const _CorridaCard({
+    required this.corrida,
+    required this.onOpenDetails,
+    required this.onExcluir,
+  });
 
   double get _velocidadeMedia {
     if (corrida.averageSpeed > 0) return corrida.averageSpeed;
@@ -243,84 +258,92 @@ class _CorridaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppGradientCard(
-      gradient: AppColors.gradientCard,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Semantics(
+      button: true,
+      label:
+          'Abrir detalhes da corrida de ${corrida.distancia.toStringAsFixed(2)} quilometros',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onOpenDetails,
+        child: AppGradientCard(
+          gradient: AppColors.gradientCard,
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  gradient: AppColors.gradientRun,
-                  borderRadius: BorderRadius.circular(AppRadii.lg),
-                ),
-                child: const Icon(
-                  Icons.directions_run_rounded,
-                  color: Colors.black,
-                  size: 26,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${corrida.distancia.toStringAsFixed(2)} km',
-                      style: Theme.of(context).textTheme.headlineSmall,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      gradient: AppColors.gradientRun,
+                      borderRadius: BorderRadius.circular(AppRadii.lg),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _dataFormatada,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
+                    child: const Icon(
+                      Icons.directions_run_rounded,
+                      color: Colors.black,
+                      size: 26,
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${corrida.distancia.toStringAsFixed(2)} km',
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _dataFormatada,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: AppColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Excluir corrida',
+                    onPressed: onExcluir,
+                    icon: const Icon(
+                      Icons.delete_outline_rounded,
+                      color: Color(0xFFCF6679),
+                    ),
+                  ),
+                ],
               ),
-              IconButton(
-                tooltip: 'Excluir corrida',
-                onPressed: onExcluir,
-                icon: const Icon(
-                  Icons.delete_outline_rounded,
-                  color: Color(0xFFCF6679),
-                ),
+              const SizedBox(height: 18),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _RunMetric(
+                    icon: Icons.timer_rounded,
+                    label: 'Tempo',
+                    value: _tempo,
+                  ),
+                  _RunMetric(
+                    icon: Icons.speed_rounded,
+                    label: 'Vel. media',
+                    value: '${_velocidadeMedia.toStringAsFixed(1)} km/h',
+                  ),
+                  _RunMetric(
+                    icon: Icons.route_rounded,
+                    label: 'Ritmo',
+                    value: _ritmo,
+                  ),
+                  _RunMetric(
+                    icon: Icons.local_fire_department_rounded,
+                    label: 'Calorias',
+                    value: '${_calorias.toStringAsFixed(0)} kcal',
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 18),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _RunMetric(
-                icon: Icons.timer_rounded,
-                label: 'Tempo',
-                value: _tempo,
-              ),
-              _RunMetric(
-                icon: Icons.speed_rounded,
-                label: 'Vel. media',
-                value: '${_velocidadeMedia.toStringAsFixed(1)} km/h',
-              ),
-              _RunMetric(
-                icon: Icons.route_rounded,
-                label: 'Ritmo',
-                value: _ritmo,
-              ),
-              _RunMetric(
-                icon: Icons.local_fire_department_rounded,
-                label: 'Calorias',
-                value: '${_calorias.toStringAsFixed(0)} kcal',
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
