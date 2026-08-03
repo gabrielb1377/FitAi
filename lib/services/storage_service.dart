@@ -92,6 +92,22 @@ class StorageService {
     };
   }
 
+  /// Le os campos do perfil local sem introduzir valores de demonstracao.
+  ///
+  /// A leitura com valores padrao acima e mantida por compatibilidade com as
+  /// telas legadas. Novos agregados, como o Perfil canonico, precisam distinguir
+  /// um campo ausente de um dado efetivamente informado pelo usuario.
+  static Future<Map<String, String>> carregarPerfilUsuarioLocal() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    return {
+      'nome': prefs.getString('perfilNome')?.trim() ?? '',
+      'peso': prefs.getString('perfilPeso')?.trim() ?? '',
+      'altura': prefs.getString('perfilAltura')?.trim() ?? '',
+      'idade': prefs.getString('perfilIdade')?.trim() ?? '',
+    };
+  }
+
   static Future<void> salvarXp(int xp) async {
     final prefs = await SharedPreferences.getInstance();
     final xpSeguro = XpConfig.normalizarXp(xp);
