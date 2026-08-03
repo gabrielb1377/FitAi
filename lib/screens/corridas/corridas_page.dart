@@ -128,7 +128,12 @@ class _CorridasPageState extends State<CorridasPage> {
         child: ActivityPageEntrance(
           child: ListView(
             key: const PageStorageKey('corridas-scroll'),
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
+            padding: const EdgeInsets.fromLTRB(
+              FitSpacing.s20,
+              FitSpacing.s12,
+              FitSpacing.s20,
+              FitSpacing.s64 + FitSpacing.s32 + FitSpacing.s4,
+            ),
             physics: const BouncingScrollPhysics(),
             children: [
               ListenableBuilder(

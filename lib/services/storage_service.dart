@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/exercises/exercise_identity.dart';
 import '../core/xp/xp_config.dart';
+import '../features/activities/domain/activity_query.dart';
 import '../models/agenda_treino_override_model.dart';
 import '../models/achievement_model.dart';
 import '../models/corrida_model.dart';
@@ -41,6 +42,13 @@ class StorageService {
   static const String _runningSessionKey = 'runningSessionActive';
   static const String _dailyStepsHistoryKey = 'dailyStepsHistory';
   static const String _stepsXpAwardedKey = 'stepsXpAwardedDates';
+  static const String _activitiesIndexSchemaVersionKey =
+      'activitiesIndexSchemaVersion';
+  static const String _runningActivityIndexKey = 'activitiesRunningIndexV1';
+  static const String _dailyStepsActivityIndexKey =
+      'activitiesDailyStepsIndexV1';
+  static const int _activitiesIndexSchemaVersion = 2;
+  static const String _localActivitiesUserId = DailyStepsModel.defaultUserId;
   static const String _exerciseHistorySchemaVersionKey =
       'exerciseHistorySchemaVersion';
   static const String _exerciseProgressionDecisionsKey =
@@ -279,6 +287,8 @@ class StorageService {
       }
     }
 
+    await _refreshActivitiesIndexes(prefs);
+
     return atualizados;
   }
 
@@ -360,6 +370,7 @@ class StorageService {
     final today = _formatarDataChave(DateTime.now());
     final todayRecord = remaining.where((record) => record.date == today);
     await salvarPassos(todayRecord.isEmpty ? 0 : todayRecord.first.steps);
+    await _refreshActivitiesIndexes(prefs);
     return remaining;
   }
 
@@ -376,6 +387,79 @@ class StorageService {
         );
       }).toList(),
     );
+  }
+
+  /// Migra apenas metadados de consulta; historicos existentes nao sao
+  /// apagados, copiados para outro banco ou convertidos de forma destrutiva.
+  static Future<void> migrarAtividadesIndexadas() async {
+    final prefs = await SharedPreferences.getInstance();
+    await _ensureActivitiesIndexes(prefs);
+  }
+
+  /// Leitura por intervalo para semana, mes e calendario. Apenas registros do
+  /// intervalo solicitado sao desserializados apos a consulta ao indice.
+  static Future<List<DailyStepsModel>> carregarDailyStepsNoIntervalo({
+    required DateTime from,
+    required DateTime to,
+    String userId = _localActivitiesUserId,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await _ensureActivitiesIndexes(prefs);
+    final first = _formatarDataChave(from);
+    final last = _formatarDataChave(to);
+    final entries = _dailyStepsIndexEntries(prefs)
+        .where(
+          (entry) =>
+              entry.userId == userId &&
+              entry.date.compareTo(first) >= 0 &&
+              entry.date.compareTo(last) <= 0,
+        )
+        .toList(growable: false);
+    return _dailyStepsForIds(prefs, entries.map((entry) => entry.recordId));
+  }
+
+  /// Pagina passos por data local em ordem decrescente, sem converter todo o
+  /// historico para modelos em memoria.
+  static Future<ActivityStoragePage<DailyStepsModel>>
+  carregarDailyStepsPaginados({
+    ActivityTimelineCursor? cursor,
+    int limit = 31,
+    String userId = _localActivitiesUserId,
+    DailyStepsSyncStatus? syncStatus,
+  }) async {
+    assert(limit > 0);
+    final prefs = await SharedPreferences.getInstance();
+    await _ensureActivitiesIndexes(prefs);
+    final entries = _dailyStepsIndexEntries(prefs)
+        .where((entry) {
+          if (entry.userId != userId) {
+            return false;
+          }
+          if (syncStatus != null && entry.syncStatus != syncStatus) {
+            return false;
+          }
+          final occurredAt =
+              DateTime.tryParse(entry.date) ??
+              DateTime.fromMillisecondsSinceEpoch(0);
+          return cursor == null ||
+              cursor.includesAfter(occurredAt, entry.recordId);
+        })
+        .toList(growable: false);
+    final selected = entries.take(limit + 1).toList(growable: false);
+    final visibleEntries = selected.take(limit).toList(growable: false);
+    final records = await _dailyStepsForIds(
+      prefs,
+      visibleEntries.map((entry) => entry.recordId),
+    );
+    final next = selected.length > visibleEntries.length && records.isNotEmpty
+        ? ActivityTimelineCursor(
+            occurredAt:
+                DateTime.tryParse(visibleEntries.last.date) ??
+                DateTime.fromMillisecondsSinceEpoch(0),
+            id: visibleEntries.last.recordId,
+          )
+        : null;
+    return ActivityStoragePage(items: records, nextCursor: next);
   }
 
   static Future<bool> passosMetaDiariaXpConcedido(String date) async {
@@ -545,6 +629,7 @@ class StorageService {
     }
 
     await prefs.setStringList('historicoCorridas', lista);
+    await _refreshActivitiesIndexes(prefs);
     if (inserted) {
       await _salvarRecordesCorrida(corrida);
     }
@@ -561,6 +646,7 @@ class StorageService {
 
     lista[index] = jsonEncode(corrida.toJson());
     await prefs.setStringList('historicoCorridas', lista);
+    await _refreshActivitiesIndexes(prefs);
     return true;
   }
 
@@ -837,6 +923,59 @@ class StorageService {
     );
   }
 
+  /// Consulta Corridas em ordem decrescente por data/hora usando um indice
+  /// reconstruivel. A lista original continua sendo a fonte unica de dados.
+  static Future<ActivityStoragePage<CorridaModel>> carregarCorridasPaginadas({
+    ActivityTimelineCursor? cursor,
+    int limit = 20,
+    String userId = _localActivitiesUserId,
+    RunningSyncStatus? syncStatus,
+  }) async {
+    assert(limit > 0);
+    final prefs = await SharedPreferences.getInstance();
+    await _ensureActivitiesIndexes(prefs);
+    final entries = _runningIndexEntries(prefs)
+        .where((entry) {
+          if (entry.userId != userId) {
+            return false;
+          }
+          if (syncStatus != null && entry.syncStatus != syncStatus) {
+            return false;
+          }
+          return cursor == null ||
+              cursor.includesAfter(entry.occurredAt, entry.id);
+        })
+        .toList(growable: false);
+    final selected = entries.take(limit + 1).toList(growable: false);
+    final visibleEntries = selected.take(limit).toList(growable: false);
+    final runs = _runsForIds(prefs, visibleEntries.map((entry) => entry.id));
+    final next = selected.length > visibleEntries.length && runs.isNotEmpty
+        ? ActivityTimelineCursor(
+            occurredAt: visibleEntries.last.occurredAt,
+            id: visibleEntries.last.id,
+          )
+        : null;
+    return ActivityStoragePage(items: runs, nextCursor: next);
+  }
+
+  static Future<List<CorridaModel>> carregarCorridasNoIntervalo({
+    required DateTime from,
+    required DateTime to,
+    String userId = _localActivitiesUserId,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await _ensureActivitiesIndexes(prefs);
+    final entries = _runningIndexEntries(prefs)
+        .where(
+          (entry) =>
+              entry.userId == userId &&
+              !entry.occurredAt.isBefore(from) &&
+              !entry.occurredAt.isAfter(to),
+        )
+        .toList(growable: false);
+    return _runsForIds(prefs, entries.map((entry) => entry.id));
+  }
+
   static Future<List<CorridaModel>> carregarCorridasPendentes() async {
     final corridas = await carregarCorridas();
     return corridas
@@ -851,9 +990,27 @@ class StorageService {
     if (index < 0 || index >= lista.length) return;
 
     final removida = CorridaModel.fromJson(jsonDecode(lista[index]));
-    lista.removeAt(index);
+    await _removerCorridaPorId(prefs, removida.id);
+  }
 
+  /// Remove por ID para historicos paginados, sem depender da posicao de uma
+  /// lista carregada em outra pagina.
+  static Future<void> removerCorridaPorId(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    await _removerCorridaPorId(prefs, id);
+  }
+
+  static Future<void> _removerCorridaPorId(
+    SharedPreferences prefs,
+    String id,
+  ) async {
+    final lista = prefs.getStringList('historicoCorridas') ?? [];
+    final index = _indiceCorridaPorId(lista, id);
+    if (index < 0) return;
+    final removida = CorridaModel.fromJson(jsonDecode(lista[index]));
+    lista.removeAt(index);
     await prefs.setStringList('historicoCorridas', lista);
+    await _refreshActivitiesIndexes(prefs);
 
     final distanciaAtual = prefs.getDouble('distanciaTotal') ?? 0;
     final tempoAtual = prefs.getInt('tempoTotal') ?? 0;
@@ -1758,6 +1915,160 @@ class StorageService {
     return '${local.year}-$mes-$dia';
   }
 
+  static Future<void> _ensureActivitiesIndexes(SharedPreferences prefs) async {
+    if (prefs.getInt(_activitiesIndexSchemaVersionKey) ==
+        _activitiesIndexSchemaVersion) {
+      return;
+    }
+    await _rebuildActivitiesIndexes(prefs);
+  }
+
+  static Future<void> _refreshActivitiesIndexes(SharedPreferences prefs) async {
+    try {
+      await _rebuildActivitiesIndexes(prefs);
+    } catch (error) {
+      // O dado principal ja foi salvo. Um proximo read reconstrui o indice.
+      debugPrint('Erro ao atualizar indices de Atividades: $error');
+      await prefs.remove(_activitiesIndexSchemaVersionKey);
+    }
+  }
+
+  static Future<void> _rebuildActivitiesIndexes(SharedPreferences prefs) async {
+    final runs = _corridasDaLista(
+      prefs.getStringList('historicoCorridas') ?? const [],
+    );
+    final steps = await carregarDailyStepsHistory();
+    final runningIndex =
+        runs.map(_RunningActivityIndexEntry.fromRun).toList(growable: false)
+          ..sort(_RunningActivityIndexEntry.descending);
+    final stepsIndex =
+        steps
+            .map(_DailyStepsActivityIndexEntry.fromRecord)
+            .toList(growable: false)
+          ..sort(_DailyStepsActivityIndexEntry.descending);
+    await prefs.setStringList(
+      _runningActivityIndexKey,
+      runningIndex.map((entry) => jsonEncode(entry.toJson())).toList(),
+    );
+    await prefs.setStringList(
+      _dailyStepsActivityIndexKey,
+      stepsIndex.map((entry) => jsonEncode(entry.toJson())).toList(),
+    );
+    await prefs.setInt(
+      _activitiesIndexSchemaVersionKey,
+      _activitiesIndexSchemaVersion,
+    );
+  }
+
+  static List<_RunningActivityIndexEntry> _runningIndexEntries(
+    SharedPreferences prefs,
+  ) {
+    final entries = <_RunningActivityIndexEntry>[];
+    for (final raw
+        in prefs.getStringList(_runningActivityIndexKey) ?? const []) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map) {
+          entries.add(
+            _RunningActivityIndexEntry.fromJson(
+              Map<String, dynamic>.from(decoded),
+            ),
+          );
+        }
+      } catch (error) {
+        debugPrint('Erro ao ler indice de corrida: $error');
+      }
+    }
+    entries.sort(_RunningActivityIndexEntry.descending);
+    return entries;
+  }
+
+  static List<_DailyStepsActivityIndexEntry> _dailyStepsIndexEntries(
+    SharedPreferences prefs,
+  ) {
+    final entries = <_DailyStepsActivityIndexEntry>[];
+    for (final raw
+        in prefs.getStringList(_dailyStepsActivityIndexKey) ?? const []) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map) {
+          entries.add(
+            _DailyStepsActivityIndexEntry.fromJson(
+              Map<String, dynamic>.from(decoded),
+            ),
+          );
+        }
+      } catch (error) {
+        debugPrint('Erro ao ler indice de passos: $error');
+      }
+    }
+    entries.sort(_DailyStepsActivityIndexEntry.descending);
+    return entries;
+  }
+
+  static List<CorridaModel> _runsForIds(
+    SharedPreferences prefs,
+    Iterable<String> ids,
+  ) {
+    final wanted = ids.toList(growable: false);
+    final byId = <String, CorridaModel>{
+      for (final run in _corridasDaLista(
+        prefs.getStringList('historicoCorridas') ?? const [],
+      ))
+        run.id: run,
+    };
+    return wanted
+        .map((id) => byId[id])
+        .whereType<CorridaModel>()
+        .toList(growable: false);
+  }
+
+  static Future<List<DailyStepsModel>> _dailyStepsForIds(
+    SharedPreferences prefs,
+    Iterable<String> ids,
+  ) async {
+    final wanted = ids.toList(growable: false);
+    if (wanted.isEmpty) {
+      return const [];
+    }
+    final wantedIds = wanted.toSet();
+    final stored = prefs.getStringList(_dailyStepsHistoryKey) ?? const [];
+    if (stored.isNotEmpty) {
+      final records = <String, DailyStepsModel>{};
+      for (final raw in stored) {
+        try {
+          final decoded = jsonDecode(raw);
+          if (decoded is! Map) {
+            continue;
+          }
+          final record = DailyStepsModel.fromJson(
+            Map<String, dynamic>.from(decoded),
+          );
+          if (wantedIds.contains(record.recordId)) {
+            records[record.recordId] = record;
+          }
+        } catch (error) {
+          debugPrint('Erro ao ler passos indexados: $error');
+        }
+      }
+      return wanted
+          .map((id) => records[id])
+          .whereType<DailyStepsModel>()
+          .toList(growable: false);
+    }
+
+    // Dados exclusivamente legados ainda passam pela leitura compatível. A
+    // migração de índice não converte nem descarta registros existentes.
+    final byId = <String, DailyStepsModel>{
+      for (final record in await carregarDailyStepsHistory())
+        record.recordId: record,
+    };
+    return wanted
+        .map((id) => byId[id])
+        .whereType<DailyStepsModel>()
+        .toList(growable: false);
+  }
+
   static Map<String, dynamic> _metaPassosToJson(
     String id,
     String titulo,
@@ -1788,5 +2099,125 @@ class StorageService {
     if (value is num) return value.toDouble();
 
     return double.tryParse(value?.toString().replaceAll(',', '.') ?? '') ?? 0;
+  }
+}
+
+/// Metadado reconstruivel para consulta de Corridas. O usuario local e usado
+/// enquanto a conta autenticada ainda nao fornece um identificador ao storage.
+class _RunningActivityIndexEntry {
+  const _RunningActivityIndexEntry({
+    required this.id,
+    required this.userId,
+    required this.startedAt,
+    required this.occurredAt,
+    required this.finished,
+    required this.syncStatus,
+  });
+
+  final String id;
+  final String userId;
+  final DateTime startedAt;
+  final DateTime occurredAt;
+  final bool finished;
+  final RunningSyncStatus syncStatus;
+
+  factory _RunningActivityIndexEntry.fromRun(CorridaModel run) {
+    return _RunningActivityIndexEntry(
+      id: run.id,
+      userId: DailyStepsModel.defaultUserId,
+      startedAt:
+          DateTime.tryParse(run.startTime)?.toLocal() ??
+          DateTime.tryParse(run.data)?.toLocal() ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      occurredAt:
+          DateTime.tryParse(run.endTime ?? run.data)?.toLocal() ??
+          DateTime.tryParse(run.data)?.toLocal() ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      finished: run.finished,
+      syncStatus: run.syncStatus,
+    );
+  }
+
+  factory _RunningActivityIndexEntry.fromJson(Map<String, dynamic> json) {
+    return _RunningActivityIndexEntry(
+      id: json['id']?.toString() ?? '',
+      userId: json['userId']?.toString() ?? DailyStepsModel.defaultUserId,
+      startedAt:
+          DateTime.tryParse(json['startedAt']?.toString() ?? '')?.toLocal() ??
+          DateTime.tryParse(json['occurredAt']?.toString() ?? '')?.toLocal() ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      occurredAt:
+          DateTime.tryParse(json['occurredAt']?.toString() ?? '')?.toLocal() ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      finished: json['finished'] == true,
+      syncStatus: RunningSyncStatusStorage.fromStorage(json['syncStatus']),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'userId': userId,
+    'startedAt': startedAt.toIso8601String(),
+    'occurredAt': occurredAt.toIso8601String(),
+    'finished': finished,
+    'syncStatus': syncStatus.storageValue,
+  };
+
+  static int descending(
+    _RunningActivityIndexEntry first,
+    _RunningActivityIndexEntry second,
+  ) {
+    final date = second.occurredAt.compareTo(first.occurredAt);
+    return date != 0 ? date : second.id.compareTo(first.id);
+  }
+}
+
+/// Metadado reconstruivel para consulta por usuario/data de Passos.
+class _DailyStepsActivityIndexEntry {
+  const _DailyStepsActivityIndexEntry({
+    required this.recordId,
+    required this.userId,
+    required this.date,
+    required this.syncStatus,
+  });
+
+  final String recordId;
+  final String userId;
+  final String date;
+  final DailyStepsSyncStatus syncStatus;
+
+  factory _DailyStepsActivityIndexEntry.fromRecord(DailyStepsModel record) {
+    return _DailyStepsActivityIndexEntry(
+      recordId: record.recordId,
+      userId: record.userId,
+      date: record.date,
+      syncStatus: record.syncStatus,
+    );
+  }
+
+  factory _DailyStepsActivityIndexEntry.fromJson(Map<String, dynamic> json) {
+    return _DailyStepsActivityIndexEntry(
+      recordId: json['recordId']?.toString() ?? '',
+      userId: json['userId']?.toString() ?? DailyStepsModel.defaultUserId,
+      date: DailyStepsModel.normalizeDateKey(json['date']?.toString() ?? ''),
+      syncStatus: DailyStepsSyncStatusStorage.fromStorage(json['syncStatus']),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'recordId': recordId,
+    'userId': userId,
+    'date': date,
+    'syncStatus': syncStatus.storageValue,
+  };
+
+  static int descending(
+    _DailyStepsActivityIndexEntry first,
+    _DailyStepsActivityIndexEntry second,
+  ) {
+    final dateOrder = second.date.compareTo(first.date);
+    return dateOrder != 0
+        ? dateOrder
+        : second.recordId.compareTo(first.recordId);
   }
 }

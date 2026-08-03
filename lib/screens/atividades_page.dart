@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../design_system/fit_design_system.dart';
+import '../features/activities/presentation/pages/activities_calendar_page.dart';
+import '../features/activities/presentation/pages/activities_timeline_page.dart';
 import '../models/corrida_model.dart';
 import '../services/running_session_service.dart';
 import '../services/steps_service.dart';
@@ -92,6 +94,22 @@ class _AtividadesPageState extends State<AtividadesPage> {
     if (mounted) await _reload();
   }
 
+  Future<void> _openTimeline() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ActivitiesTimelinePage()),
+    );
+    if (mounted) await _reload();
+  }
+
+  Future<void> _openCalendar() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ActivitiesCalendarPage()),
+    );
+    if (mounted) await _reload();
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -145,6 +163,8 @@ class _AtividadesPageState extends State<AtividadesPage> {
       stepsProgress: _stepsProgress,
       onOpenRuns: _openRuns,
       onOpenSteps: _openSteps,
+      onOpenTimeline: _openTimeline,
+      onOpenCalendar: _openCalendar,
       onRefresh: _reload,
       recentItems: [
         RecentActivityItem(

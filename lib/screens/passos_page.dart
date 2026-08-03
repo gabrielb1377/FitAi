@@ -141,7 +141,12 @@ class _PassosPageState extends State<PassosPage> {
             onRefresh: _refresh,
             child: ListView(
               key: const PageStorageKey('passos-scroll'),
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
+              padding: const EdgeInsets.fromLTRB(
+                FitSpacing.s20,
+                FitSpacing.s12,
+                FitSpacing.s20,
+                FitSpacing.s64 + FitSpacing.s32 + FitSpacing.s4,
+              ),
               physics: const AlwaysScrollableScrollPhysics(
                 parent: BouncingScrollPhysics(),
               ),

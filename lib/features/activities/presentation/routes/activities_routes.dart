@@ -7,12 +7,16 @@ import '../../../../core/navigation/section_router.dart';
 import '../../../../screens/corridas/corrida_detalhe_page.dart';
 import '../../../../screens/corridas/corridas_page.dart';
 import '../../../../screens/passos_page.dart';
+import '../pages/activities_calendar_page.dart';
+import '../pages/activities_timeline_page.dart';
 import '../../../core_journey/presentation/core_journey_route_pages.dart';
 import '../../../core_journey/presentation/core_journey_scope.dart';
 
 /// Rotas de movimento. Treinos de musculacao pertencem ao modulo Planos.
 abstract final class ActivitiesRoutes {
   static const root = AppRoutes.activities;
+  static const timeline = AppRoutes.activitiesTimeline;
+  static const calendar = AppRoutes.activitiesCalendar;
   static const runs = AppRoutes.activitiesRuns;
   static const runDetail = AppRoutes.activityRunDetail;
   static const steps = AppRoutes.activitiesSteps;
@@ -24,6 +28,8 @@ abstract final class ActivitiesRoutes {
 
   static const declared = <String>{
     root,
+    timeline,
+    calendar,
     runs,
     runDetail,
     steps,
@@ -37,6 +43,8 @@ abstract final class ActivitiesRoutes {
       section: AppShellSection.activities,
       rootBuilder: rootBuilder,
       routes: {
+        timeline: (_, _) => const ActivitiesTimelinePage(),
+        calendar: (_, _) => const ActivitiesCalendarPage(),
         runs: (_, _) => const CorridasPage(),
         runDetail: (_, settings) =>
             CorridaDetalhePorIdPage(runId: _runId(settings.arguments)),

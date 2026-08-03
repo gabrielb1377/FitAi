@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../design_system/fit_design_system.dart';
+import '../../features/activities/domain/activity_query.dart';
 import '../../models/corrida_model.dart';
 import '../../services/storage_service.dart';
 import '../widgets/activities/activities_navigation_header.dart';
@@ -15,14 +16,35 @@ class HistoricoCorridasPage extends StatefulWidget {
 }
 
 class _HistoricoCorridasPageState extends State<HistoricoCorridasPage> {
-  List<_CorridaHistoricoItem> _corridas = const [];
+  final _scrollController = ScrollController();
+  List<CorridaModel> _corridas = const [];
+  ActivityTimelineCursor? _cursor;
   var _loading = true;
+  var _loadingMore = false;
   Object? _error;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     _loadRuns();
+  }
+
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients || _loadingMore || _cursor == null) {
+      return;
+    }
+    if (_scrollController.position.extentAfter < FitLayout.domainChartHeight) {
+      _loadMore();
+    }
   }
 
   Future<void> _loadRuns() async {
@@ -31,13 +53,12 @@ class _HistoricoCorridasPageState extends State<HistoricoCorridasPage> {
       _error = null;
     });
     try {
-      final corridas = await StorageService.carregarCorridas();
-      final items = [
-        for (var index = 0; index < corridas.length; index++)
-          _CorridaHistoricoItem(indexOriginal: index, corrida: corridas[index]),
-      ].reversed.toList(growable: false);
+      final page = await StorageService.carregarCorridasPaginadas();
       if (!mounted) return;
-      setState(() => _corridas = items);
+      setState(() {
+        _corridas = page.items;
+        _cursor = page.nextCursor;
+      });
     } catch (error) {
       if (mounted) setState(() => _error = error);
     } finally {
@@ -45,7 +66,31 @@ class _HistoricoCorridasPageState extends State<HistoricoCorridasPage> {
     }
   }
 
-  Future<void> _confirmDelete(_CorridaHistoricoItem item) async {
+  Future<void> _loadMore() async {
+    final cursor = _cursor;
+    if (cursor == null || _loadingMore) return;
+    setState(() => _loadingMore = true);
+    try {
+      final page = await StorageService.carregarCorridasPaginadas(
+        cursor: cursor,
+      );
+      if (!mounted) return;
+      final ids = _corridas.map((run) => run.id).toSet();
+      setState(() {
+        _corridas = [
+          ..._corridas,
+          ...page.items.where((run) => ids.add(run.id)),
+        ];
+        _cursor = page.nextCursor;
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
+    }
+  }
+
+  Future<void> _confirmDelete(CorridaModel corrida) async {
     final confirmed = await FitConfirmDialog.show(
       context: context,
       title: 'Excluir corrida?',
@@ -55,7 +100,7 @@ class _HistoricoCorridasPageState extends State<HistoricoCorridasPage> {
     );
     if (confirmed != true) return;
 
-    await StorageService.removerCorrida(item.indexOriginal);
+    await StorageService.removerCorridaPorId(corrida.id);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Corrida excluída do histórico.')),
@@ -78,6 +123,7 @@ class _HistoricoCorridasPageState extends State<HistoricoCorridasPage> {
         bottom: false,
         child: ActivityPageEntrance(
           child: CustomScrollView(
+            controller: _scrollController,
             key: const PageStorageKey('historico-corridas-scroll'),
             slivers: [
               const SliverToBoxAdapter(
@@ -126,17 +172,30 @@ class _HistoricoCorridasPageState extends State<HistoricoCorridasPage> {
                   sliver: SliverList.separated(
                     itemCount: _corridas.length,
                     itemBuilder: (context, index) {
-                      final item = _corridas[index];
+                      final corrida = _corridas[index];
                       return _CorridaCard(
-                        corrida: item.corrida,
-                        onOpenDetails: () => _openDetails(item.corrida),
-                        onDelete: () => _confirmDelete(item),
+                        corrida: corrida,
+                        onOpenDetails: () => _openDetails(corrida),
+                        onDelete: () => _confirmDelete(corrida),
                       );
                     },
                     separatorBuilder: (_, _) =>
                         const SizedBox(height: FitSpacing.s12),
                   ),
                 ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: FitSpacing.s20,
+                  ),
+                  child: _HistoryFooter(
+                    hasMore: _cursor != null,
+                    loading: _loadingMore,
+                    hasError: _error != null,
+                    onRetry: _loadMore,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -238,12 +297,30 @@ class _RunMetric extends StatelessWidget {
   }
 }
 
-class _CorridaHistoricoItem {
-  const _CorridaHistoricoItem({
-    required this.indexOriginal,
-    required this.corrida,
+class _HistoryFooter extends StatelessWidget {
+  const _HistoryFooter({
+    required this.hasMore,
+    required this.loading,
+    required this.hasError,
+    required this.onRetry,
   });
 
-  final int indexOriginal;
-  final CorridaModel corrida;
+  final bool hasMore;
+  final bool loading;
+  final bool hasError;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) {
+      return const Padding(
+        padding: EdgeInsets.all(FitSpacing.s16),
+        child: Center(child: FitCircularLoading()),
+      );
+    }
+    if (hasError) {
+      return FitOutlinedButton(label: 'Tentar novamente', onPressed: onRetry);
+    }
+    return hasMore ? const SizedBox(height: FitSpacing.s16) : const SizedBox();
+  }
 }

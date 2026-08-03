@@ -77,6 +77,11 @@ Map<String, Widget Function()> homeOfficialScreens() {
       plans: state.workouts,
       onOpenWorkout: (_) {},
       onOpenCalendar: () {},
+      now: () => homeFixtureDate,
+      mediaBuilder: (_) => const ColoredBox(
+        color: FitColors.cardInner,
+        child: Icon(FitIcons.workout, color: FitColors.primary),
+      ),
     ),
     'HOME-006': () => HomeAchievementsPage(
       initialAchievements: state.achievements,
@@ -124,6 +129,7 @@ Map<String, Widget Function()> homeOfficialScreens() {
       steps: DevFixtures.steps,
       distance: DevFixtures.running.distanceKm,
       onOpenOverview: () {},
+      now: () => homeFixtureDate,
     ),
     'HOME-017': () => const HomeCustomizePage(),
   };

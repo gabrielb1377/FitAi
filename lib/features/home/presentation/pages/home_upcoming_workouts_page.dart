@@ -11,15 +11,19 @@ class HomeUpcomingWorkoutsPage extends StatelessWidget {
     required this.plans,
     required this.onOpenWorkout,
     required this.onOpenCalendar,
-  });
+    DateTime Function()? now,
+    this.mediaBuilder,
+  }) : _now = now ?? DateTime.now;
 
   final List<TreinoModel> plans;
   final ValueChanged<TreinoModel> onOpenWorkout;
   final VoidCallback onOpenCalendar;
+  final DateTime Function() _now;
+  final Widget Function(String media)? mediaBuilder;
 
   @override
   Widget build(BuildContext context) {
-    final items = _scheduledItems();
+    final items = _scheduledItems(_now());
     return HomeDetailScaffold(
       title: 'Próximos treinos',
       subtitle: '',
@@ -46,6 +50,7 @@ class HomeUpcomingWorkoutsPage extends StatelessWidget {
               _UpcomingWorkoutCard(
                 item: item,
                 onTap: () => onOpenWorkout(item.workout),
+                mediaBuilder: mediaBuilder,
               ),
               const SizedBox(height: FitSpacing.s8),
             ],
@@ -57,6 +62,7 @@ class HomeUpcomingWorkoutsPage extends StatelessWidget {
                 _UpcomingWorkoutCard(
                   item: item,
                   onTap: () => onOpenWorkout(item.workout),
+                  mediaBuilder: mediaBuilder,
                 ),
                 const SizedBox(height: FitSpacing.s8),
               ],
@@ -74,7 +80,7 @@ class HomeUpcomingWorkoutsPage extends StatelessWidget {
     );
   }
 
-  List<_ScheduledWorkout> _scheduledItems() {
+  List<_ScheduledWorkout> _scheduledItems(DateTime referenceDate) {
     final items = <_ScheduledWorkout>[];
     var dayOffset = 0;
     for (final plan in plans) {
@@ -97,7 +103,7 @@ class HomeUpcomingWorkoutsPage extends StatelessWidget {
                 : [...plan.planoDias]
             ..sort((a, b) => a.ordem.compareTo(b.ordem));
       for (final day in days) {
-        final date = DateTime.now().add(Duration(days: dayOffset++));
+        final date = referenceDate.add(Duration(days: dayOffset++));
         items.add(_ScheduledWorkout(date: date, workout: plan.somenteDia(day)));
       }
     }
@@ -113,10 +119,15 @@ class _ScheduledWorkout {
 }
 
 class _UpcomingWorkoutCard extends StatelessWidget {
-  const _UpcomingWorkoutCard({required this.item, required this.onTap});
+  const _UpcomingWorkoutCard({
+    required this.item,
+    required this.onTap,
+    this.mediaBuilder,
+  });
 
   final _ScheduledWorkout item;
   final VoidCallback onTap;
+  final Widget Function(String media)? mediaBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -135,18 +146,14 @@ class _UpcomingWorkoutCard extends StatelessWidget {
             child: ClipRRect(
               borderRadius: FitRadius.mediumBorder,
               child: media.isEmpty
-                  ? const ColoredBox(
-                      color: FitColors.cardInner,
-                      child: Icon(FitIcons.workout, color: FitColors.primary),
-                    )
-                  : Image.asset(
-                      media,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const ColoredBox(
-                        color: FitColors.cardInner,
-                        child: Icon(FitIcons.workout, color: FitColors.primary),
-                      ),
-                    ),
+                  ? const _WorkoutMediaFallback()
+                  : mediaBuilder?.call(media) ??
+                        Image.asset(
+                          media,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) =>
+                              const _WorkoutMediaFallback(),
+                        ),
             ),
           ),
           const SizedBox(width: FitSpacing.s12),
@@ -197,4 +204,14 @@ class _UpcomingWorkoutCard extends StatelessWidget {
     ];
     return labels[value.weekday - 1];
   }
+}
+
+class _WorkoutMediaFallback extends StatelessWidget {
+  const _WorkoutMediaFallback();
+
+  @override
+  Widget build(BuildContext context) => const ColoredBox(
+    color: FitColors.cardInner,
+    child: Icon(FitIcons.workout, color: FitColors.primary),
+  );
 }

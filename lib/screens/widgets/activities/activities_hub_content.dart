@@ -17,6 +17,8 @@ class ActivitiesHubContent extends StatelessWidget {
   final double stepsProgress;
   final VoidCallback onOpenRuns;
   final VoidCallback onOpenSteps;
+  final VoidCallback onOpenTimeline;
+  final VoidCallback onOpenCalendar;
   final RefreshCallback onRefresh;
   final List<RecentActivityItem> recentItems;
 
@@ -33,6 +35,8 @@ class ActivitiesHubContent extends StatelessWidget {
     required this.stepsProgress,
     required this.onOpenRuns,
     required this.onOpenSteps,
+    required this.onOpenTimeline,
+    required this.onOpenCalendar,
     required this.onRefresh,
     required this.recentItems,
   });
@@ -49,7 +53,12 @@ class ActivitiesHubContent extends StatelessWidget {
             physics: const AlwaysScrollableScrollPhysics(
               parent: BouncingScrollPhysics(),
             ),
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
+            padding: const EdgeInsets.fromLTRB(
+              FitSpacing.s20,
+              FitSpacing.s12,
+              FitSpacing.s20,
+              FitSpacing.s64 + FitSpacing.s32 + FitSpacing.s4,
+            ),
             children: [
               const FitHeader(
                 title: 'Atividades',
@@ -77,11 +86,57 @@ class ActivitiesHubContent extends StatelessWidget {
                 onOpenRuns: onOpenRuns,
                 onOpenSteps: onOpenSteps,
               ),
+              const SizedBox(height: FitSpacing.s24),
+              _ActivitiesBrowseActions(
+                onOpenTimeline: onOpenTimeline,
+                onOpenCalendar: onOpenCalendar,
+              ),
               const SizedBox(height: FitSpacing.s32),
               RecentActivity(items: recentItems),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ActivitiesBrowseActions extends StatelessWidget {
+  const _ActivitiesBrowseActions({
+    required this.onOpenTimeline,
+    required this.onOpenCalendar,
+  });
+
+  final VoidCallback onOpenTimeline;
+  final VoidCallback onOpenCalendar;
+
+  @override
+  Widget build(BuildContext context) {
+    return FitSection(
+      title: 'Acompanhar',
+      padding: EdgeInsets.zero,
+      child: Column(
+        children: [
+          FitCard(
+            variant: FitCardVariant.clickable,
+            onTap: onOpenTimeline,
+            leading: const Icon(FitIcons.activities),
+            title: 'Linha do tempo',
+            subtitle: 'Corridas e resumos diarios de passos.',
+            trailing: const Icon(FitIcons.forward),
+            child: const SizedBox(),
+          ),
+          const SizedBox(height: FitSpacing.s12),
+          FitCard(
+            variant: FitCardVariant.clickable,
+            onTap: onOpenCalendar,
+            leading: const Icon(FitIcons.calendar),
+            title: 'Calendario',
+            subtitle: 'Veja corridas e metas de passos por dia.',
+            trailing: const Icon(FitIcons.forward),
+            child: const SizedBox(),
+          ),
+        ],
       ),
     );
   }

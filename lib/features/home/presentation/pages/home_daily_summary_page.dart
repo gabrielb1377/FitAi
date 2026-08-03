@@ -12,16 +12,18 @@ class HomeDailySummaryPage extends StatelessWidget {
     required this.steps,
     required this.distance,
     required this.onOpenOverview,
-  });
+    DateTime Function()? now,
+  }) : _now = now ?? DateTime.now;
 
   final HomeState state;
   final int steps;
   final double distance;
   final VoidCallback onOpenOverview;
+  final DateTime Function() _now;
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
+    final now = _now();
     final workoutToday = state.history.any((item) {
       final date = item.dataHora.toLocal();
       return date.year == now.year &&

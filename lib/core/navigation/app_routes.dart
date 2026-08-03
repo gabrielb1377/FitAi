@@ -16,6 +16,8 @@ abstract final class AppRoutes {
   static const home = '/home';
   static const plans = '/plans';
   static const activities = '/activities';
+  static const activitiesTimeline = '/activities/timeline';
+  static const activitiesCalendar = '/activities/calendar';
   static const activitiesRuns = '/activities/runs';
   static const activityRunDetail = '/activities/runs/detail';
   static const activitiesSteps = '/activities/steps';

@@ -22,7 +22,12 @@ class ActivitiesNavigationHeader extends StatelessWidget {
       showBackButton: true,
       onBack: () => Navigator.maybePop(context),
       actions: trailing == null ? const [] : [trailing!],
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+      padding: const EdgeInsets.fromLTRB(
+        FitSpacing.s20,
+        FitSpacing.s12,
+        FitSpacing.s20,
+        FitSpacing.s12,
+      ),
     );
   }
 }
