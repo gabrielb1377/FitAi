@@ -1,9 +1,22 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
-import '../../../../screens/perfil/perfil_page.dart';
+import 'package:fitai/design_system/design_system.dart';
 
-/// Adapter incremental para a raiz atual do Perfil.
-class ProfileRootPage extends StatelessWidget {
+import '../../../core_journey/presentation/core_journey_scope.dart';
+import '../../data/profile_repository.dart';
+import '../../domain/profile_models.dart';
+import '../controllers/profile_controller.dart';
+import '../routes/profile_routes.dart';
+import '../widgets/profile_dashboard.dart';
+import '../widgets/profile_loading_view.dart';
+
+/// Raiz oficial do Perfil baseada exclusivamente no [ProfileSnapshot].
+///
+/// Os parametros legados permanecem temporariamente para manter a composicao
+/// atual do App Router. A interface nao os utiliza como fonte de dados.
+class ProfileRootPage extends StatefulWidget {
   const ProfileRootPage({
     super.key,
     required this.name,
@@ -14,6 +27,7 @@ class ProfileRootPage extends StatelessWidget {
     required this.firstRunAchievement,
     required this.tenKilometersAchievement,
     this.onProfileUpdated,
+    this.controller,
   });
 
   final String name;
@@ -24,18 +38,199 @@ class ProfileRootPage extends StatelessWidget {
   final bool firstRunAchievement;
   final bool tenKilometersAchievement;
   final Future<void> Function()? onProfileUpdated;
+  final ProfileController? controller;
+
+  @override
+  State<ProfileRootPage> createState() => _ProfileRootPageState();
+}
+
+class _ProfileRootPageState extends State<ProfileRootPage> {
+  late final ProfileController _controller;
+  late final bool _ownsController;
+  var _isControllerReady = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_isControllerReady) return;
+    _ownsController = widget.controller == null;
+    final historyLoader = CoreJourneyScope.maybeOf(
+      context,
+    )?.notifier?.loadPlanWorkoutHistory;
+    _controller =
+        widget.controller ??
+        ProfileController(
+          repository: ProfileRepository.local(planHistoryLoader: historyLoader),
+        );
+    _isControllerReady = true;
+    unawaited(_controller.load());
+  }
+
+  @override
+  void dispose() {
+    if (_isControllerReady && _ownsController) _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return PerfilPage(
-      nome: name,
-      peso: weight,
-      altura: height,
-      idade: age,
-      nivel: level,
-      conquistaPrimeiraCorrida: firstRunAchievement,
-      conquista10Km: tenKilometersAchievement,
-      onPerfilAtualizado: onProfileUpdated,
+    if (!_isControllerReady) return const ProfileLoadingView();
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      body: SafeArea(
+        child: ListenableBuilder(
+          listenable: _controller,
+          builder: (context, _) {
+            final state = _controller.state;
+            final child = switch (state.status) {
+              ProfileLoadStatus.initial || ProfileLoadStatus.loading
+                  when !state.hasSnapshot =>
+                const ProfileLoadingView(),
+              ProfileLoadStatus.error when !state.hasSnapshot => _ErrorView(
+                onRetry: _controller.load,
+              ),
+              _ => _buildContent(state.snapshot!),
+            };
+            return AnimatedSwitcher(
+              duration: FitDuration.fade,
+              switchInCurve: FitDuration.enterCurve,
+              switchOutCurve: FitDuration.exitCurve,
+              transitionBuilder: (child, animation) =>
+                  FadeTransition(opacity: animation, child: child),
+              child: child,
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(ProfileSnapshot snapshot) {
+    if (_isEmpty(snapshot)) {
+      return _EmptyView(onConfigure: _openEdit);
+    }
+    return ProfileDashboard(
+      snapshot: snapshot,
+      onRefresh: _controller.refresh,
+      onEdit: _openEdit,
+      onSettings: () => _openRoute(ProfileRoutes.settings),
+      onPrivacy: () => _openRoute(ProfileRoutes.privacy),
+      onExport: _showExportPlaceholder,
+      onHelp: _showHelp,
+      onOpenFavorites: _showFavoritesInfo,
+      onOpenAchievements: _showAchievementsInfo,
+    );
+  }
+
+  bool _isEmpty(ProfileSnapshot snapshot) {
+    final stats = snapshot.stats;
+    return snapshot.profile.name == null &&
+        stats.activeDays == 0 &&
+        stats.totalRuns == 0 &&
+        stats.totalSteps == 0 &&
+        stats.completedWorkouts == 0 &&
+        stats.favoriteExercises == 0 &&
+        snapshot.goals.all.isEmpty;
+  }
+
+  void _openEdit() => _openRoute(ProfileRoutes.edit);
+
+  void _openRoute(String route) => Navigator.of(context).pushNamed(route);
+
+  void _showFavoritesInfo() {
+    const FitSnackBar(
+      message: 'Consulte e gerencie favoritos na aba Biblioteca.',
+      tone: FitSnackBarTone.info,
+    ).show(context);
+  }
+
+  void _showAchievementsInfo() {
+    const FitSnackBar(
+      message: 'O painel completo de conquistas sera entregue no VS9.3.',
+      tone: FitSnackBarTone.info,
+    ).show(context);
+  }
+
+  Future<void> _showExportPlaceholder() async {
+    await FitBottomSheet.show<void>(
+      context: context,
+      title: 'Exportar dados',
+      subtitle: 'Funcionalidade preparada para uma proxima etapa.',
+      child: FitActionSheet(
+        items: [
+          FitActionSheetItem(
+            label: 'Exportacao ainda indisponivel',
+            description:
+                'Nenhum dado sera copiado ou enviado ate existir uma integracao segura.',
+            icon: FitIcons.share,
+            onTap: () => Navigator.of(context).pop(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showHelp() async {
+    await FitBottomSheet.show<void>(
+      context: context,
+      title: 'Ajuda',
+      child: FitActionSheet(
+        items: [
+          FitActionSheetItem(
+            label: 'Central de ajuda em preparacao',
+            description:
+                'Os canais de suporte serao disponibilizados em breve.',
+            icon: FitIcons.info,
+            onTap: () => Navigator.of(context).pop(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ErrorView extends StatelessWidget {
+  const _ErrorView({required this.onRetry});
+
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const FitHeader(title: 'Perfil'),
+        Expanded(
+          child: FitErrorState(
+            error: 'Nao foi possivel carregar os dados locais do Perfil.',
+            onRetry: onRetry,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _EmptyView extends StatelessWidget {
+  const _EmptyView({required this.onConfigure});
+
+  final VoidCallback onConfigure;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const FitHeader(title: 'Perfil'),
+        Expanded(
+          child: FitEmptyState(
+            icon: FitIcons.profile,
+            title: 'Seu Perfil esta pronto para comecar',
+            description:
+                'Adicione seus dados e objetivos quando quiser acompanhar sua evolucao.',
+            actionLabel: 'Editar perfil',
+            onAction: onConfigure,
+          ),
+        ),
+      ],
     );
   }
 }

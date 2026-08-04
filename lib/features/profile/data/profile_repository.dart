@@ -32,6 +32,15 @@ typedef ProfileLegacyHistoryLoader =
 /// fornecer o leitor de historico de Planos ja vinculado ao escopo do usuario,
 /// evitando que o Perfil conheca ou replique o journal do treino.
 class ProfileRepository {
+  /// Composicao da raiz do Perfil. Quando o shell fornece o reader canonico de
+  /// Planos, ele e usado; fora desse contexto, o fallback preserva a leitura
+  /// legada de compatibilidade ja documentada.
+  factory ProfileRepository.local({
+    ProfilePlanHistoryLoader? planHistoryLoader,
+  }) => ProfileRepository(
+    planHistoryLoader: planHistoryLoader ?? _emptyPlanHistory,
+  );
+
   ProfileRepository({
     required this._planHistoryLoader,
     ProfileValuesLoader? profileValuesLoader,
@@ -136,10 +145,15 @@ class ProfileRepository {
     var workoutDates = <DateTime>[];
     var completedWorkouts = planHistory.value.workouts.length;
     var usingLegacyWorkoutHistory = false;
+    DateTime? lastWorkoutAt;
+    String? lastWorkoutName;
     if (completedWorkouts > 0) {
       workoutDates = planHistory.value.workouts
           .map((workout) => workout.finishedAt)
           .toList(growable: false);
+      final latestWorkout = _latestWorkout(planHistory.value.workouts);
+      lastWorkoutAt = latestWorkout?.finishedAt;
+      lastWorkoutName = latestWorkout?.workoutName ?? latestWorkout?.planName;
     } else {
       final legacyHistory = await _read(
         ProfileDataSource.plans,
@@ -153,6 +167,9 @@ class ProfileRepository {
         workoutDates = legacyHistory.value
             .map((workout) => workout.dataHora)
             .toList(growable: false);
+        final latestWorkout = _latestLegacyWorkout(legacyHistory.value);
+        lastWorkoutAt = latestWorkout?.dataHora;
+        lastWorkoutName = latestWorkout?.nomeTreino;
       }
     }
 
@@ -171,6 +188,8 @@ class ProfileRepository {
         level < 1 ? 1 : level,
       ),
     );
+    final latestRun = _latestRun(runs);
+    final latestSteps = _latestSteps(steps);
 
     return ProfileSnapshot(
       profile: UserProfile.fromLocalValues(profile),
@@ -185,6 +204,14 @@ class ProfileRepository {
         completedWorkouts: completedWorkouts,
         completedPlans: null,
         favoriteExercises: favorites.length,
+        favoriteExerciseIds: favorites,
+        lastWorkoutAt: lastWorkoutAt,
+        lastWorkoutName: lastWorkoutName,
+        lastRunAt: latestRun == null ? null : _runDate(latestRun),
+        lastRunDistanceKm: latestRun?.distancia,
+        lastStepsAt: latestSteps == null ? null : _stepsDate(latestSteps),
+        latestSteps: latestSteps?.steps,
+        dailyStepsGoal: latestSteps?.goal,
         usingLegacyWorkoutHistory: usingLegacyWorkoutHistory,
       ),
       goals: UserGoals(goals),
@@ -207,6 +234,9 @@ class ProfileRepository {
       },
     );
   }
+
+  static Future<PlanWorkoutHistorySnapshot> _emptyPlanHistory() async =>
+      const PlanWorkoutHistorySnapshot.empty();
 
   static UserPermission _permissionFromAuth(AuthPermissionType permission) {
     return switch (permission) {
@@ -262,6 +292,54 @@ class ProfileRepository {
       if (date != null) return date.toLocal();
     }
     return null;
+  }
+
+  static WorkoutHistory? _latestWorkout(List<WorkoutHistory> workouts) {
+    WorkoutHistory? latest;
+    for (final workout in workouts) {
+      if (latest == null || workout.finishedAt.isAfter(latest.finishedAt)) {
+        latest = workout;
+      }
+    }
+    return latest;
+  }
+
+  static HistoricoTreinoModel? _latestLegacyWorkout(
+    List<HistoricoTreinoModel> workouts,
+  ) {
+    HistoricoTreinoModel? latest;
+    for (final workout in workouts) {
+      if (latest == null || workout.dataHora.isAfter(latest.dataHora)) {
+        latest = workout;
+      }
+    }
+    return latest;
+  }
+
+  static CorridaModel? _latestRun(List<CorridaModel> runs) {
+    CorridaModel? latest;
+    DateTime? latestDate;
+    for (final run in runs) {
+      final date = _runDate(run);
+      if (date != null && (latestDate == null || date.isAfter(latestDate))) {
+        latest = run;
+        latestDate = date;
+      }
+    }
+    return latest;
+  }
+
+  static DailyStepsModel? _latestSteps(List<DailyStepsModel> steps) {
+    DailyStepsModel? latest;
+    DateTime? latestDate;
+    for (final record in steps) {
+      final date = _stepsDate(record);
+      if (latestDate == null || date.isAfter(latestDate)) {
+        latest = record;
+        latestDate = date;
+      }
+    }
+    return latest;
   }
 
   static DateTime _stepsDate(DailyStepsModel record) =>

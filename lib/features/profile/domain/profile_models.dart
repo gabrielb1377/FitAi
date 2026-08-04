@@ -80,7 +80,15 @@ class UserStats {
     required this.totalSteps,
     required this.completedWorkouts,
     required this.favoriteExercises,
+    required this.favoriteExerciseIds,
     this.completedPlans,
+    this.lastWorkoutAt,
+    this.lastWorkoutName,
+    this.lastRunAt,
+    this.lastRunDistanceKm,
+    this.lastStepsAt,
+    this.latestSteps,
+    this.dailyStepsGoal,
     this.usingLegacyWorkoutHistory = false,
   });
 
@@ -90,6 +98,14 @@ class UserStats {
   final int completedWorkouts;
   final int? completedPlans;
   final int favoriteExercises;
+  final Set<String> favoriteExerciseIds;
+  final DateTime? lastWorkoutAt;
+  final String? lastWorkoutName;
+  final DateTime? lastRunAt;
+  final double? lastRunDistanceKm;
+  final DateTime? lastStepsAt;
+  final int? latestSteps;
+  final int? dailyStepsGoal;
   final bool usingLegacyWorkoutHistory;
 }
 

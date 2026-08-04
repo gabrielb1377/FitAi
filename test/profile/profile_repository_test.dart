@@ -83,6 +83,11 @@ void main() {
       expect(profile.stats.totalRuns, 1);
       expect(profile.stats.totalSteps, 8400);
       expect(profile.stats.favoriteExercises, 2);
+      expect(profile.stats.favoriteExerciseIds, contains('supino-reto'));
+      expect(profile.stats.lastWorkoutName, 'Upper A');
+      expect(profile.stats.latestSteps, 8400);
+      expect(profile.stats.dailyStepsGoal, 10000);
+      expect(profile.stats.lastRunDistanceKm, 5);
       expect(profile.goals.primaryGoal?.id, 'goal-1');
       expect(profile.achievements.unlockedCount, 1);
       expect(profile.xp.level.level, 18);
@@ -143,6 +148,7 @@ WorkoutHistory _workout(String id, DateTime finishedAt) => WorkoutHistory(
   id: id,
   planId: 'plan-upper',
   workoutId: 'upper-a',
+  workoutName: 'Upper A',
   startedAt: finishedAt.subtract(const Duration(minutes: 45)),
   finishedAt: finishedAt,
   metrics: const WorkoutMetrics.empty(),
