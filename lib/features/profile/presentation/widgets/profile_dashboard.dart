@@ -7,6 +7,7 @@ import 'profile_achievements_section.dart';
 import 'profile_favorites_section.dart';
 import 'profile_goals_section.dart';
 import 'profile_identity_card.dart';
+import 'profile_progression_section.dart';
 import 'profile_shortcuts_section.dart';
 import 'profile_stats_grid.dart';
 import 'profile_summary_section.dart';
@@ -24,6 +25,7 @@ class ProfileDashboard extends StatelessWidget {
     required this.onHelp,
     required this.onOpenFavorites,
     required this.onOpenAchievements,
+    required this.onConfigureGoals,
   });
 
   final ProfileSnapshot snapshot;
@@ -35,6 +37,7 @@ class ProfileDashboard extends StatelessWidget {
   final VoidCallback onHelp;
   final VoidCallback onOpenFavorites;
   final VoidCallback onOpenAchievements;
+  final VoidCallback onConfigureGoals;
 
   @override
   Widget build(BuildContext context) {
@@ -87,16 +90,20 @@ class ProfileDashboard extends StatelessWidget {
                       const SizedBox(height: FitSpacing.s12),
                       ProfileStatsGrid(stats: snapshot.stats),
                       ProfileSummarySection(stats: snapshot.stats),
+                      ProfileProgressionSection(
+                        snapshot: snapshot.progression,
+                        onViewHistory: onOpenAchievements,
+                      ),
                       ProfileGoalsSection(
                         snapshot: snapshot,
-                        onConfigure: onEdit,
+                        onConfigure: onConfigureGoals,
                       ),
                       ProfileFavoritesSection(
                         favoriteIds: snapshot.stats.favoriteExerciseIds,
                         onViewAll: onOpenFavorites,
                       ),
                       ProfileAchievementsSection(
-                        unlockedCount: snapshot.achievements.unlockedCount,
+                        snapshot: snapshot.progression,
                         onViewAll: onOpenAchievements,
                       ),
                       ProfileShortcutsSection(

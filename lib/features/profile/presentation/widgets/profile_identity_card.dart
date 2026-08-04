@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:fitai/design_system/design_system.dart';
 
+import '../../../progression/progression.dart';
 import '../../domain/profile_models.dart';
 
 /// Identidade, objetivo e progresso local do usuario em uma unica superficie.
@@ -18,9 +19,11 @@ class ProfileIdentityCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = snapshot.profile.name ?? 'Complete seu perfil';
-    final goal =
-        snapshot.goals.primaryGoal?.titulo ?? 'Defina seu objetivo principal';
-    final xp = snapshot.xp;
+    final primaryGoal = snapshot.progression.activeGoals.firstOrNull;
+    final goal = primaryGoal == null
+        ? 'Defina seu objetivo principal'
+        : _goalLabel(primaryGoal.type);
+    final xp = snapshot.progression.balance;
     return FitCard(
       semanticLabel: 'Resumo do perfil de $name',
       child: Column(
@@ -38,7 +41,7 @@ class ProfileIdentityCard extends StatelessWidget {
                 semanticLabel: 'Foto de perfil de $name',
               ),
             ),
-            badge: FitLevelBadge(label: 'Nivel ${xp.level.level}'),
+            badge: FitLevelBadge(label: 'Nivel ${xp.currentLevel}'),
             action: FitIconButton(
               icon: FitIcons.edit,
               tooltip: 'Editar perfil',
@@ -50,7 +53,7 @@ class ProfileIdentityCard extends StatelessWidget {
           Text('Experiencia', style: Theme.of(context).textTheme.labelLarge),
           const SizedBox(height: FitSpacing.s4),
           Text(
-            '${xp.currentXp}/${xp.level.xpRequiredForNextLevel} XP',
+            '${xp.xpIntoCurrentLevel}/${xp.xpForNextLevel} XP',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: FitSpacing.s8),
@@ -64,4 +67,13 @@ class ProfileIdentityCard extends StatelessWidget {
       ),
     );
   }
+
+  String _goalLabel(GoalType type) => switch (type) {
+    GoalType.weeklyWorkouts => 'Treinos na semana',
+    GoalType.weeklyRuns => 'Corridas na semana',
+    GoalType.weeklyDistance => 'Distancia na semana',
+    GoalType.dailySteps => 'Passos de hoje',
+    GoalType.weeklyActiveDays => 'Dias ativos na semana',
+    GoalType.monthlyFrequency => 'Atividades no mes',
+  };
 }

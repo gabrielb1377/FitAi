@@ -4,6 +4,7 @@ import 'package:fitai/features/workout_vertical_slice/data/workout_vertical_sync
 import 'package:fitai/features/workout_vertical_slice/domain/workout_vertical_models.dart';
 import 'package:fitai/features/workout_vertical_slice/presentation/workout_vertical_slice_controller.dart';
 import 'package:fitai/features/workout_vertical_slice/presentation/workout_vertical_slice_page.dart';
+import 'package:fitai/features/progression/progression.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -99,15 +100,27 @@ void main() {
           child: _app(harness.controller),
         ),
       );
-      await tester.pumpAndSettle();
+      // A tela atualiza o relogio por Timer.periodic; espera delimitada evita
+      // que pumpAndSettle aguarde indefinidamente por esse relogio em fake time.
+      await _pumpUntil(tester, () => !harness.controller.isLoading);
       await tester.tap(find.text('Iniciar treino local'));
-      await tester.pumpAndSettle();
+      await _pumpUntil(
+        tester,
+        () =>
+            !harness.controller.isSaving &&
+            harness.controller.activeSession != null,
+      );
       for (var index = 0; index < 3; index++) {
         await tester.drag(find.byType(ListView), const Offset(0, -400));
-        await tester.pumpAndSettle();
+        await tester.pump();
       }
       await tester.tap(find.text('Finalizar treino'));
-      await tester.pumpAndSettle();
+      await _pumpUntil(
+        tester,
+        () =>
+            !harness.controller.isSaving &&
+            harness.controller.activeSession == null,
+      );
 
       expect(harness.controller.activeSession, isNull);
       expect(find.text('Iniciar treino local'), findsOneWidget);
@@ -121,10 +134,27 @@ Widget _app(WorkoutVerticalSliceController controller) => MaterialApp(
   home: WorkoutVerticalSlicePage(controller: controller),
 );
 
+Future<void> _pumpUntil(WidgetTester tester, bool Function() condition) async {
+  for (var attempt = 0; attempt < 20; attempt += 1) {
+    if (condition()) {
+      await tester.pump();
+      return;
+    }
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+  fail('A tela nao atingiu o estado esperado no intervalo delimitado.');
+}
+
 class _Harness {
   _Harness() {
     store = _WidgetMemoryStore();
     transport = DebugWorkoutSyncTransport();
+    progressionEngine = ProgressionEngine(
+      store: InMemoryProgressionStore(),
+      legacyReader: () async =>
+          const LegacyProgression(level: 1, xpIntoLevel: 0),
+      legacyWriter: (_) async {},
+    );
     repository = WorkoutVerticalRepository(
       localStore: store,
       transport: transport,
@@ -135,6 +165,7 @@ class _Harness {
         transport: transport,
       ),
       debugTransport: transport,
+      progressionEngine: progressionEngine,
     );
   }
 
@@ -142,6 +173,7 @@ class _Harness {
   late final DebugWorkoutSyncTransport transport;
   late final WorkoutVerticalRepository repository;
   late final WorkoutVerticalSliceController controller;
+  late final ProgressionEngine progressionEngine;
 }
 
 class _WidgetMemoryStore implements WorkoutVerticalLocalStore {

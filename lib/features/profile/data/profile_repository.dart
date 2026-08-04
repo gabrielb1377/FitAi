@@ -1,94 +1,78 @@
-import '../../../core/xp/xp_config.dart';
-import '../../../models/achievement_model.dart';
 import '../../../models/corrida_model.dart';
 import '../../../models/daily_steps_model.dart';
-import '../../../models/fitai_meta_model.dart';
 import '../../../models/historico_treino_model.dart';
-import '../../../services/metas_service.dart';
 import '../../../services/storage_service.dart';
 import '../../auth/data/auth_permissions_service.dart';
 import '../../plans/domain/workout_history_models.dart';
+import '../../progression/progression.dart';
 import '../domain/profile_models.dart';
 
-/// Leitura do historico canonico de musculacao pertencente ao modulo Planos.
 typedef ProfilePlanHistoryLoader =
     Future<PlanWorkoutHistorySnapshot> Function();
-
 typedef ProfileValuesLoader = Future<Map<String, String>> Function();
-typedef ProfileXpLoader = Future<int> Function();
-typedef ProfileLevelLoader = Future<int> Function();
 typedef ProfileRunsLoader = Future<List<CorridaModel>> Function();
 typedef ProfileStepsLoader = Future<List<DailyStepsModel>> Function();
 typedef ProfileFavoritesLoader = Future<Set<String>> Function();
-typedef ProfileGoalsLoader = Future<FitaiMetasResumo> Function();
-typedef ProfileAchievementsLoader = Future<List<AchievementModel>> Function();
 typedef ProfilePreferencesLoader = Future<UserPreferences> Function();
 typedef ProfileLegacyHistoryLoader =
     Future<List<HistoricoTreinoModel>> Function();
 
-/// Agrega somente leituras locais das fontes donas dos dados do Perfil.
+/// Projeta o Perfil a partir das fontes donas dos dados, sem copi-las.
 ///
-/// Nenhum campo do snapshot e persistido por este repositorio. O chamador deve
-/// fornecer o leitor de historico de Planos ja vinculado ao escopo do usuario,
-/// evitando que o Perfil conheca ou replique o journal do treino.
+/// A progressao e reconciliada somente depois das leituras concluirem. Isso
+/// cria uma visao local consistente e tambem repara eventos que ficaram
+/// pendentes depois de uma falha entre a gravacao de uma atividade e o motor.
 class ProfileRepository {
-  /// Composicao da raiz do Perfil. Quando o shell fornece o reader canonico de
-  /// Planos, ele e usado; fora desse contexto, o fallback preserva a leitura
-  /// legada de compatibilidade ja documentada.
   factory ProfileRepository.local({
     ProfilePlanHistoryLoader? planHistoryLoader,
+    ProgressionEngine? progressionEngine,
   }) => ProfileRepository(
     planHistoryLoader: planHistoryLoader ?? _emptyPlanHistory,
+    progressionEngine: progressionEngine,
   );
 
   ProfileRepository({
-    required this._planHistoryLoader,
+    required this.planHistoryLoader,
     ProfileValuesLoader? profileValuesLoader,
-    ProfileXpLoader? xpLoader,
-    ProfileLevelLoader? levelLoader,
     ProfileRunsLoader? runsLoader,
     ProfileStepsLoader? stepsLoader,
     ProfileFavoritesLoader? favoritesLoader,
-    ProfileGoalsLoader? goalsLoader,
-    ProfileAchievementsLoader? achievementsLoader,
     ProfilePreferencesLoader? preferencesLoader,
     ProfileLegacyHistoryLoader? legacyHistoryLoader,
+    ProgressionEngine? progressionEngine,
   }) : _profileValuesLoader =
            profileValuesLoader ?? StorageService.carregarPerfilUsuarioLocal,
-       _xpLoader = xpLoader ?? StorageService.carregarXp,
-       _levelLoader = levelLoader ?? StorageService.carregarNivel,
        _runsLoader = runsLoader ?? StorageService.carregarCorridas,
        _stepsLoader = stepsLoader ?? StorageService.carregarDailyStepsHistory,
        _favoritesLoader =
            favoritesLoader ?? StorageService.carregarFavoritosExercicios,
-       _goalsLoader = goalsLoader ?? const MetasService().carregarMetas,
-       _achievementsLoader =
-           achievementsLoader ?? StorageService.carregarConquistasSalvas,
        _preferencesLoader = preferencesLoader ?? _loadPreferences,
        _legacyHistoryLoader =
-           legacyHistoryLoader ?? StorageService.carregarHistoricoTreinos;
+           legacyHistoryLoader ?? StorageService.carregarHistoricoTreinos,
+       _progressionEngine = progressionEngine ?? ProgressionEngine.instance;
 
-  final ProfilePlanHistoryLoader _planHistoryLoader;
+  final ProfilePlanHistoryLoader planHistoryLoader;
   final ProfileValuesLoader _profileValuesLoader;
-  final ProfileXpLoader _xpLoader;
-  final ProfileLevelLoader _levelLoader;
   final ProfileRunsLoader _runsLoader;
   final ProfileStepsLoader _stepsLoader;
   final ProfileFavoritesLoader _favoritesLoader;
-  final ProfileGoalsLoader _goalsLoader;
-  final ProfileAchievementsLoader _achievementsLoader;
   final ProfilePreferencesLoader _preferencesLoader;
   final ProfileLegacyHistoryLoader _legacyHistoryLoader;
+  final ProgressionEngine _progressionEngine;
 
-  /// Retorna a melhor projecao local disponivel, mesmo quando uma fonte falha.
+  Future<void> updateGoalTarget({
+    required GoalType type,
+    required int target,
+  }) async {
+    await _progressionEngine.updateGoalTarget(type: type, target: target);
+  }
+
   Future<ProfileSnapshot> load() async {
     final profileFuture = _read(
       ProfileDataSource.profile,
       _profileValuesLoader,
       const <String, String>{},
     );
-    final xpFuture = _read(ProfileDataSource.xp, _xpLoader, 0);
-    final levelFuture = _read(ProfileDataSource.xp, _levelLoader, 1);
     final runsFuture = _read(
       ProfileDataSource.activities,
       _runsLoader,
@@ -104,95 +88,123 @@ class ProfileRepository {
       _favoritesLoader,
       const <String>{},
     );
-    final goalsFuture = _read(
-      ProfileDataSource.goals,
-      _goalsLoader,
-      const FitaiMetasResumo(metas: []),
-    );
-    final achievementsFuture = _read(
-      ProfileDataSource.achievements,
-      _achievementsLoader,
-      const <AchievementModel>[],
-    );
     final preferencesFuture = _read(
       ProfileDataSource.preferences,
       _preferencesLoader,
       const UserPreferences.unavailable(),
     );
-    final planHistory = await _read(
+    final planHistoryRead = await _read(
       ProfileDataSource.plans,
-      _planHistoryLoader,
+      planHistoryLoader,
       const PlanWorkoutHistorySnapshot.empty(),
     );
 
-    final reads = <_ProfileRead<Object>>[
-      (await profileFuture).asObject(),
-      (await xpFuture).asObject(),
-      (await levelFuture).asObject(),
-      (await runsFuture).asObject(),
-      (await stepsFuture).asObject(),
-      (await favoritesFuture).asObject(),
-      (await goalsFuture).asObject(),
-      (await achievementsFuture).asObject(),
-      (await preferencesFuture).asObject(),
-      planHistory.asObject(),
-    ];
+    final profileRead = await profileFuture;
+    final runsRead = await runsFuture;
+    final stepsRead = await stepsFuture;
+    final favoritesRead = await favoritesFuture;
+    final preferencesRead = await preferencesFuture;
     final issues = <ProfileLoadIssue>[
-      for (final read in reads)
+      for (final read in [
+        profileRead.asObject(),
+        runsRead.asObject(),
+        stepsRead.asObject(),
+        favoritesRead.asObject(),
+        preferencesRead.asObject(),
+        planHistoryRead.asObject(),
+      ])
         if (read.issue != null) read.issue!,
     ];
 
+    var workouts = <ProgressionWorkoutSource>[];
     var workoutDates = <DateTime>[];
-    var completedWorkouts = planHistory.value.workouts.length;
+    var completedWorkouts = planHistoryRead.value.workouts.length;
     var usingLegacyWorkoutHistory = false;
+    var workoutsAvailable = planHistoryRead.issue == null;
     DateTime? lastWorkoutAt;
     String? lastWorkoutName;
     if (completedWorkouts > 0) {
-      workoutDates = planHistory.value.workouts
-          .map((workout) => workout.finishedAt)
-          .toList(growable: false);
-      final latestWorkout = _latestWorkout(planHistory.value.workouts);
-      lastWorkoutAt = latestWorkout?.finishedAt;
-      lastWorkoutName = latestWorkout?.workoutName ?? latestWorkout?.planName;
+      workouts = [
+        for (final workout in planHistoryRead.value.workouts)
+          ProgressionWorkoutSource(
+            id: workout.id,
+            completedAt: workout.finishedAt,
+            name: workout.workoutName ?? workout.planName,
+          ),
+      ];
+      workoutDates = workouts.map((item) => item.completedAt).toList();
+      final latest = _latestWorkout(planHistoryRead.value.workouts);
+      lastWorkoutAt = latest?.finishedAt;
+      lastWorkoutName = latest?.workoutName ?? latest?.planName;
     } else {
-      final legacyHistory = await _read(
+      final legacyRead = await _read(
         ProfileDataSource.plans,
         _legacyHistoryLoader,
         const <HistoricoTreinoModel>[],
       );
-      if (legacyHistory.issue != null) issues.add(legacyHistory.issue!);
-      if (legacyHistory.value.isNotEmpty) {
+      if (legacyRead.issue != null) issues.add(legacyRead.issue!);
+      workoutsAvailable = workoutsAvailable || legacyRead.issue == null;
+      if (legacyRead.value.isNotEmpty) {
         usingLegacyWorkoutHistory = true;
-        completedWorkouts = legacyHistory.value.length;
-        workoutDates = legacyHistory.value
-            .map((workout) => workout.dataHora)
-            .toList(growable: false);
-        final latestWorkout = _latestLegacyWorkout(legacyHistory.value);
-        lastWorkoutAt = latestWorkout?.dataHora;
-        lastWorkoutName = latestWorkout?.nomeTreino;
+        completedWorkouts = legacyRead.value.length;
+        workouts = [
+          for (final workout in legacyRead.value)
+            ProgressionWorkoutSource(
+              id: workout.id,
+              completedAt: workout.dataHora,
+              name: workout.nomeTreino,
+            ),
+        ];
+        workoutDates = workouts.map((item) => item.completedAt).toList();
+        final latest = _latestLegacyWorkout(legacyRead.value);
+        lastWorkoutAt = latest?.dataHora;
+        lastWorkoutName = latest?.nomeTreino;
       }
     }
 
-    final profile = (await profileFuture).value;
-    final xp = (await xpFuture).value;
-    final level = (await levelFuture).value;
-    final runs = (await runsFuture).value;
-    final steps = (await stepsFuture).value;
-    final favorites = (await favoritesFuture).value;
-    final goals = (await goalsFuture).value;
-    final achievements = (await achievementsFuture).value;
-    final preferences = (await preferencesFuture).value;
-    final levelProgress = LevelProgress(
-      level: level < 1 ? 1 : level,
-      xpRequiredForNextLevel: XpConfig.xpParaProximoNivel(
-        level < 1 ? 1 : level,
-      ),
+    final runs = runsRead.value;
+    final steps = stepsRead.value;
+    final favorites = favoritesRead.value;
+    final progressionRead = await _read(
+      ProfileDataSource.progression,
+      () async => (await _progressionEngine.reconcile(
+        sources: ProgressionSourceData(
+          workouts: workouts,
+          runs: [
+            for (final run in runs)
+              if (_runDate(run) case final date?)
+                ProgressionRunSource(
+                  id: run.id,
+                  completedAt: date,
+                  durationSeconds: run.segundos,
+                  distanceKm: run.distancia,
+                ),
+          ],
+          steps: [
+            for (final record in steps)
+              ProgressionStepsSource(
+                userId: record.userId,
+                date: _stepsDate(record),
+                steps: record.steps,
+                goal: record.goal,
+                isSeed: record.sourceKind == DailyStepsSource.seed,
+              ),
+          ],
+          favoriteExerciseIds: favorites,
+          workoutsAvailable: workoutsAvailable,
+          runsAvailable: runsRead.issue == null,
+          stepsAvailable: stepsRead.issue == null,
+          favoritesAvailable: favoritesRead.issue == null,
+        ),
+      )).snapshot,
+      const ProgressionSnapshot.empty(),
     );
+    if (progressionRead.issue != null) issues.add(progressionRead.issue!);
+
     final latestRun = _latestRun(runs);
     final latestSteps = _latestSteps(steps);
-
     return ProfileSnapshot(
-      profile: UserProfile.fromLocalValues(profile),
+      profile: UserProfile.fromLocalValues(profileRead.value),
       stats: UserStats(
         activeDays: _activeDayCount(
           workoutDates: workoutDates,
@@ -214,13 +226,8 @@ class ProfileRepository {
         dailyStepsGoal: latestSteps?.goal,
         usingLegacyWorkoutHistory: usingLegacyWorkoutHistory,
       ),
-      goals: UserGoals(goals),
-      achievements: UserAchievements(achievements),
-      xp: XpProgress(
-        currentXp: XpConfig.normalizarXp(xp),
-        level: levelProgress,
-      ),
-      preferences: preferences,
+      progression: progressionRead.value,
+      preferences: preferencesRead.value,
       issues: issues,
     );
   }
@@ -275,16 +282,13 @@ class ProfileRepository {
     required List<DateTime> workoutDates,
     required List<CorridaModel> runs,
     required List<DailyStepsModel> steps,
-  }) {
-    final days = <String>{
-      for (final date in workoutDates) _dayKey(date),
-      for (final run in runs)
-        if (_runDate(run) case final date?) _dayKey(date),
-      for (final record in steps)
-        if (record.steps > 0) _dayKey(_stepsDate(record)),
-    };
-    return days.length;
-  }
+  }) => {
+    for (final date in workoutDates) _dayKey(date),
+    for (final run in runs)
+      if (_runDate(run) case final date?) _dayKey(date),
+    for (final record in steps)
+      if (record.steps > 0) _dayKey(_stepsDate(record)),
+  }.length;
 
   static DateTime? _runDate(CorridaModel run) {
     for (final value in [run.endTime, run.data, run.startTime]) {

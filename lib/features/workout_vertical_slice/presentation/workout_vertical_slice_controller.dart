@@ -6,17 +6,21 @@ import '../data/workout_vertical_repository.dart';
 import '../data/workout_vertical_log.dart';
 import '../data/workout_vertical_sync_transport.dart';
 import '../domain/workout_vertical_models.dart';
+import '../../progression/progression.dart';
 
 class WorkoutVerticalSliceController extends ChangeNotifier {
   WorkoutVerticalSliceController({
     required this.repository,
     required this.debugTransport,
     DateTime Function()? clock,
-  }) : _clock = clock ?? DateTime.now;
+    ProgressionEngine? progressionEngine,
+  }) : _clock = clock ?? DateTime.now,
+       _progressionEngine = progressionEngine ?? ProgressionEngine.instance;
 
   final WorkoutVerticalRepository repository;
   final DebugWorkoutSyncTransport debugTransport;
   final DateTime Function() _clock;
+  final ProgressionEngine _progressionEngine;
 
   WorkoutSliceSnapshot snapshot = const WorkoutSliceSnapshot.empty();
   bool isLoading = true;
@@ -153,6 +157,7 @@ class WorkoutVerticalSliceController extends ChangeNotifier {
     await _perform(() async {
       await repository.finish(session.id);
       await _reload();
+      await _updateProgressionWithoutBlocking();
       await _syncWithoutBlockingWorkout();
     });
   }
@@ -220,6 +225,30 @@ class WorkoutVerticalSliceController extends ChangeNotifier {
       } on Object catch (reloadError) {
         WorkoutVerticalLog.failure('slice.sync_recovery_failed', reloadError);
       }
+    }
+  }
+
+  Future<void> _updateProgressionWithoutBlocking() async {
+    try {
+      await _progressionEngine.reconcile(
+        sources: ProgressionSourceData(
+          workouts: [
+            for (final session in snapshot.sessions)
+              if (session.status == WorkoutSessionStatus.completed &&
+                  session.finishedAt != null)
+                ProgressionWorkoutSource(
+                  id: session.id,
+                  completedAt: session.finishedAt!,
+                  name: session.workoutName ?? session.planName,
+                ),
+          ],
+          runsAvailable: false,
+          stepsAvailable: false,
+          favoritesAvailable: false,
+        ),
+      );
+    } on Object catch (error) {
+      WorkoutVerticalLog.failure('slice.progression_failed', error);
     }
   }
 

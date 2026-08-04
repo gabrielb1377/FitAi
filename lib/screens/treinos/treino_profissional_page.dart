@@ -2,14 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../core/xp/xp_config.dart';
-import '../../models/achievement_model.dart';
+import '../../features/progression/progression.dart';
 import '../../models/exercicio_model.dart';
 import '../../models/historico_serie_treino_model.dart';
 import '../../models/historico_treino_model.dart';
 import '../../models/progresso_exercicio_model.dart';
 import '../../models/treino_model.dart';
-import '../../services/achievement_service.dart';
 import '../../services/progressao_service.dart';
 import '../../services/recorde_service.dart';
 import '../../services/storage_service.dart';
@@ -116,15 +114,7 @@ class _TreinoProfissionalPageState extends State<TreinoProfissionalPage> {
     return "${minutos.toString().padLeft(2, "0")}:${segundo.toString().padLeft(2, "0")}";
   }
 
-  int get xpGanho {
-    final treinoCompleto =
-        exercicios.isNotEmpty && exerciciosConcluidos == exercicios.length;
-    return XpConfig.treinoConcluido +
-        (totalSeriesConcluidas * XpConfig.treinoSerieConcluida) +
-        (exerciciosConcluidos * XpConfig.treinoExercicioConcluido) +
-        (treinoCompleto ? XpConfig.treinoPerfeitoBonus : 0) +
-        (recordesBatidos * XpConfig.recordePessoalBonus);
-  }
+  int get xpGanho => ProgressionRules.workoutCompletionXp;
 
   int get caloriasEstimadas {
     final concluidos = <ExercicioModel>[];
@@ -1787,7 +1777,7 @@ class _TreinoProfissionalPageState extends State<TreinoProfissionalPage> {
     final volume = volumeTotalEstimado;
     final recordes = recordesBatidos;
     final calorias = caloriasEstimadas;
-    final xp = xpGanho;
+    final xp = ProgressionRules.workoutCompletionXp;
 
     await StorageService.salvarHistoricoTreino(
       HistoricoTreinoModel(
@@ -1808,14 +1798,8 @@ class _TreinoProfissionalPageState extends State<TreinoProfissionalPage> {
       ),
     );
 
-    await StorageService.adicionarXp(xp);
+    await _registrarProgressaoSemBloquearResumo();
     await widget.onXpAtualizado?.call();
-
-    final conquistas = await const AchievementService().avaliarConquistas();
-
-    if (!mounted) return;
-
-    await _mostrarConquistasDesbloqueadas(conquistas.novas);
 
     if (!mounted) return;
 
@@ -1837,88 +1821,27 @@ class _TreinoProfissionalPageState extends State<TreinoProfissionalPage> {
     Navigator.of(context).pop(true);
   }
 
-  Future<void> _mostrarConquistasDesbloqueadas(
-    List<AchievementModel> conquistas,
-  ) async {
-    if (conquistas.isEmpty || !mounted) return;
-
-    await showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: AppColors.surface,
-          title: const Text("Nova conquista desbloqueada!"),
-          content: TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0.94, end: 1),
-            duration: AppMotion.normal,
-            curve: AppMotion.curve,
-            builder: (context, value, child) {
-              return Opacity(
-                opacity: value,
-                child: Transform.scale(scale: value, child: child),
-              );
-            },
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final conquista in conquistas)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: 42,
-                            height: 42,
-                            decoration: BoxDecoration(
-                              color: AppColors.rankOuro.withAlpha(36),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: Icon(
-                              _achievementIcon(conquista.icone),
-                              color: AppColors.rankOuro,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  conquista.nome,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  conquista.descricao,
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    height: 1.35,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
+  Future<void> _registrarProgressaoSemBloquearResumo() async {
+    try {
+      final history = await StorageService.carregarHistoricoTreinos();
+      await ProgressionEngine.instance.reconcile(
+        sources: ProgressionSourceData(
+          workouts: [
+            for (final item in history)
+              ProgressionWorkoutSource(
+                id: item.id,
+                completedAt: item.dataHora,
+                name: item.nomeTreino,
               ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text("Continuar"),
-            ),
           ],
-        );
-      },
-    );
+          runsAvailable: false,
+          stepsAvailable: false,
+          favoritesAvailable: false,
+        ),
+      );
+    } on Object {
+      // A persistencia do treino ja terminou; a reconciliacao e segura.
+    }
   }
 
   String _textoMusculos(ExercicioModel exercicio) {
@@ -1959,18 +1882,6 @@ class _TreinoProfissionalPageState extends State<TreinoProfissionalPage> {
       TipoRecorde.carga => "Recorde de carga",
       TipoRecorde.repeticoes => "Recorde de reps",
       TipoRecorde.volume => "Recorde de volume",
-    };
-  }
-
-  IconData _achievementIcon(String icone) {
-    return switch (icone) {
-      "fitness_center" => Icons.fitness_center_rounded,
-      "format_list_numbered" => Icons.format_list_numbered_rounded,
-      "monitor_weight" => Icons.monitor_weight_rounded,
-      "local_fire_department" => Icons.local_fire_department_rounded,
-      "timer" => Icons.timer_rounded,
-      "emoji_events" => Icons.emoji_events_rounded,
-      _ => Icons.workspace_premium_rounded,
     };
   }
 

@@ -4,9 +4,9 @@ import 'package:flutter/foundation.dart';
 
 import '../core/config/dev_config.dart';
 import '../core/config/dev_fixtures.dart';
-import '../core/xp/xp_config.dart';
 import '../features/activities/domain/steps_data_source.dart';
 import '../features/activities/domain/steps_metrics.dart';
+import '../features/progression/progression.dart';
 import '../models/daily_steps_model.dart';
 import '../models/passos_diarios_model.dart';
 import 'storage_service.dart';
@@ -23,11 +23,13 @@ class StepsService extends ChangeNotifier {
     StepsDataSource? seedDataSource,
     bool? seedEnabled,
     this._allowSync = true,
+    ProgressionEngine? progressionEngine,
   }) : _now = now ?? DateTime.now,
        _seedDataSource =
            seedDataSource ??
            const SeedStepsDataSource(steps: DevFixtures.steps),
-       _seedEnabled = seedEnabled ?? (DevConfig.enabled && DevConfig.fakeSteps);
+       _seedEnabled = seedEnabled ?? (DevConfig.enabled && DevConfig.fakeSteps),
+       _progressionEngine = progressionEngine ?? ProgressionEngine.instance;
 
   static final StepsService instance = StepsService._();
 
@@ -37,12 +39,14 @@ class StepsService extends ChangeNotifier {
     StepsDataSource? seedDataSource,
     bool seedEnabled = false,
     bool allowSync = false,
+    ProgressionEngine? progressionEngine,
   }) {
     return StepsService._(
       now: now,
       seedDataSource: seedDataSource,
       seedEnabled: seedEnabled,
       allowSync: allowSync,
+      progressionEngine: progressionEngine,
     );
   }
 
@@ -53,6 +57,7 @@ class StepsService extends ChangeNotifier {
   final StepsDataSource _seedDataSource;
   final bool _seedEnabled;
   final bool _allowSync;
+  final ProgressionEngine _progressionEngine;
 
   bool _initialized = false;
   bool _initializing = false;
@@ -386,13 +391,28 @@ class StepsService extends ChangeNotifier {
     if (!current.goalCompleted || current.sourceKind == DailyStepsSource.seed) {
       return;
     }
-    final alreadyAwarded = await StorageService.passosMetaDiariaXpConcedido(
-      current.date,
+    await _progressionEngine.recordDailyStepsGoal(
+      steps: _toProgressionSteps(current),
+      sources: ProgressionSourceData(
+        steps: [
+          for (final record in _history)
+            if (record.userId == current.userId) _toProgressionSteps(record),
+        ],
+        workoutsAvailable: false,
+        runsAvailable: false,
+        favoritesAvailable: false,
+      ),
     );
-    if (alreadyAwarded) return;
-    await StorageService.adicionarXp(XpConfig.passosMetaDiaria);
-    await StorageService.marcarPassosMetaDiariaXpConcedido(current.date);
   }
+
+  ProgressionStepsSource _toProgressionSteps(DailyStepsModel record) =>
+      ProgressionStepsSource(
+        userId: record.userId,
+        date: DateTime.tryParse(record.date)?.toLocal() ?? record.recordedAt,
+        steps: record.steps,
+        goal: record.goal,
+        isSeed: record.sourceKind == DailyStepsSource.seed,
+      );
 
   DailyStepsModel? _recordFor(String date, {String? userId}) {
     final key = DailyStepsModel.normalizeDateKey(date, fallback: _now());

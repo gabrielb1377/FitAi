@@ -10,7 +10,9 @@ import '../../domain/profile_models.dart';
 import '../controllers/profile_controller.dart';
 import '../routes/profile_routes.dart';
 import '../widgets/profile_dashboard.dart';
+import '../widgets/profile_goal_editor_sheet.dart';
 import '../widgets/profile_loading_view.dart';
+import 'profile_xp_history_page.dart';
 
 /// Raiz oficial do Perfil baseada exclusivamente no [ProfileSnapshot].
 ///
@@ -119,6 +121,7 @@ class _ProfileRootPageState extends State<ProfileRootPage> {
       onHelp: _showHelp,
       onOpenFavorites: _showFavoritesInfo,
       onOpenAchievements: _showAchievementsInfo,
+      onConfigureGoals: () => unawaited(_editGoals(snapshot)),
     );
   }
 
@@ -130,7 +133,7 @@ class _ProfileRootPageState extends State<ProfileRootPage> {
         stats.totalSteps == 0 &&
         stats.completedWorkouts == 0 &&
         stats.favoriteExercises == 0 &&
-        snapshot.goals.all.isEmpty;
+        snapshot.progression.events.isEmpty;
   }
 
   void _openEdit() => _openRoute(ProfileRoutes.edit);
@@ -145,10 +148,27 @@ class _ProfileRootPageState extends State<ProfileRootPage> {
   }
 
   void _showAchievementsInfo() {
-    const FitSnackBar(
-      message: 'O painel completo de conquistas sera entregue no VS9.3.',
-      tone: FitSnackBarTone.info,
-    ).show(context);
+    final snapshot = _controller.state.snapshot;
+    if (snapshot == null) return;
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => ProfileXpHistoryPage(snapshot: snapshot.progression),
+      ),
+    );
+  }
+
+  Future<void> _editGoals(ProfileSnapshot snapshot) async {
+    await FitBottomSheet.show<void>(
+      context: context,
+      title: 'Editar metas',
+      subtitle: 'A mudanca preserva o progresso ja registrado.',
+      isScrollControlled: true,
+      child: ProfileGoalEditorSheet(
+        goals: snapshot.progression.activeGoals,
+        onSave: (type, target) =>
+            _controller.updateGoalTarget(type: type, target: target),
+      ),
+    );
   }
 
   Future<void> _showExportPlaceholder() async {

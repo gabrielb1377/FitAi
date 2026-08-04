@@ -1,5 +1,4 @@
-import '../../../models/achievement_model.dart';
-import '../../../models/fitai_meta_model.dart';
+import '../../progression/progression.dart';
 
 /// Fonte local que contribui para a projecao do Perfil.
 enum ProfileDataSource {
@@ -10,6 +9,7 @@ enum ProfileDataSource {
   xp,
   goals,
   achievements,
+  progression,
   preferences,
 }
 
@@ -109,57 +109,6 @@ class UserStats {
   final bool usingLegacyWorkoutHistory;
 }
 
-/// Metas derivadas pelo modulo dono das metas; o Perfil nao as persiste.
-class UserGoals {
-  const UserGoals(this.summary);
-
-  final FitaiMetasResumo summary;
-
-  List<FitaiMetaModel> get all => summary.metas;
-
-  FitaiMetaModel? get primaryGoal {
-    for (final goal in all) {
-      if (goal.status == FitaiMetaStatus.emAndamento) return goal;
-    }
-    for (final goal in all) {
-      if (goal.status == FitaiMetaStatus.pendente) return goal;
-    }
-    return all.isEmpty ? null : all.first;
-  }
-}
-
-/// Conquistas ja persistidas. Ler o Perfil nunca calcula nem desbloqueia novas.
-class UserAchievements {
-  const UserAchievements(this.items);
-
-  final List<AchievementModel> items;
-
-  int get unlockedCount => items.where((item) => item.desbloqueada).length;
-}
-
-/// Regras de nivel aplicadas ao XP ja armazenado pelo modulo de XP.
-class LevelProgress {
-  const LevelProgress({
-    required this.level,
-    required this.xpRequiredForNextLevel,
-  });
-
-  final int level;
-  final int xpRequiredForNextLevel;
-}
-
-/// XP local do nivel atual, sem inferir um total historico inexistente.
-class XpProgress {
-  const XpProgress({required this.currentXp, required this.level});
-
-  final int currentXp;
-  final LevelProgress level;
-
-  double get progress => level.xpRequiredForNextLevel <= 0
-      ? 0
-      : (currentXp / level.xpRequiredForNextLevel).clamp(0.0, 1.0).toDouble();
-}
-
 /// Preferencias e permissoes observaveis sem assumir configuracoes ausentes.
 class UserPreferences {
   const UserPreferences({
@@ -197,18 +146,14 @@ class ProfileSnapshot {
   const ProfileSnapshot({
     required this.profile,
     required this.stats,
-    required this.goals,
-    required this.achievements,
-    required this.xp,
+    required this.progression,
     required this.preferences,
     this.issues = const [],
   });
 
   final UserProfile profile;
   final UserStats stats;
-  final UserGoals goals;
-  final UserAchievements achievements;
-  final XpProgress xp;
+  final ProgressionSnapshot progression;
   final UserPreferences preferences;
   final List<ProfileLoadIssue> issues;
 

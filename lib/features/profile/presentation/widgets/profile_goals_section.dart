@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:fitai/design_system/design_system.dart';
 
+import '../../../progression/progression.dart';
 import '../../domain/profile_models.dart';
 
 /// Objetivos e medidas que existem no snapshot local de Perfil.
@@ -19,9 +20,11 @@ class ProfileGoalsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final useIconAction = MediaQuery.textScalerOf(context).scale(1) >= 1.5;
     final profile = snapshot.profile;
-    final goal = snapshot.goals.primaryGoal;
+    final goals = snapshot.progression.activeGoals.take(3).toList();
     final hasContent =
-        profile.weightKg != null || profile.heightCm != null || goal != null;
+        profile.weightKg != null ||
+        profile.heightCm != null ||
+        goals.isNotEmpty;
     return FitSection(
       title: 'Objetivos',
       onViewAll: useIconAction ? null : onConfigure,
@@ -50,19 +53,19 @@ class ProfileGoalsSection extends StatelessWidget {
                     icon: FitIcons.muscles,
                     unavailable: profile.heightCm == null,
                   ),
-                  if (goal != null) ...[
+                  for (final goal in goals) ...[
                     const FitDivider(verticalSpacing: FitSpacing.s12),
                     FitHorizontalMetric(
-                      label: 'Objetivo principal',
-                      value: goal.titulo,
-                      detail: goal.descricao,
+                      label: _goalLabel(goal.type),
+                      value: '${goal.currentValue}/${goal.target}',
+                      detail: _periodLabel(goal.period),
                       icon: FitIcons.goal,
                     ),
-                    const SizedBox(height: FitSpacing.s12),
+                    const SizedBox(height: FitSpacing.s8),
                     FitProgress(
-                      value: goal.progresso,
-                      label: goal.categoriaLabel,
-                      trailing: goal.progressoPercentual,
+                      value: goal.progress,
+                      label: _goalStatusLabel(goal.status),
+                      trailing: '${(goal.progress * 100).round()}%',
                       animate: true,
                     ),
                   ],
@@ -87,4 +90,25 @@ class ProfileGoalsSection extends StatelessWidget {
   String _heightLabel(double? value) => value == null
       ? '--'
       : '${value.toStringAsFixed(value.truncateToDouble() == value ? 0 : 1)} cm';
+
+  String _goalLabel(GoalType type) => switch (type) {
+    GoalType.weeklyWorkouts => 'Treinos na semana',
+    GoalType.weeklyRuns => 'Corridas na semana',
+    GoalType.weeklyDistance => 'Distancia na semana',
+    GoalType.dailySteps => 'Passos de hoje',
+    GoalType.weeklyActiveDays => 'Dias ativos na semana',
+    GoalType.monthlyFrequency => 'Atividades no mes',
+  };
+
+  String _periodLabel(GoalPeriod period) => switch (period) {
+    GoalPeriod.daily => 'Periodo diario',
+    GoalPeriod.weekly => 'Periodo semanal',
+    GoalPeriod.monthly => 'Periodo mensal',
+  };
+
+  String _goalStatusLabel(GoalStatus status) => switch (status) {
+    GoalStatus.active => 'Em andamento',
+    GoalStatus.completed => 'Concluida',
+    GoalStatus.expired => 'Encerrada',
+  };
 }

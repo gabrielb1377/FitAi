@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../data/profile_repository.dart';
 import '../../domain/profile_models.dart';
+import '../../../progression/progression.dart';
 
 /// Estado de leitura da pagina principal de Perfil.
 enum ProfileLoadStatus { initial, loading, ready, error }
@@ -40,6 +41,14 @@ class ProfileController extends ChangeNotifier {
   Future<void> load() => _load(refresh: false);
 
   Future<void> refresh() => _load(refresh: true);
+
+  Future<void> updateGoalTarget({
+    required GoalType type,
+    required int target,
+  }) async {
+    await _repository.updateGoalTarget(type: type, target: target);
+    await refresh();
+  }
 
   Future<void> _load({required bool refresh}) async {
     if (_loading) return;

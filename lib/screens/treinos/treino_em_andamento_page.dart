@@ -6,7 +6,7 @@ import '../../core/exercises/exercise_identity.dart';
 import '../../design_system/fit_design_system.dart';
 import '../../features/plans/workout_execution/widgets/workout_history_panel.dart';
 import '../../features/plans/workout_execution/widgets/workout_execution_stages.dart';
-import '../../core/xp/xp_config.dart';
+import '../../features/progression/progression.dart';
 import '../../models/coach_insight_model.dart';
 import '../../models/exercicio_model.dart';
 import '../../models/exercise_progression_model.dart';
@@ -215,8 +215,6 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
         ),
       );
     });
-    _adicionarXpVisual(XpConfig.treinoSerieConcluida, 'Série registrada');
-
     final totalConcluido =
         _seriesConcluidas[_exercicioAtual]?.length ?? serieIndex + 1;
 
@@ -227,15 +225,6 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     }
 
     final ultimoExercicio = _exercicioAtual >= _totalExercicios - 1;
-
-    Future.delayed(const Duration(milliseconds: 260), () {
-      if (mounted) {
-        _adicionarXpVisual(
-          XpConfig.treinoExercicioConcluido,
-          '🏅 Exercício concluído',
-        );
-      }
-    });
 
     if (ultimoExercicio) {
       Future.delayed(const Duration(milliseconds: 650), () {
@@ -1140,19 +1129,6 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     return double.tryParse(entry.peso.replaceAll(',', '.')) ?? 0;
   }
 
-  int _calcularXpGanho({
-    required int seriesConcluidas,
-    required int exerciciosConcluidos,
-  }) {
-    final treinoPerfeito =
-        _totalExercicios > 0 && exerciciosConcluidos >= _totalExercicios;
-
-    return (seriesConcluidas * XpConfig.treinoSerieConcluida) +
-        (exerciciosConcluidos * XpConfig.treinoExercicioConcluido) +
-        XpConfig.treinoConcluido +
-        (treinoPerfeito ? XpConfig.treinoPerfeitoBonus : 0);
-  }
-
   int _caloriasEstimadas({
     required int seriesConcluidas,
     required double volumeTotal,
@@ -1173,16 +1149,16 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
 
     if (!_treinoFinalizadoVisual && mounted) {
       setState(() => _treinoFinalizadoVisual = true);
-      _adicionarXpVisual(XpConfig.treinoConcluido, 'Treino finalizado');
+      _adicionarXpVisual(
+        ProgressionRules.workoutCompletionXp,
+        'Treino finalizado',
+      );
     }
 
     final seriesConcluidas = _seriesConcluidasTotal();
     final exerciciosConcluidos = _exerciciosConcluidosTotal();
     final volumeTotal = _volumeSessaoTotal();
-    final xpGanho = _calcularXpGanho(
-      seriesConcluidas: seriesConcluidas,
-      exerciciosConcluidos: exerciciosConcluidos,
-    );
+    final xpGanho = ProgressionRules.workoutCompletionXp;
     final calorias = _caloriasEstimadas(
       seriesConcluidas: seriesConcluidas,
       volumeTotal: volumeTotal,
@@ -1227,7 +1203,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
       });
 
       await StorageService.salvarHistoricoTreino(historico);
-      await StorageService.adicionarXp(xpGanho);
+      await _registrarProgressaoSemBloquearResumo();
       await widget.onXpAtualizado?.call();
     } catch (erro) {
       _finalizacaoEmAndamento = false;
@@ -1254,6 +1230,29 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _registrarProgressaoSemBloquearResumo() async {
+    try {
+      final history = await StorageService.carregarHistoricoTreinos();
+      await ProgressionEngine.instance.reconcile(
+        sources: ProgressionSourceData(
+          workouts: [
+            for (final item in history)
+              ProgressionWorkoutSource(
+                id: item.id,
+                completedAt: item.dataHora,
+                name: item.nomeTreino,
+              ),
+          ],
+          runsAvailable: false,
+          stepsAvailable: false,
+          favoritesAvailable: false,
+        ),
+      );
+    } on Object {
+      // O historico ja esta localmente salvo; o Perfil reprocessa depois.
+    }
   }
 
   Future<void> _confirmarEncerrarTreino() async {

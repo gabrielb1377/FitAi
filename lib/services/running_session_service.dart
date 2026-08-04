@@ -6,18 +6,29 @@ import 'package:geolocator/geolocator.dart';
 
 import '../models/corrida_model.dart';
 import '../models/running_session_model.dart';
+import '../features/progression/progression.dart';
 import 'storage_service.dart';
 import 'sync_service.dart';
 
 class RunningSessionService extends ChangeNotifier {
-  RunningSessionService._({DateTime Function()? clock, this._trackGps = true})
-    : _clock = clock ?? DateTime.now;
+  RunningSessionService._({
+    DateTime Function()? clock,
+    this._trackGps = true,
+    ProgressionEngine? progressionEngine,
+  }) : _clock = clock ?? DateTime.now,
+       _progressionEngine = progressionEngine ?? ProgressionEngine.instance;
 
   static final RunningSessionService instance = RunningSessionService._();
 
   @visibleForTesting
-  factory RunningSessionService.forTesting({DateTime Function()? clock}) =>
-      RunningSessionService._(clock: clock, trackGps: false);
+  factory RunningSessionService.forTesting({
+    DateTime Function()? clock,
+    ProgressionEngine? progressionEngine,
+  }) => RunningSessionService._(
+    clock: clock,
+    trackGps: false,
+    progressionEngine: progressionEngine,
+  );
 
   static const int _defaultCountdownSeconds = 3;
   static const double _maxAcceptedSpeedKmh = 36;
@@ -25,6 +36,7 @@ class RunningSessionService extends ChangeNotifier {
 
   final DateTime Function() _clock;
   final bool _trackGps;
+  final ProgressionEngine _progressionEngine;
   final Set<String> _syncingRunIds = <String>{};
   Timer? _timer;
   Timer? _countdownTimer;
@@ -470,6 +482,7 @@ class RunningSessionService extends ChangeNotifier {
       final inserted = await StorageService.salvarCorrida(corrida);
       if (inserted) await _addTotals(corrida);
       if (corrida.distancia >= 10) await StorageService.salvar10Km(true);
+      await _updateProgressionWithoutBlocking(corrida);
       _log('sincronizacao enviada');
     }
 
@@ -478,6 +491,42 @@ class RunningSessionService extends ChangeNotifier {
     _lastAcceptedPosition = null;
     if (persisted) unawaited(_syncRun(corrida));
     return corrida;
+  }
+
+  Future<void> _updateProgressionWithoutBlocking(CorridaModel corrida) async {
+    try {
+      final history = await StorageService.carregarCorridas();
+      await _progressionEngine.recordRunCompletion(
+        runId: corrida.id,
+        completedAt: _runCompletedAt(corrida),
+        durationSeconds: corrida.segundos,
+        distanceKm: corrida.distancia,
+        sources: ProgressionSourceData(
+          runs: [for (final item in history) _toProgressionRun(item)],
+          workoutsAvailable: false,
+          stepsAvailable: false,
+          favoritesAvailable: false,
+        ),
+      );
+    } on Object catch (error) {
+      _log('progresso local pendente: $error');
+    }
+  }
+
+  ProgressionRunSource _toProgressionRun(CorridaModel corrida) =>
+      ProgressionRunSource(
+        id: corrida.id,
+        completedAt: _runCompletedAt(corrida),
+        durationSeconds: corrida.segundos,
+        distanceKm: corrida.distancia,
+      );
+
+  DateTime _runCompletedAt(CorridaModel corrida) {
+    for (final value in [corrida.endTime, corrida.data, corrida.startTime]) {
+      final parsed = DateTime.tryParse(value ?? '');
+      if (parsed != null) return parsed.toLocal();
+    }
+    return _clock().toLocal();
   }
 
   Future<void> _syncPendingRuns() async {

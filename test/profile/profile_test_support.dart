@@ -4,11 +4,10 @@ import 'package:fitai/features/profile/data/profile_repository.dart';
 import 'package:fitai/features/profile/domain/profile_models.dart';
 import 'package:fitai/features/profile/presentation/controllers/profile_controller.dart';
 import 'package:fitai/features/profile/presentation/pages/profile_root_page.dart';
+import 'package:fitai/features/progression/progression.dart';
 import 'package:fitai/features/workout_vertical_slice/domain/workout_vertical_models.dart';
-import 'package:fitai/models/achievement_model.dart';
 import 'package:fitai/models/corrida_model.dart';
 import 'package:fitai/models/daily_steps_model.dart';
-import 'package:fitai/models/fitai_meta_model.dart';
 import 'package:flutter/material.dart';
 
 ProfileController profileTestController({
@@ -28,8 +27,6 @@ ProfileController profileTestController({
               'altura': '1,78 m',
             };
     },
-    xpLoader: () async => empty ? 0 : 2450,
-    levelLoader: () async => empty ? 1 : 18,
     runsLoader: () async => empty
         ? const <CorridaModel>[]
         : <CorridaModel>[
@@ -54,44 +51,13 @@ ProfileController profileTestController({
           ],
     favoritesLoader: () async =>
         empty ? <String>{} : <String>{'supino-reto', 'agachamento-livre'},
-    goalsLoader: () async => empty
-        ? const FitaiMetasResumo(metas: [])
-        : FitaiMetasResumo(
-            metas: const <FitaiMetaModel>[
-              FitaiMetaModel(
-                id: 'goal-1',
-                titulo: 'Treinos por semana',
-                descricao: 'Concluir tres treinos.',
-                valorAtual: 2,
-                valorObjetivo: 3,
-                categoria: FitaiMetaCategoria.treinos,
-                status: FitaiMetaStatus.emAndamento,
-                progresso: 2 / 3,
-                unidade: 'treinos',
-                tempoRestante: '4 dias',
-                estimativa: '',
-                coachDica: '',
-              ),
-            ],
-          ),
-    achievementsLoader: () async => empty
-        ? const <AchievementModel>[]
-        : const <AchievementModel>[
-            AchievementModel(
-              id: 'achievement-1',
-              nome: 'Primeiro treino',
-              descricao: '',
-              icone: 'trophy',
-              categoria: 'Treino',
-              desbloqueada: true,
-            ),
-          ],
     preferencesLoader: () async => const UserPreferences(
       permissions: <UserPermission, UserPermissionStatus>{
         UserPermission.activity: UserPermissionStatus.granted,
       },
     ),
     legacyHistoryLoader: () async => const [],
+    progressionEngine: _engine(),
   ),
 );
 
@@ -116,6 +82,15 @@ Widget profileTestApp(ProfileController controller, {TextScaler? textScaler}) {
     ),
   );
 }
+
+ProgressionEngine profileTestProgressionEngine() => _engine();
+
+ProgressionEngine _engine() => ProgressionEngine(
+  store: InMemoryProgressionStore(),
+  legacyReader: () async => const LegacyProgression(level: 18, xpIntoLevel: 0),
+  legacyWriter: (_) async {},
+  clock: () => DateTime(2026, 8, 3, 12),
+);
 
 PlanWorkoutHistorySnapshot _planHistory() => PlanWorkoutHistorySnapshot(
   workouts: <WorkoutHistory>[

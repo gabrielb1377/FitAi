@@ -1,102 +1,72 @@
 import 'package:fitai/features/plans/domain/workout_history_models.dart';
 import 'package:fitai/features/profile/data/profile_repository.dart';
 import 'package:fitai/features/profile/domain/profile_models.dart';
+import 'package:fitai/features/progression/progression.dart';
 import 'package:fitai/features/workout_vertical_slice/domain/workout_vertical_models.dart';
-import 'package:fitai/models/achievement_model.dart';
 import 'package:fitai/models/corrida_model.dart';
 import 'package:fitai/models/daily_steps_model.dart';
-import 'package:fitai/models/fitai_meta_model.dart';
 import 'package:fitai/models/historico_treino_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('ProfileRepository', () {
-    test('agrega fontes donas dos dados sem duplicar o historico', () async {
-      final repository = ProfileRepository(
-        planHistoryLoader: () async => _planHistory([
-          _workout('session-1', DateTime(2026, 8, 1, 10)),
-          _workout('session-2', DateTime(2026, 8, 2, 10)),
-        ]),
-        profileValuesLoader: () async => const {
-          'nome': 'Gabriel',
-          'peso': '78,5 kg',
-          'altura': '1,78 m',
-          'idade': '25',
-        },
-        xpLoader: () async => 75,
-        levelLoader: () async => 18,
-        runsLoader: () async => [
-          CorridaModel(
-            id: 'run-1',
-            distancia: 5,
-            segundos: 1800,
-            data: '2026-08-02T07:00:00',
-          ),
-        ],
-        stepsLoader: () async => [
-          _steps('2026-08-02', 0),
-          _steps('2026-08-03', 8400),
-        ],
-        favoritesLoader: () async => {'supino-reto', 'agachamento-livre'},
-        goalsLoader: () async => FitaiMetasResumo(
-          metas: [
-            const FitaiMetaModel(
-              id: 'goal-1',
-              titulo: 'Treinos por semana',
-              descricao: 'Concluir tres treinos.',
-              valorAtual: 2,
-              valorObjetivo: 3,
-              categoria: FitaiMetaCategoria.treinos,
-              status: FitaiMetaStatus.emAndamento,
-              progresso: 2 / 3,
-              unidade: 'treinos',
-              tempoRestante: '4 dias',
-              estimativa: '',
-              coachDica: '',
+    test(
+      'agrega fontes e reconcilia a progressao sem duplicar eventos',
+      () async {
+        final repository = ProfileRepository(
+          planHistoryLoader: () async => _planHistory([
+            _workout('session-1', DateTime(2026, 8, 1, 10)),
+            _workout('session-2', DateTime(2026, 8, 2, 10)),
+          ]),
+          profileValuesLoader: () async => const {
+            'nome': 'Gabriel',
+            'peso': '78,5 kg',
+            'altura': '1,78 m',
+            'idade': '25',
+          },
+          runsLoader: () async => [
+            CorridaModel(
+              id: 'run-1',
+              distancia: 5,
+              segundos: 1800,
+              data: '2026-08-02T07:00:00',
             ),
           ],
-        ),
-        achievementsLoader: () async => const [
-          AchievementModel(
-            id: 'achievement-1',
-            nome: 'Primeiro treino',
-            descricao: '',
-            icone: 'trophy',
-            categoria: 'Treino',
-            desbloqueada: true,
+          stepsLoader: () async => [
+            _steps('2026-08-02', 0),
+            _steps('2026-08-03', 8400),
+          ],
+          favoritesLoader: () async => {'supino-reto', 'agachamento-livre'},
+          preferencesLoader: () async => const UserPreferences(
+            permissions: {
+              UserPermission.activity: UserPermissionStatus.granted,
+            },
           ),
-        ],
-        preferencesLoader: () async => const UserPreferences(
-          permissions: {UserPermission.activity: UserPermissionStatus.granted},
-        ),
-      );
+          progressionEngine: _engine(),
+        );
 
-      final profile = await repository.load();
+        final profile = await repository.load();
+        final repeated = await repository.load();
 
-      expect(profile.issues, isEmpty);
-      expect(profile.profile.name, 'Gabriel');
-      expect(profile.profile.weightKg, 78.5);
-      expect(profile.profile.heightCm, 178);
-      expect(profile.stats.completedWorkouts, 2);
-      expect(profile.stats.completedPlans, isNull);
-      expect(profile.stats.activeDays, 3);
-      expect(profile.stats.totalRuns, 1);
-      expect(profile.stats.totalSteps, 8400);
-      expect(profile.stats.favoriteExercises, 2);
-      expect(profile.stats.favoriteExerciseIds, contains('supino-reto'));
-      expect(profile.stats.lastWorkoutName, 'Upper A');
-      expect(profile.stats.latestSteps, 8400);
-      expect(profile.stats.dailyStepsGoal, 10000);
-      expect(profile.stats.lastRunDistanceKm, 5);
-      expect(profile.goals.primaryGoal?.id, 'goal-1');
-      expect(profile.achievements.unlockedCount, 1);
-      expect(profile.xp.level.level, 18);
-      expect(profile.xp.progress, closeTo(0.5, 0.0001));
-      expect(
-        profile.preferences.permissions[UserPermission.activity],
-        UserPermissionStatus.granted,
-      );
-    });
+        expect(profile.issues, isEmpty);
+        expect(profile.profile.name, 'Gabriel');
+        expect(profile.profile.weightKg, 78.5);
+        expect(profile.profile.heightCm, 178);
+        expect(profile.stats.completedWorkouts, 2);
+        expect(profile.stats.activeDays, 3);
+        expect(profile.stats.totalRuns, 1);
+        expect(profile.stats.totalSteps, 8400);
+        expect(profile.stats.favoriteExercises, 2);
+        expect(profile.stats.lastWorkoutName, 'Upper A');
+        expect(profile.progression.balance.currentLevel, 18);
+        expect(profile.progression.events, hasLength(5));
+        expect(
+          profile.progression.achievements.any((item) => item.isUnlocked),
+          isTrue,
+        );
+        expect(repeated.progression.events, hasLength(5));
+      },
+    );
 
     test('mantem conteudo local parcial quando uma fonte falha', () async {
       final repository = ProfileRepository(
@@ -104,14 +74,11 @@ void main() {
         profileValuesLoader: () async =>
             throw StateError('Perfil indisponivel'),
         legacyHistoryLoader: () async => [_legacyWorkout()],
-        xpLoader: () async => 20,
-        levelLoader: () async => 1,
         runsLoader: () async => const [],
         stepsLoader: () async => const [],
         favoritesLoader: () async => const {},
-        goalsLoader: () async => const FitaiMetasResumo(metas: []),
-        achievementsLoader: () async => const [],
         preferencesLoader: () async => const UserPreferences.unavailable(),
+        progressionEngine: _engine(),
       );
 
       final profile = await repository.load();
@@ -121,6 +88,7 @@ void main() {
       expect(profile.stats.completedWorkouts, 1);
       expect(profile.stats.usingLegacyWorkoutHistory, isTrue);
       expect(profile.stats.activeDays, 1);
+      expect(profile.progression.events, hasLength(2));
       expect(
         profile.issues.map((issue) => issue.source),
         containsAll(<ProfileDataSource>[
@@ -132,17 +100,23 @@ void main() {
   });
 }
 
-PlanWorkoutHistorySnapshot _planHistory(List<WorkoutHistory> workouts) {
-  return PlanWorkoutHistorySnapshot(
-    workouts: workouts,
-    summaries: const [],
-    exercisePrs: const [],
-    personalRecords: const [],
-    timeline: const [],
-    calendar: const [],
-    streak: const WorkoutStreak(currentDays: 0, longestDays: 0),
-  );
-}
+ProgressionEngine _engine() => ProgressionEngine(
+  store: InMemoryProgressionStore(),
+  legacyReader: () async => const LegacyProgression(level: 18, xpIntoLevel: 0),
+  legacyWriter: (_) async {},
+  clock: () => DateTime(2026, 8, 3, 12),
+);
+
+PlanWorkoutHistorySnapshot _planHistory(List<WorkoutHistory> workouts) =>
+    PlanWorkoutHistorySnapshot(
+      workouts: workouts,
+      summaries: const [],
+      exercisePrs: const [],
+      personalRecords: const [],
+      timeline: const [],
+      calendar: const [],
+      streak: const WorkoutStreak(currentDays: 0, longestDays: 0),
+    );
 
 WorkoutHistory _workout(String id, DateTime finishedAt) => WorkoutHistory(
   id: id,

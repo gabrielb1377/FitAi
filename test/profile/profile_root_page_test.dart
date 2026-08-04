@@ -15,10 +15,10 @@ void main() {
 
     expect(find.text('Perfil'), findsOneWidget);
     expect(find.text('Gabriel'), findsOneWidget);
-    expect(find.text('Nivel 18'), findsOneWidget);
-    expect(find.textContaining('XP'), findsOneWidget);
-    expect(find.text('Dias ativos'), findsOneWidget);
-    expect(find.text('Treinos por semana'), findsWidgets);
+    expect(find.text('Nivel 18'), findsWidgets);
+    expect(find.textContaining('XP'), findsWidgets);
+    expect(find.text('Dias ativos'), findsWidgets);
+    expect(find.text('Treinos na semana'), findsWidgets);
     expect(find.text('Supino Reto'), findsOneWidget);
     expect(find.text('Conquistas'), findsOneWidget);
     expect(find.text('Atalhos'), findsOneWidget);
