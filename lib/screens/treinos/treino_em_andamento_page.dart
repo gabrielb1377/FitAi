@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../features/settings/settings.dart';
+
 import '../../core/exercises/exercise_identity.dart';
 import '../../design_system/fit_design_system.dart';
 import '../../features/plans/workout_execution/widgets/workout_history_panel.dart';
@@ -402,7 +404,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     _repeticoesController.text =
         _repeticoesRascunho[index] ?? _repeticoesIniciais(exercicio);
     _descansoPadrao = exercicio.descansoSegundos <= 0
-        ? 60
+        ? WorkoutSettingsRuntime.rest.defaultRestSeconds
         : exercicio.descansoSegundos;
   }
 

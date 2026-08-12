@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../settings/settings.dart';
+
 import '../../../../design_system/fit_design_system.dart';
 import '../../../../models/corrida_model.dart';
 import '../../../../screens/corridas/corrida_detalhe_page.dart';
@@ -400,10 +402,11 @@ class _CalendarRunRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final units = WorkoutSettingsRuntime.units;
     return FitCard(
-      title: '${run.distancia.toStringAsFixed(2)} km',
+      title: UnitConversion.formatDistanceKm(run.distancia, units),
       subtitle:
-          '${run.segundos ~/ 60} min - ${run.pace.toStringAsFixed(1)} min/km',
+          '${run.segundos ~/ 60} min - ${UnitConversion.formatPaceMinutesPerKm(run.pace, units)}',
       leading: const Icon(FitIcons.running),
       trailing: const Icon(FitIcons.forward),
       onTap: () => Navigator.of(context).push(

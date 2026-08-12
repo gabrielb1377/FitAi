@@ -77,41 +77,50 @@ class _HomeRecentActivityPageState extends State<HomeRecentActivityPage> {
   }
 
   List<_ActivityItem> _items() {
-    final items = <_ActivityItem>[
-      for (final history in widget.history)
-        _ActivityItem(
-          title: history.nomeTreino,
-          subtitle:
-              '${history.objetivo} · ${history.exerciciosConcluidos} exercícios · ${history.tempoFormatado}',
-          value: '+${history.xpGanho} XP',
-          date: history.dataHora,
-          icon: FitIcons.workout,
-          type: HomeActivityFilter.workout,
-          onTap: () => widget.onOpenWorkout(history),
-        ),
-      if (widget.distance > 0)
-        _ActivityItem(
-          title: 'Corrida ao ar livre',
-          subtitle: '${widget.distance.toStringAsFixed(1)} km registrados',
-          value: 'Cardio',
-          date: DateTime.now(),
-          icon: FitIcons.running,
-          color: FitColors.running,
-          type: HomeActivityFilter.cardio,
-          onTap: widget.onOpenRunning,
-        ),
-      if (widget.steps > 0)
-        _ActivityItem(
-          title: '${homeFormatNumber(widget.steps)} passos',
-          subtitle: 'Movimentação de hoje',
-          value: 'Hoje',
-          date: DateTime.now(),
-          icon: FitIcons.steps,
-          color: FitColors.steps,
-          type: HomeActivityFilter.steps,
-          onTap: widget.onOpenSteps,
-        ),
-    ]..sort((a, b) => b.date.compareTo(a.date));
+    // Running and steps describe the same daily snapshot. A single timestamp
+    // keeps their ordering deterministic for the UI and golden tests.
+    final currentSnapshot = DateTime.now();
+    final items =
+        <_ActivityItem>[
+          for (final history in widget.history)
+            _ActivityItem(
+              title: history.nomeTreino,
+              subtitle:
+                  '${history.objetivo} · ${history.exerciciosConcluidos} exercícios · ${history.tempoFormatado}',
+              value: '+${history.xpGanho} XP',
+              date: history.dataHora,
+              icon: FitIcons.workout,
+              type: HomeActivityFilter.workout,
+              onTap: () => widget.onOpenWorkout(history),
+            ),
+          if (widget.distance > 0)
+            _ActivityItem(
+              title: 'Corrida ao ar livre',
+              subtitle: '${widget.distance.toStringAsFixed(1)} km registrados',
+              value: 'Cardio',
+              date: currentSnapshot,
+              icon: FitIcons.running,
+              color: FitColors.running,
+              type: HomeActivityFilter.cardio,
+              sortPriority: 1,
+              onTap: widget.onOpenRunning,
+            ),
+          if (widget.steps > 0)
+            _ActivityItem(
+              title: '${homeFormatNumber(widget.steps)} passos',
+              subtitle: 'Movimentação de hoje',
+              value: 'Hoje',
+              date: currentSnapshot,
+              icon: FitIcons.steps,
+              color: FitColors.steps,
+              type: HomeActivityFilter.steps,
+              onTap: widget.onOpenSteps,
+            ),
+        ]..sort((a, b) {
+          final dateOrder = b.date.compareTo(a.date);
+          if (dateOrder != 0) return dateOrder;
+          return b.sortPriority.compareTo(a.sortPriority);
+        });
     return items;
   }
 
@@ -129,6 +138,7 @@ class _ActivityItem {
     required this.type,
     required this.onTap,
     this.color,
+    this.sortPriority = 0,
   });
 
   final String title;
@@ -139,6 +149,7 @@ class _ActivityItem {
   final HomeActivityFilter type;
   final VoidCallback onTap;
   final Color? color;
+  final int sortPriority;
 }
 
 class _ActivityCard extends StatelessWidget {

@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/api/api_config.dart';
+import '../../../core/auth/local_account_data_boundary.dart';
 import '../../../core/config/dev_config.dart';
 import 'auth_session_store.dart';
 
@@ -201,6 +202,12 @@ class AuthService {
         return null;
       }
 
+      await LocalAccountDataBoundary().activate(
+        session.userId,
+        claimUnownedData: true,
+      );
+      AccountSessionLifecycle.setActiveUser(session.userId);
+
       return session;
     } on AuthException {
       return null;
@@ -231,6 +238,7 @@ class AuthService {
   Future<void> clearSession() async {
     final prefs = await SharedPreferences.getInstance();
     await Future.wait([_sessionStore.delete(), prefs.remove(_sessionKey)]);
+    AccountSessionLifecycle.setActiveUser(null);
   }
 
   Future<AuthSession> _authenticate(
@@ -279,13 +287,31 @@ class AuthService {
   }
 
   Future<void> _persistSession(AuthSession session) async {
+    final boundary = LocalAccountDataBoundary();
     try {
       final prefs = await SharedPreferences.getInstance();
-      await _sessionStore.write(jsonEncode(session.toJson()));
-      await prefs.remove(_sessionKey);
+      final previousOwner = await boundary.activeOwner();
+      await boundary.activate(session.userId);
+      try {
+        await _sessionStore.write(jsonEncode(session.toJson()));
+      } on Object {
+        if (previousOwner != null && previousOwner != session.userId) {
+          await boundary.activate(previousOwner);
+        }
+        rethrow;
+      }
 
-      // Mantem o nome exibido nas telas existentes sem modificar o perfil local.
-      await prefs.setString('perfilNome', session.name);
+      // Estas projeções legadas são reparáveis e não podem invalidar uma
+      // sessão segura que já foi gravada junto ao limite de dados correto.
+      try {
+        await prefs.remove(_sessionKey);
+        // Mantém o nome exibido nas telas existentes sem modificar o perfil local.
+        await prefs.setString('perfilNome', session.name);
+      } on Object catch (error) {
+        _debugLog('Falha na projeção local da sessão: $error');
+      }
+
+      AccountSessionLifecycle.setActiveUser(session.userId);
     } on Object catch (error) {
       _debugLog('Falha ao salvar sessao: $error');
       throw const AuthException(

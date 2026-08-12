@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../settings/settings.dart';
+
 import '../../../../design_system/fit_design_system.dart';
 import '../../../../screens/corridas/corrida_detalhe_page.dart';
 import '../../../../screens/passos_page.dart';
@@ -308,10 +310,11 @@ class _TimelineRow extends StatelessWidget {
 
   static String _runDetails(ActivityDetails details) {
     final run = details as RunningActivityDetails;
+    final units = WorkoutSettingsRuntime.units;
     final pace = run.paceMinutesPerKm == null
         ? 'ritmo indisponivel'
-        : '${run.paceMinutesPerKm!.toStringAsFixed(1)} min/km';
-    return '${run.distanceKm.toStringAsFixed(2)} km, $pace';
+        : UnitConversion.formatPaceMinutesPerKm(run.paceMinutesPerKm!, units);
+    return '${UnitConversion.formatDistanceKm(run.distanceKm, units)}, $pace';
   }
 
   static String _stepsDetails(ActivityDetails details) {

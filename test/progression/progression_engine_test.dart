@@ -152,6 +152,77 @@ void main() {
       expect(result.createdEvents, isEmpty);
       expect((await engine.load()).events, isEmpty);
     });
+
+    test('isola eventos, metas e XP entre usuarios locais', () async {
+      final engine = _engine();
+      final sources = ProgressionSourceData(
+        workouts: [
+          ProgressionWorkoutSource(
+            id: 'workout-a',
+            completedAt: DateTime(2026, 8, 3, 9),
+          ),
+        ],
+      );
+
+      await engine.reconcile(sources: sources, userId: 'user-a');
+
+      expect((await engine.load(userId: 'user-b')).events, isEmpty);
+      expect((await engine.load(userId: 'user-b')).balance.totalXp, 0);
+      expect((await engine.load(userId: 'user-a')).events, hasLength(2));
+    });
+
+    test('serializa eventos concorrentes sem duplicar XP', () async {
+      final engine = _engine();
+      final sources = ProgressionSourceData(
+        workouts: [
+          ProgressionWorkoutSource(
+            id: 'workout-concurrent',
+            completedAt: DateTime(2026, 8, 3, 9),
+          ),
+        ],
+      );
+
+      final results = await Future.wait(
+        List.generate(10, (_) => engine.reconcile(sources: sources)),
+      );
+
+      expect(
+        results.fold<int>(
+          0,
+          (total, result) => total + result.createdEvents.length,
+        ),
+        2,
+      );
+      expect((await engine.load()).balance.totalXp, 35);
+    });
+
+    test(
+      'recupera uma persistencia de progressao que falhou sem parcial',
+      () async {
+        final store = InMemoryProgressionStore()..failNextSave = true;
+        final engine = ProgressionEngine(
+          store: store,
+          legacyReader: () async =>
+              const LegacyProgression(level: 1, xpIntoLevel: 0),
+          legacyWriter: (_) async {},
+          clock: () => DateTime(2026, 8, 3, 12),
+        );
+        final sources = ProgressionSourceData(
+          workouts: [
+            ProgressionWorkoutSource(
+              id: 'workout-retry',
+              completedAt: DateTime(2026, 8, 3, 9),
+            ),
+          ],
+        );
+
+        await expectLater(engine.reconcile(sources: sources), throwsStateError);
+        final recovered = await engine.reconcile(sources: sources);
+
+        expect(recovered.snapshot.events, hasLength(2));
+        expect(recovered.snapshot.balance.totalXp, 35);
+      },
+    );
   });
 }
 

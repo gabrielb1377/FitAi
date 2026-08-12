@@ -97,6 +97,34 @@ void main() {
         ]),
       );
     });
+
+    test(
+      'falha de Atividades nao derruba Perfil, treino ou XP local',
+      () async {
+        final repository = ProfileRepository(
+          planHistoryLoader: () async => _planHistory([
+            _workout('session-available', DateTime(2026, 8, 3, 10)),
+          ]),
+          profileValuesLoader: () async => const {'nome': 'Gabriel'},
+          runsLoader: () async => throw StateError('Atividades indisponiveis'),
+          stepsLoader: () async => const [],
+          favoritesLoader: () async => const {},
+          preferencesLoader: () async => const UserPreferences.unavailable(),
+          progressionEngine: _engine(),
+        );
+
+        final profile = await repository.load();
+
+        expect(profile.profile.name, 'Gabriel');
+        expect(profile.stats.completedWorkouts, 1);
+        expect(profile.progression.events, hasLength(2));
+        expect(profile.progression.balance.totalXp, greaterThan(0));
+        expect(
+          profile.issues.map((issue) => issue.source),
+          contains(ProfileDataSource.activities),
+        );
+      },
+    );
   });
 }
 

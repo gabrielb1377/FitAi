@@ -71,6 +71,62 @@ void main() {
     );
   });
 
+  test(
+    'troca de conta nao expoe os dados locais legados da sessao anterior',
+    () async {
+      final first = AuthService(
+        client: MockClient((_) async => _ok(userId: 'user-a', name: 'Ana')),
+        bypassLogin: false,
+        sessionStore: InMemoryAuthSessionStore(),
+      );
+      final second = AuthService(
+        client: MockClient((_) async => _ok(userId: 'user-b', name: 'Bruno')),
+        bypassLogin: false,
+        sessionStore: InMemoryAuthSessionStore(),
+      );
+
+      await first.login(email: 'ana@fitia.app', password: '123456');
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setStringList('historicoTreinos', ['treino-da-ana']);
+      await first.clearSession();
+
+      await second.login(email: 'bruno@fitia.app', password: '123456');
+      expect(preferences.getStringList('historicoTreinos'), isNull);
+
+      await second.clearSession();
+      await first.login(email: 'ana@fitia.app', password: '123456');
+      expect(preferences.getStringList('historicoTreinos'), ['treino-da-ana']);
+    },
+  );
+
+  test(
+    'falha ao salvar nova sessao restaura os dados da conta anterior',
+    () async {
+      final first = AuthService(
+        client: MockClient((_) async => _ok(userId: 'user-a', name: 'Ana')),
+        bypassLogin: false,
+        sessionStore: InMemoryAuthSessionStore(),
+      );
+      final failing = AuthService(
+        client: MockClient((_) async => _ok(userId: 'user-b', name: 'Bruno')),
+        bypassLogin: false,
+        sessionStore: _FailingAuthSessionStore(),
+      );
+
+      await first.login(email: 'ana@fitia.app', password: '123456');
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setStringList('historicoTreinos', ['treino-da-ana']);
+      await first.clearSession();
+
+      await expectLater(
+        failing.login(email: 'bruno@fitia.app', password: '123456'),
+        throwsA(isA<AuthException>()),
+      );
+
+      expect(preferences.getStringList('historicoTreinos'), ['treino-da-ana']);
+    },
+  );
+
   test('cadastro envia somente o contrato aceito pelo backend', () async {
     late http.Request captured;
     final service = AuthService(
@@ -166,10 +222,14 @@ void main() {
   });
 }
 
-http.Response _ok({int statusCode = 200}) => http.Response(
+http.Response _ok({
+  int statusCode = 200,
+  String userId = 'user-1',
+  String name = 'Gabriel',
+}) => http.Response(
   jsonEncode({
     'token': _token(),
-    'user': {'id': 'user-1', 'name': 'Gabriel', 'email': 'gabriel@fitia.app'},
+    'user': {'id': userId, 'name': name, 'email': 'gabriel@fitia.app'},
   }),
   statusCode,
 );
@@ -179,4 +239,15 @@ String _token({DateTime? expiry}) {
       base64Url.encode(utf8.encode(jsonEncode(value))).replaceAll('=', '');
   final expiresAt = expiry ?? DateTime.now().add(const Duration(days: 7));
   return '${encode({'alg': 'none'})}.${encode({'exp': expiresAt.millisecondsSinceEpoch ~/ 1000})}.signature';
+}
+
+class _FailingAuthSessionStore implements AuthSessionStore {
+  @override
+  Future<void> delete() async {}
+
+  @override
+  Future<String?> read() async => null;
+
+  @override
+  Future<void> write(String value) => Future<void>.error(StateError('disk'));
 }

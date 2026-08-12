@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../../../core/auth/local_account_data_boundary.dart';
+import '../../../core/config/dev_config.dart';
 import '../../../services/storage_service.dart';
 import '../data/progression_local_store.dart';
 import '../domain/progression_models.dart';
@@ -7,6 +9,7 @@ import '../domain/progression_rules.dart';
 
 typedef LegacyProgressionReader = Future<LegacyProgression> Function();
 typedef LegacyProgressionWriter = Future<void> Function(XpBalance balance);
+typedef ProgressionUserIdResolver = Future<String> Function();
 
 class LegacyProgression {
   const LegacyProgression({required this.level, required this.xpIntoLevel});
@@ -26,6 +29,7 @@ class ProgressionEngine {
     LegacyProgressionReader? legacyReader,
     LegacyProgressionWriter? legacyWriter,
     DateTime Function()? clock,
+    this.userIdResolver,
     this.allowDebugEvents = true,
   }) : _legacyReader = legacyReader ?? _readLegacyProgression,
        _legacyWriter = legacyWriter ?? _writeLegacyProgression,
@@ -34,6 +38,7 @@ class ProgressionEngine {
   factory ProgressionEngine.production() => ProgressionEngine(
     store: SharedPreferencesProgressionStore(),
     allowDebugEvents: false,
+    userIdResolver: _resolveCurrentUserId,
   );
 
   static final ProgressionEngine instance = ProgressionEngine.production();
@@ -42,21 +47,25 @@ class ProgressionEngine {
   final LegacyProgressionReader _legacyReader;
   final LegacyProgressionWriter _legacyWriter;
   final DateTime Function() _clock;
+  final ProgressionUserIdResolver? userIdResolver;
   final bool allowDebugEvents;
   Future<void> _serialQueue = Future<void>.value();
 
-  Future<ProgressionSnapshot> load({String userId = 'local'}) =>
-      _serialize(() => _loadOrMigrate(userId));
+  Future<ProgressionSnapshot> load({String? userId}) => _serialize(() async {
+    return _loadOrMigrate(await _resolveUserId(userId));
+  });
 
   Future<ProgressionProcessingResult> reconcile({
     required ProgressionSourceData sources,
-    String userId = 'local',
-  }) => _serialize(() => _reconcile(sources: sources, userId: userId));
+    String? userId,
+  }) => _serialize(() async {
+    return _reconcile(sources: sources, userId: await _resolveUserId(userId));
+  });
 
   Future<ProgressionProcessingResult> recordWorkoutCompletion({
     required String workoutId,
     required DateTime completedAt,
-    String userId = 'local',
+    String? userId,
     String? workoutName,
     ProgressionSourceData? sources,
   }) {
@@ -82,7 +91,7 @@ class ProgressionEngine {
     required DateTime completedAt,
     required int durationSeconds,
     required double distanceKm,
-    String userId = 'local',
+    String? userId,
     ProgressionSourceData? sources,
   }) {
     final eventSources =
@@ -115,17 +124,20 @@ class ProgressionEngine {
           runsAvailable: false,
           favoritesAvailable: false,
         );
-    return reconcile(sources: eventSources, userId: steps.userId);
+    return reconcile(
+      sources: eventSources,
+      userId: steps.userId == 'local' ? null : steps.userId,
+    );
   }
 
   /// Mantem a versao anterior como historico e cria uma nova meta no periodo.
   Future<ProgressionSnapshot> updateGoalTarget({
     required GoalType type,
     required int target,
-    String userId = 'local',
+    String? userId,
   }) => _serialize(() async {
     if (target <= 0) throw ArgumentError.value(target, 'target');
-    final snapshot = await _loadOrMigrate(userId);
+    final snapshot = await _loadOrMigrate(await _resolveUserId(userId));
     final now = _clock().toLocal();
     final current = _activeGoalFor(snapshot.goals, type, now);
     if (current == null) return snapshot;
@@ -333,7 +345,7 @@ class ProgressionEngine {
   }
 
   Future<ProgressionSnapshot> _loadOrMigrate(String userId) async {
-    final stored = await store.load();
+    final stored = await store.load(userId);
     if (stored != null) return stored;
     final legacy = await _legacyReader();
     final level = legacy.level < 1 ? 1 : legacy.level;
@@ -345,6 +357,20 @@ class ProgressionEngine {
     ).copyWith(balance: ProgressionRules.balanceForTotalXp(total));
     await _persist(snapshot);
     return snapshot;
+  }
+
+  Future<String> _resolveUserId(String? requested) async {
+    final explicit = requested?.trim();
+    if (explicit != null && explicit.isNotEmpty) return explicit;
+    final resolver = userIdResolver;
+    if (resolver != null) return resolver();
+    return 'local';
+  }
+
+  static Future<String> _resolveCurrentUserId() async {
+    final userId = AccountSessionLifecycle.activeUserId;
+    if (userId != null) return userId;
+    return DevConfig.enabled && DevConfig.fakeUser ? 'debug-gabriel' : 'local';
   }
 
   Future<void> _persist(ProgressionSnapshot snapshot) async {
