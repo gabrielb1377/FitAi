@@ -63,7 +63,7 @@ void main() {
       MediaQuery(
         data: const MediaQueryData(
           size: Size(320, 700),
-          textScaler: TextScaler.linear(1.5),
+          textScaler: TextScaler.linear(2),
         ),
         child: homeTestHost(homeOfficialScreens()['HOME-001']!()),
       ),

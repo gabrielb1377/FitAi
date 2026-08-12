@@ -19,7 +19,7 @@ void main() {
   ) async {
     await tester.pumpWidget(_host(_content(_state(HomeLoadStatus.ready))));
 
-    expect(find.text('Novo plano'), findsOneWidget);
+    expect(find.text('Nenhum treino criado ainda'), findsOneWidget);
     expect(find.text('Criar plano'), findsOneWidget);
     expect(find.text('Ainda sem insights'), findsOneWidget);
     expect(find.text('Suas conquistas'), findsOneWidget);
@@ -39,7 +39,7 @@ void main() {
     );
 
     expect(find.text('Voce esta offline'), findsOneWidget);
-    expect(find.text('Novo plano'), findsOneWidget);
+    expect(find.text('Nenhum treino criado ainda'), findsOneWidget);
   });
 
   testWidgets('mantem treino e destaca corrida ativa', (tester) async {
@@ -52,7 +52,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Continuar'), findsOneWidget);
+    expect(find.text('Ativa'), findsOneWidget);
     expect(find.text('Upper A'), findsOneWidget);
   });
 
@@ -67,6 +67,80 @@ void main() {
     expect(find.text('Iniciar treino'), findsOneWidget);
     expect(find.text('1.2k'), findsOneWidget);
   });
+
+  testWidgets('mantem as acoes reais conectadas na composicao canônica', (
+    tester,
+  ) async {
+    var openedCoach = false;
+    var openedWorkout = false;
+    var openedHistory = false;
+    var openedSteps = false;
+
+    await tester.pumpWidget(
+      _host(
+        _content(
+          _state(HomeLoadStatus.ready, workout: _workout()),
+          onOpenCoach: () => openedCoach = true,
+          onOpenWorkout: () => openedWorkout = true,
+          onOpenHistory: () => openedHistory = true,
+          onOpenSteps: () => openedSteps = true,
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('home-coach-card')));
+    expect(openedCoach, isTrue);
+
+    await tester.tap(find.text('Iniciar treino'));
+    expect(openedWorkout, isTrue);
+
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -300));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Passos'));
+    expect(openedSteps, isTrue);
+
+    final timeline = find.byKey(const ValueKey('home-week-timeline-card'));
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -300));
+    await tester.pumpAndSettle();
+    await tester.tap(timeline);
+    expect(openedHistory, isTrue);
+  });
+
+  testWidgets('mantem a criacao de plano no estado sem treino', (tester) async {
+    var createdPlan = false;
+
+    await tester.pumpWidget(
+      _host(
+        _content(
+          _state(HomeLoadStatus.ready),
+          onCreatePlan: () => createdPlan = true,
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Criar plano'));
+
+    expect(createdPlan, isTrue);
+  });
+
+  testWidgets('expoe semantica para progresso, Coach e historico', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(_content(_state(HomeLoadStatus.ready, workout: _workout()))),
+    );
+
+    expect(
+      find.bySemanticsLabel(RegExp(r'Progresso .* dias seguidos')),
+      findsOneWidget,
+    );
+    expect(find.bySemanticsLabel(RegExp(r'Abrir Coach FitIA')), findsOneWidget);
+    final timeline = find.byKey(const ValueKey('home-week-timeline-card'));
+    expect(
+      tester.getSemantics(timeline).label,
+      contains('Abrir historico dos ultimos sete dias'),
+    );
+  });
 }
 
 Widget _host(Widget child) => MaterialApp(
@@ -74,32 +148,39 @@ Widget _host(Widget child) => MaterialApp(
   home: Scaffold(body: child),
 );
 
-Widget _content(HomeState state, {bool runningActive = false}) =>
-    HomeDashboardContent(
-      state: state,
-      name: 'Atleta',
-      level: 2,
-      xp: 120,
-      steps: 1234,
-      distance: 1.25,
-      runningActive: runningActive,
-      runningSeconds: 125,
-      onRefresh: () async {},
-      onOpenWorkout: () {},
-      onCreatePlan: () {},
-      onOpenLibrary: () {},
-      onOpenRunning: () {},
-      onOpenSteps: () {},
-      onOpenCoach: () {},
-      onOpenGoals: () {},
-      onOpenAchievements: () {},
-      onOpenNotifications: () {},
-      onCustomize: () {},
-      onOpenOverview: () {},
-      onOpenTodayWorkout: () {},
-      onOpenRecentActivity: () {},
-      onOpenProgress: () {},
-    );
+Widget _content(
+  HomeState state, {
+  bool runningActive = false,
+  VoidCallback? onOpenCoach,
+  VoidCallback? onOpenWorkout,
+  VoidCallback? onCreatePlan,
+  VoidCallback? onOpenHistory,
+  VoidCallback? onOpenSteps,
+}) => HomeDashboardContent(
+  state: state,
+  name: 'Atleta',
+  level: 2,
+  xp: 120,
+  steps: 1234,
+  distance: 1.25,
+  runningActive: runningActive,
+  runningSeconds: 125,
+  onRefresh: () async {},
+  onOpenWorkout: onOpenWorkout ?? () {},
+  onCreatePlan: onCreatePlan ?? () {},
+  onOpenLibrary: () {},
+  onOpenRunning: () {},
+  onOpenSteps: onOpenSteps ?? () {},
+  onOpenCoach: onOpenCoach ?? () {},
+  onOpenGoals: () {},
+  onOpenAchievements: () {},
+  onOpenNotifications: () {},
+  onCustomize: () {},
+  onOpenOverview: () {},
+  onOpenTodayWorkout: () {},
+  onOpenRecentActivity: onOpenHistory ?? () {},
+  onOpenProgress: () {},
+);
 
 HomeState _state(
   HomeLoadStatus status, {

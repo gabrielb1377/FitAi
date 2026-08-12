@@ -48,6 +48,7 @@ Map<String, Widget Function()> homeOfficialScreens() {
         onOpenTodayWorkout: () {},
         onOpenRecentActivity: () {},
         onOpenProgress: () {},
+        now: () => homeFixtureDate,
       ),
     ),
     'HOME-002': () => HomeOverviewPage(

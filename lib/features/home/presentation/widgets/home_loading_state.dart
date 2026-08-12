@@ -12,13 +12,13 @@ class HomeLoadingState extends StatelessWidget {
       children: [
         FitSkeleton(height: 132),
         SizedBox(height: FitSpacing.s16),
-        FitSkeleton(height: 112),
-        SizedBox(height: FitSpacing.s16),
-        FitSkeleton(height: 168),
-        SizedBox(height: FitSpacing.s16),
         FitSkeleton(height: 76),
         SizedBox(height: FitSpacing.s16),
-        FitSkeleton(height: 76),
+        FitSkeleton(height: 236),
+        SizedBox(height: FitSpacing.s16),
+        FitSkeleton(height: 64),
+        SizedBox(height: FitSpacing.s16),
+        FitSkeleton(height: 96),
       ],
     );
   }

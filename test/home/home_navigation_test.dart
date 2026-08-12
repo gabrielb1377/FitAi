@@ -27,7 +27,10 @@ void main() {
   testWidgets('abre Metas a partir da Home', (tester) async {
     await _pumpHome(tester);
 
-    await _tapVisible(tester, find.text('XP do dia'));
+    await _tapVisible(
+      tester,
+      find.byKey(const ValueKey('home-daily-progress-card')),
+    );
     await _tapVisible(tester, find.text('Editar metas'));
 
     expect(find.byType(HomeGoalsPage), findsOneWidget);
@@ -36,7 +39,7 @@ void main() {
   testWidgets('abre Corridas pelo acesso rapido', (tester) async {
     await _pumpHome(tester);
 
-    await _tapVisible(tester, find.text('Iniciar corrida'));
+    await _tapVisible(tester, find.text('Corrida'));
 
     expect(find.byType(CorridasPage), findsOneWidget);
   });

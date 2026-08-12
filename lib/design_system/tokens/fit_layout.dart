@@ -73,6 +73,7 @@ abstract final class FitLayout {
   static const domainTimelineMarker = 12.0;
   static const domainProfileAvatar = 56.0;
   static const domainQuickActionMinHeight = 112.0;
+  static const domainHomeMaxContentWidth = 470.0;
   static const domainCoachInsightMaxLines = 4;
   static const domainExerciseTagLimit = 3;
 }

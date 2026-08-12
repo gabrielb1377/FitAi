@@ -1,108 +1,183 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/xp/xp_config.dart';
 import '../../../../design_system/fit_design_system.dart';
+import '../../../../models/fitai_meta_model.dart';
 import '../../../../models/treino_model.dart';
 import '../../../../services/treino_do_dia_service.dart';
 
-class HomeXpCard extends StatelessWidget {
-  const HomeXpCard({
+/// Resumo compacto da evolucao diaria, equivalente ao anel do prototipo Home.
+///
+/// A prioridade e tornar visivel, sem recalcular progressao de dominio, a meta
+/// agregada que ja chegou na Home. Quando ainda nao ha meta, o anel comunica o
+/// avanco observavel por treino concluido e passos no dia.
+class HomeDailyProgressCard extends StatelessWidget {
+  const HomeDailyProgressCard({
     super.key,
     required this.xp,
     required this.level,
+    required this.currentStreak,
+    required this.steps,
+    required this.workoutsToday,
+    required this.primaryGoal,
     required this.onTap,
   });
 
   final int xp;
   final int level;
+  final int currentStreak;
+  final int steps;
+  final int workoutsToday;
+  final FitaiMetaModel? primaryGoal;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final target = XpConfig.xpParaProximoNivel(level);
-    final current = XpConfig.normalizarXp(xp).clamp(0, target).toInt();
-    final progress = target <= 0 ? 0.0 : current / target;
+    final goal = primaryGoal;
+    final progress = (goal?.progresso ?? _observedDailyProgress())
+        .clamp(0, 1)
+        .toDouble();
+    final percentage = (progress * 100).round();
+    final caption = goal == null
+        ? _dailyCaption()
+        : '${goal.titulo}: ${goal.progressoPercentual} concluido.';
+
     return FitCard(
-      key: const ValueKey('home-xp-card'),
+      key: const ValueKey('home-daily-progress-card'),
       onTap: onTap,
       variant: FitCardVariant.clickable,
+      padding: const EdgeInsets.all(FitSpacing.s16),
       semanticLabel:
-          'XP do dia, $current de $target, ${(progress * 100).round()} por cento',
-      header: Row(
-        children: [
-          Expanded(
-            child: Text('XP do dia', style: context.textTheme.titleMedium),
-          ),
-          const Icon(
-            FitIcons.forward,
-            size: FitLayout.iconSizeCompact,
-            color: FitColors.textSecondary,
-          ),
-        ],
-      ),
+          'Progresso ${goal == null ? 'do dia' : 'da meta ${goal.titulo}'}, '
+          '$percentage por cento. $currentStreak dias seguidos.',
       child: Row(
         children: [
+          _DailyProgressRing(value: progress, percentage: percentage),
+          const SizedBox(width: FitSpacing.s16),
           Expanded(
-            child: Center(
-              child: _XpRing(
-                value: progress.clamp(0, 1).toDouble(),
-                current: current,
-                target: target,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _StreakPill(days: currentStreak),
+                const SizedBox(height: FitSpacing.s8),
+                Text(
+                  caption,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.textTheme.bodyMedium,
+                ),
+                const SizedBox(height: FitSpacing.s8),
+                Text(
+                  'Nivel $level  |  $xp XP',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.textTheme.labelSmall,
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: FitSpacing.s16),
-          Text(
-            '${(progress * 100).round()}%',
-            style: context.textTheme.titleLarge?.copyWith(
-              color: FitColors.primary,
-            ),
+          const SizedBox(width: FitSpacing.s8),
+          const Icon(
+            FitIcons.forward,
+            color: FitColors.textTertiary,
+            size: FitLayout.iconSizeCompact,
           ),
         ],
       ),
     );
   }
+
+  double _observedDailyProgress() {
+    final workoutProgress = workoutsToday > 0 ? 0.5 : 0.0;
+    final stepsProgress = (steps / 10000).clamp(0, 1) * 0.5;
+    return workoutProgress + stepsProgress;
+  }
+
+  String _dailyCaption() {
+    if (workoutsToday > 0 && steps >= 10000) {
+      return 'Treino e meta de passos concluidos hoje.';
+    }
+    if (workoutsToday > 0) {
+      return 'Treino registrado. Continue com seus passos.';
+    }
+    if (steps > 0) {
+      return '$steps passos registrados. Seu treino ainda esta disponivel.';
+    }
+    return 'Registre uma atividade para iniciar seu progresso diario.';
+  }
 }
 
-class _XpRing extends StatelessWidget {
-  const _XpRing({
-    required this.value,
-    required this.current,
-    required this.target,
-  });
+class _DailyProgressRing extends StatelessWidget {
+  const _DailyProgressRing({required this.value, required this.percentage});
 
   final double value;
-  final int current;
-  final int target;
+  final int percentage;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox.square(
-      dimension: FitLayout.domainProgressRingLarge,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          SizedBox.square(
-            dimension: FitLayout.domainProgressRingLarge,
-            child: CircularProgressIndicator(
-              value: value,
-              strokeWidth: FitLayout.domainProgressRingStroke,
-              strokeCap: StrokeCap.round,
-              color: FitColors.primary,
-              backgroundColor: FitColors.cardInner,
+    return ExcludeSemantics(
+      child: SizedBox.square(
+        dimension: FitLayout.progressRingSize,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            SizedBox.square(
+              dimension: FitLayout.progressRingSize,
+              child: CircularProgressIndicator(
+                value: value,
+                strokeWidth: FitLayout.progressRingStroke,
+                strokeCap: StrokeCap.round,
+                color: FitColors.primary,
+                backgroundColor: FitColors.cardInner,
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(FitSpacing.s16),
-            child: FittedBox(
+            FittedBox(
               fit: BoxFit.scaleDown,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('$current', style: context.textTheme.headlineLarge),
-                  Text('/ $target XP', style: context.textTheme.labelSmall),
+                  Text('$percentage%', style: context.textTheme.titleMedium),
+                  Text('do dia', style: context.textTheme.labelSmall),
                 ],
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StreakPill extends StatelessWidget {
+  const _StreakPill({required this.days});
+
+  final int days;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: FitSpacing.s8,
+        vertical: FitSpacing.s4,
+      ),
+      decoration: const BoxDecoration(
+        color: FitColors.achievementContainer,
+        borderRadius: FitRadius.pillBorder,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            FitIcons.streak,
+            color: FitColors.achievement,
+            size: FitLayout.iconSizeSmall,
+          ),
+          const SizedBox(width: FitSpacing.s4),
+          Flexible(
+            child: Text(
+              '$days dias seguidos',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: context.textTheme.labelSmall,
             ),
           ),
         ],
@@ -111,79 +186,96 @@ class _XpRing extends StatelessWidget {
   }
 }
 
+/// Chips de acesso rapido para dados que a Home ja recebe dos modulos reais.
 class HomeDailyMetrics extends StatelessWidget {
   const HomeDailyMetrics({
     super.key,
     required this.steps,
+    required this.distance,
     required this.workouts,
-    required this.calories,
-    required this.onViewAll,
+    required this.weeklyXp,
+    required this.runningActive,
     required this.onOpenSteps,
+    required this.onOpenRunning,
     required this.onOpenProgress,
+    required this.onOpenOverview,
   });
 
   final int steps;
+  final double distance;
   final int workouts;
-  final int calories;
-  final VoidCallback onViewAll;
+  final int weeklyXp;
+  final bool runningActive;
   final VoidCallback onOpenSteps;
+  final VoidCallback onOpenRunning;
   final VoidCallback onOpenProgress;
+  final VoidCallback onOpenOverview;
 
   @override
   Widget build(BuildContext context) {
-    final metrics = [
+    final metrics = <_MetricData>[
       _MetricData(
-        label: 'Treino',
-        value: '$workouts/1',
-        detail: 'treinos',
-        progress: workouts.clamp(0, 1).toDouble(),
+        label: 'Treinos',
+        value: '$workouts',
+        detail: 'hoje',
+        icon: FitIcons.workout,
+        color: FitColors.primary,
         onTap: onOpenProgress,
       ),
       _MetricData(
         label: 'Passos',
         value: _compactNumber(steps),
-        detail: 'passos',
-        progress: (steps / 10000).clamp(0, 1).toDouble(),
+        detail: 'hoje',
+        icon: FitIcons.steps,
+        color: FitColors.steps,
         onTap: onOpenSteps,
       ),
       _MetricData(
-        label: 'Calorias',
-        value: _compactNumber(calories),
-        detail: 'kcal',
-        progress: (calories / 1800).clamp(0, 1).toDouble(),
-        onTap: onOpenProgress,
+        label: 'Corrida',
+        value: runningActive ? 'Ativa' : '${distance.toStringAsFixed(1)} km',
+        detail: runningActive ? 'em andamento' : 'total',
+        icon: FitIcons.running,
+        color: FitColors.running,
+        onTap: onOpenRunning,
+      ),
+      _MetricData(
+        label: 'XP',
+        value: _compactNumber(weeklyXp),
+        detail: 'semana',
+        icon: FitIcons.progress,
+        color: FitColors.xp,
+        onTap: onOpenOverview,
       ),
     ];
-    return FitSection(
-      title: 'Atividades de hoje',
-      onViewAll: onViewAll,
-      viewAllLabel: 'Ver todas',
+    final useTwoColumns =
+        MediaQuery.sizeOf(context).width < FitBreakpoints.smallMobile ||
+        MediaQuery.textScalerOf(context).scale(1) > 1.25;
+
+    return Semantics(
+      container: true,
+      label: 'Metricas de hoje',
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final compact = !FitBreakpoints.isSmallMobile(
-            MediaQuery.sizeOf(context).width,
-          );
-          if (compact) {
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          if (useTwoColumns) {
+            return Wrap(
+              spacing: FitSpacing.s8,
+              runSpacing: FitSpacing.s8,
               children: [
-                for (var index = 0; index < metrics.length; index++) ...[
-                  Expanded(child: _HomeMetricCard(data: metrics[index])),
-                  if (index < metrics.length - 1)
-                    const SizedBox(width: FitSpacing.s8),
-                ],
+                for (final metric in metrics)
+                  SizedBox(
+                    width: (constraints.maxWidth - FitSpacing.s8) / 2,
+                    child: _HomeMetricChip(data: metric),
+                  ),
               ],
             );
           }
-          return Wrap(
-            spacing: FitSpacing.s8,
-            runSpacing: FitSpacing.s8,
+          return Row(
             children: [
-              for (final metric in metrics)
-                SizedBox(
-                  width: (constraints.maxWidth - FitSpacing.s8) / 2,
-                  child: _HomeMetricCard(data: metric),
-                ),
+              for (var index = 0; index < metrics.length; index++) ...[
+                Expanded(child: _HomeMetricChip(data: metrics[index])),
+                if (index < metrics.length - 1)
+                  const SizedBox(width: FitSpacing.s8),
+              ],
             ],
           );
         },
@@ -205,19 +297,21 @@ class _MetricData {
     required this.label,
     required this.value,
     required this.detail,
-    required this.progress,
+    required this.icon,
+    required this.color,
     required this.onTap,
   });
 
   final String label;
   final String value;
   final String detail;
-  final double progress;
+  final IconData icon;
+  final Color color;
   final VoidCallback onTap;
 }
 
-class _HomeMetricCard extends StatelessWidget {
-  const _HomeMetricCard({required this.data});
+class _HomeMetricChip extends StatelessWidget {
+  const _HomeMetricChip({required this.data});
 
   final _MetricData data;
 
@@ -226,141 +320,201 @@ class _HomeMetricCard extends StatelessWidget {
     return FitCard(
       onTap: data.onTap,
       variant: FitCardVariant.clickable,
-      padding: const EdgeInsets.all(FitSpacing.s12),
-      semanticLabel:
-          '${data.label}: ${data.value} ${data.detail}, ${(data.progress * 100).round()} por cento',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(data.label, style: context.textTheme.labelSmall),
-          const SizedBox(height: FitSpacing.s4),
-          Text(
-            data.value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: context.textTheme.titleLarge,
-          ),
-          const SizedBox(height: FitSpacing.s2),
-          Text(data.detail, style: context.textTheme.labelSmall),
-          const SizedBox(height: FitSpacing.s8),
-          FitProgressBar(value: data.progress),
-        ],
+      padding: const EdgeInsets.symmetric(
+        horizontal: FitSpacing.s4,
+        vertical: FitSpacing.s8,
+      ),
+      semanticLabel: '${data.label}: ${data.value} ${data.detail}',
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(data.icon, color: data.color, size: FitLayout.iconSizeSmall),
+            const SizedBox(height: FitSpacing.s4),
+            Text(
+              data.value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: context.textTheme.titleSmall,
+            ),
+            Text(
+              data.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: context.textTheme.labelSmall,
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class HomeTodayCards extends StatelessWidget {
-  const HomeTodayCards({
+/// Hero funcional do treino do dia. O conteudo e determinado pelo servico
+/// existente de selecao, enquanto esta classe cuida somente da apresentacao.
+class HomeTodayWorkoutHero extends StatelessWidget {
+  const HomeTodayWorkoutHero({
     super.key,
     required this.selection,
-    required this.runningActive,
-    required this.runningDistance,
     required this.onOpenWorkout,
     required this.onCreatePlan,
-    required this.onOpenRunning,
     required this.onOpenTodayWorkout,
   });
 
   final TreinoDoDiaSelecao selection;
-  final bool runningActive;
-  final double runningDistance;
   final VoidCallback onOpenWorkout;
   final VoidCallback onCreatePlan;
-  final VoidCallback onOpenRunning;
   final VoidCallback onOpenTodayWorkout;
 
   @override
   Widget build(BuildContext context) {
     final workout = selection.treino;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final sideBySide = !FitBreakpoints.isSmallMobile(
-          MediaQuery.sizeOf(context).width,
-        );
-        final cards = [
-          _WorkoutPreviewCard(
-            workout: workout,
-            onOpen: workout == null ? onCreatePlan : onOpenTodayWorkout,
-            onAction: workout == null ? onCreatePlan : onOpenWorkout,
-          ),
-          _RunningPreviewCard(
-            active: runningActive,
-            distance: runningDistance,
-            onOpen: onOpenRunning,
-          ),
-        ];
-        if (!sideBySide) {
-          return Column(
+    final isEmpty = workout == null;
+    final isCompleted = selection.treinoConcluidoHoje;
+    final isRestDay = selection.diaDeDescanso;
+    final action = isEmpty
+        ? onCreatePlan
+        : isCompleted
+        ? onOpenTodayWorkout
+        : onOpenWorkout;
+    final actionLabel = isEmpty
+        ? 'Criar plano'
+        : isCompleted
+        ? 'Ver treino'
+        : 'Iniciar treino';
+    final status = isEmpty
+        ? 'Seu proximo passo'
+        : isCompleted
+        ? 'Treino concluido'
+        : isRestDay
+        ? 'Recuperacao sugerida'
+        : workout.criadoPorIA
+        ? 'Sugerido pela IA'
+        : 'Treino de hoje';
+    final title = _titleFor(workout);
+    final subtitle = _subtitleFor(workout);
+
+    return FitCard(
+      key: const ValueKey('home-today-workout-hero'),
+      onTap: isEmpty ? onCreatePlan : onOpenTodayWorkout,
+      variant: FitCardVariant.clickable,
+      color: FitColors.surfaceRaised,
+      borderColor: FitColors.borderSubtle,
+      elevation: 1,
+      padding: const EdgeInsets.all(FitSpacing.s24),
+      semanticLabel: '$status: $title. $subtitle',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
             children: [
-              cards.first,
-              const SizedBox(height: FitSpacing.s12),
-              cards.last,
+              Expanded(
+                child: _StatusBadge(
+                  isAi: workout?.criadoPorIA ?? false,
+                  label: status,
+                ),
+              ),
+              if (workout != null) ...[
+                const SizedBox(width: FitSpacing.s8),
+                const Icon(
+                  FitIcons.time,
+                  color: FitColors.textTertiary,
+                  size: FitLayout.iconSizeSmall,
+                ),
+                const SizedBox(width: FitSpacing.s4),
+                Text(
+                  '${workout.tempoEstimado} min',
+                  style: context.textTheme.labelSmall,
+                ),
+              ],
             ],
-          );
-        }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: cards.first),
-            const SizedBox(width: FitSpacing.s12),
-            Expanded(child: cards.last),
+          ),
+          const SizedBox(height: FitSpacing.s12),
+          Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: context.textTheme.headlineMedium,
+          ),
+          const SizedBox(height: FitSpacing.s4),
+          Text(
+            subtitle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: context.textTheme.bodyMedium,
+          ),
+          if (workout != null) ...[
+            const SizedBox(height: FitSpacing.s16),
+            _ExercisePreviewStrip(exercises: workout.exercicios),
           ],
-        );
-      },
+          const SizedBox(height: FitSpacing.s24),
+          FitPrimaryButton(
+            label: actionLabel,
+            icon: isCompleted ? FitIcons.check : FitIcons.play,
+            fullWidth: true,
+            onPressed: action,
+          ),
+        ],
+      ),
     );
+  }
+
+  String _titleFor(TreinoModel? workout) {
+    if (workout != null) return workout.nome;
+    final title = selection.titulo.trim();
+    return title.isEmpty || title == 'Nenhum treino'
+        ? 'Nenhum treino criado ainda'
+        : title;
+  }
+
+  String _subtitleFor(TreinoModel? workout) {
+    if (workout == null) {
+      final detail = selection.descricao.trim();
+      return detail.isEmpty
+          ? 'Crie um plano para receber seu proximo treino.'
+          : detail;
+    }
+    final groups = workout.gruposPrioritarios.where((item) => item.isNotEmpty);
+    if (groups.isNotEmpty) return groups.join('  |  ');
+    if (workout.grupoDia.trim().isNotEmpty) return workout.grupoDia;
+    if (workout.descricao.trim().isNotEmpty) return workout.descricao;
+    return '${workout.exercicios.length} exercicios  |  ${workout.nivel}';
   }
 }
 
-class _WorkoutPreviewCard extends StatelessWidget {
-  const _WorkoutPreviewCard({
-    required this.workout,
-    required this.onOpen,
-    required this.onAction,
-  });
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge({required this.isAi, required this.label});
 
-  final TreinoModel? workout;
-  final VoidCallback onOpen;
-  final VoidCallback onAction;
+  final bool isAi;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    final item = workout;
-    return FitCard(
-      onTap: onOpen,
-      variant: FitCardVariant.clickable,
-      padding: EdgeInsets.zero,
-      semanticLabel: item == null
-          ? 'Criar primeiro plano'
-          : 'Treino de hoje, ${item.nome}',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Container(
+      constraints: const BoxConstraints(minWidth: FitLayout.none),
+      padding: const EdgeInsets.symmetric(
+        horizontal: FitSpacing.s8,
+        vertical: FitSpacing.s4,
+      ),
+      decoration: BoxDecoration(
+        color: isAi ? FitColors.aiContainer : FitColors.primaryContainer,
+        borderRadius: FitRadius.smallBorder,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _PreviewMedia(
-            assetPath: item?.exercicios.firstOrNull?.imagem,
-            fallbackIcon: FitIcons.workout,
+          Icon(
+            isAi ? FitIcons.ai : FitIcons.workout,
+            color: isAi ? FitColors.ai : FitColors.primary,
+            size: FitLayout.iconSizeSmall,
           ),
-          Padding(
-            padding: const EdgeInsets.all(FitSpacing.s12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Treino de hoje', style: context.textTheme.labelSmall),
-                const SizedBox(height: FitSpacing.s2),
-                Text(
-                  item?.nome ?? 'Novo plano',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.textTheme.titleMedium,
-                ),
-                const SizedBox(height: FitSpacing.s8),
-                FitPrimaryButton(
-                  label: item == null ? 'Criar plano' : 'Iniciar treino',
-                  size: FitButtonSize.small,
-                  fullWidth: true,
-                  onPressed: onAction,
-                ),
-              ],
+          const SizedBox(width: FitSpacing.s4),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: context.textTheme.labelSmall,
             ),
           ),
         ],
@@ -369,96 +523,85 @@ class _WorkoutPreviewCard extends StatelessWidget {
   }
 }
 
-class _RunningPreviewCard extends StatelessWidget {
-  const _RunningPreviewCard({
-    required this.active,
-    required this.distance,
-    required this.onOpen,
-  });
+class _ExercisePreviewStrip extends StatelessWidget {
+  const _ExercisePreviewStrip({required this.exercises});
 
-  final bool active;
-  final double distance;
-  final VoidCallback onOpen;
+  final List<dynamic> exercises;
 
   @override
   Widget build(BuildContext context) {
-    return FitCard(
-      onTap: onOpen,
-      variant: FitCardVariant.clickable,
-      padding: EdgeInsets.zero,
-      semanticLabel: 'Corrida, ${distance.toStringAsFixed(1)} quilômetros',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const _PreviewMedia(fallbackIcon: FitIcons.running),
-          Padding(
-            padding: const EdgeInsets.all(FitSpacing.s12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Corrida', style: context.textTheme.labelSmall),
-                const SizedBox(height: FitSpacing.s2),
-                Text(
-                  '${distance.toStringAsFixed(1)} km',
-                  style: context.textTheme.titleMedium,
-                ),
-                const SizedBox(height: FitSpacing.s8),
-                FitPrimaryButton(
-                  label: active ? 'Continuar' : 'Iniciar corrida',
-                  size: FitButtonSize.small,
-                  fullWidth: true,
-                  onPressed: onOpen,
-                ),
-              ],
-            ),
-          ),
+    final preview = exercises.take(2).toList();
+    final remaining = exercises.length - preview.length;
+    return Row(
+      children: [
+        if (preview.isEmpty) const _ExerciseThumbnail(),
+        for (final exercise in preview) ...[
+          if (preview.first != exercise) const SizedBox(width: FitSpacing.s8),
+          _ExerciseThumbnail(assetPath: exercise.imagem),
         ],
-      ),
+        if (remaining > 0) ...[
+          const SizedBox(width: FitSpacing.s8),
+          _MoreExercises(count: remaining),
+        ],
+      ],
     );
   }
 }
 
-class _PreviewMedia extends StatelessWidget {
-  const _PreviewMedia({this.assetPath, required this.fallbackIcon});
+class _ExerciseThumbnail extends StatelessWidget {
+  const _ExerciseThumbnail({this.assetPath});
 
   final String? assetPath;
-  final IconData fallbackIcon;
 
   @override
   Widget build(BuildContext context) {
     final path = assetPath?.trim() ?? '';
-    return AspectRatio(
-      aspectRatio: FitLayout.domainCompactMediaAspectRatio,
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(FitRadius.large),
-        ),
+    return ClipRRect(
+      borderRadius: FitRadius.mediumBorder,
+      child: SizedBox.square(
+        dimension: FitLayout.domainThumbnailSmall,
         child: path.isEmpty
-            ? ColoredBox(
+            ? const ColoredBox(
                 color: FitColors.cardInner,
-                child: Center(
-                  child: Icon(
-                    fallbackIcon,
-                    size: FitLayout.iconSizeState,
-                    color: FitColors.primary,
-                  ),
+                child: Icon(
+                  FitIcons.exercise,
+                  color: FitColors.primary,
+                  size: FitLayout.iconSizeCompact,
                 ),
               )
             : Image.asset(
                 path,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => ColoredBox(
+                errorBuilder: (_, _, _) => const ColoredBox(
                   color: FitColors.cardInner,
-                  child: Center(
-                    child: Icon(
-                      fallbackIcon,
-                      size: FitLayout.iconSizeState,
-                      color: FitColors.primary,
-                    ),
+                  child: Icon(
+                    FitIcons.exercise,
+                    color: FitColors.primary,
+                    size: FitLayout.iconSizeCompact,
                   ),
                 ),
               ),
       ),
+    );
+  }
+}
+
+class _MoreExercises extends StatelessWidget {
+  const _MoreExercises({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: FitLayout.domainThumbnailSmall,
+      height: FitLayout.domainThumbnailSmall,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        color: FitColors.cardInner,
+        borderRadius: FitRadius.mediumBorder,
+      ),
+      child: Text('+$count', style: context.textTheme.labelSmall),
     );
   }
 }

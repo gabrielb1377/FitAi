@@ -6,6 +6,7 @@ import 'home_coach_insight.dart';
 import 'home_dashboard_cards.dart';
 import 'home_offline_banner.dart';
 import 'home_recent_achievement.dart';
+import 'home_week_timeline.dart';
 
 class HomeReadyContent extends StatelessWidget {
   const HomeReadyContent({
@@ -27,6 +28,7 @@ class HomeReadyContent extends StatelessWidget {
     required this.onOpenTodayWorkout,
     required this.onOpenRecentActivity,
     required this.onOpenProgress,
+    required this.now,
   });
 
   final HomeState state;
@@ -46,9 +48,12 @@ class HomeReadyContent extends StatelessWidget {
   final VoidCallback onOpenTodayWorkout;
   final VoidCallback onOpenRecentActivity;
   final VoidCallback onOpenProgress;
+  final DateTime Function() now;
 
   @override
   Widget build(BuildContext context) {
+    final currentTime = now();
+    final workoutsToday = _workoutsToday(currentTime);
     return Column(
       key: const ValueKey('home-content'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -64,28 +69,46 @@ class HomeReadyContent extends StatelessWidget {
           const FitLinearLoading(),
           const SizedBox(height: FitSpacing.s12),
         ],
-        HomeXpCard(xp: xp, level: level, onTap: onOpenOverview),
-        HomeDailyMetrics(
+        HomeDailyProgressCard(
+          xp: xp,
+          level: level,
+          currentStreak: state.currentStreak,
           steps: steps,
-          workouts: _workoutsToday(),
-          calories: _caloriesToday(),
-          onViewAll: onOpenRecentActivity,
-          onOpenSteps: onOpenSteps,
-          onOpenProgress: onOpenProgress,
+          workoutsToday: workoutsToday,
+          primaryGoal: state.primaryGoal,
+          onTap: onOpenOverview,
         ),
-        HomeTodayCards(
-          selection: state.selection,
-          runningActive: runningActive,
-          runningDistance: distance,
-          onOpenWorkout: onOpenWorkout,
-          onCreatePlan: onCreatePlan,
-          onOpenRunning: onOpenRunning,
-          onOpenTodayWorkout: onOpenTodayWorkout,
-        ),
+        const SizedBox(height: FitSpacing.s16),
         HomeCoachInsight(
           insights: state.coachInsights,
           onOpenCoach: onOpenCoach,
         ),
+        const SizedBox(height: FitSpacing.s16),
+        HomeTodayWorkoutHero(
+          selection: state.selection,
+          onOpenWorkout: onOpenWorkout,
+          onCreatePlan: onCreatePlan,
+          onOpenTodayWorkout: onOpenTodayWorkout,
+        ),
+        const SizedBox(height: FitSpacing.s16),
+        HomeDailyMetrics(
+          steps: steps,
+          distance: distance,
+          workouts: workoutsToday,
+          weeklyXp: state.weeklyXp,
+          runningActive: runningActive,
+          onOpenSteps: onOpenSteps,
+          onOpenRunning: onOpenRunning,
+          onOpenProgress: onOpenProgress,
+          onOpenOverview: onOpenOverview,
+        ),
+        const SizedBox(height: FitSpacing.s24),
+        HomeWeekTimeline(
+          history: state.history,
+          onOpenHistory: onOpenRecentActivity,
+          now: now,
+        ),
+        const SizedBox(height: FitSpacing.s16),
         HomeRecentAchievement(
           achievement: state.latestAchievement,
           onOpenAchievements: onOpenAchievements,
@@ -94,25 +117,12 @@ class HomeReadyContent extends StatelessWidget {
     );
   }
 
-  int _workoutsToday() {
-    final now = DateTime.now();
+  int _workoutsToday(DateTime now) {
     return state.history.where((item) {
       final date = item.dataHora.toLocal();
       return date.year == now.year &&
           date.month == now.month &&
           date.day == now.day;
     }).length;
-  }
-
-  int _caloriesToday() {
-    final now = DateTime.now();
-    return state.history
-        .where((item) {
-          final date = item.dataHora.toLocal();
-          return date.year == now.year &&
-              date.month == now.month &&
-              date.day == now.day;
-        })
-        .fold<int>(0, (total, item) => total + item.caloriasEstimadas);
   }
 }

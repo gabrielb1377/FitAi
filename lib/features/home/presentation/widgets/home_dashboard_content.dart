@@ -32,6 +32,7 @@ class HomeDashboardContent extends StatelessWidget {
     required this.onOpenTodayWorkout,
     required this.onOpenRecentActivity,
     required this.onOpenProgress,
+    this.now = DateTime.now,
   });
 
   final HomeState state;
@@ -57,6 +58,7 @@ class HomeDashboardContent extends StatelessWidget {
   final VoidCallback onOpenTodayWorkout;
   final VoidCallback onOpenRecentActivity;
   final VoidCallback onOpenProgress;
+  final DateTime Function() now;
 
   @override
   Widget build(BuildContext context) {
@@ -73,23 +75,43 @@ class HomeDashboardContent extends StatelessWidget {
             SliverToBoxAdapter(
               child: HomeHeader(
                 name: name,
-                currentStreak: state.currentStreak,
                 unreadNotifications: state.unreadNotifications,
                 onOpenNotifications: onOpenNotifications,
                 onCustomize: onCustomize,
+                now: now,
               ),
             ),
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(
-                _horizontalPadding(context),
-                0,
-                _horizontalPadding(context),
-                FitSpacing.s64,
-              ),
-              sliver: SliverToBoxAdapter(
-                child: AnimatedSwitcher(
-                  duration: FitDuration.normal,
-                  child: _buildBody(context),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  _horizontalPadding(context),
+                  0,
+                  _horizontalPadding(context),
+                  FitSpacing.s64,
+                ),
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: FitLayout.domainHomeMaxContentWidth,
+                    ),
+                    child: AnimatedSwitcher(
+                      duration: MediaQuery.disableAnimationsOf(context)
+                          ? FitDuration.instant
+                          : FitDuration.reveal,
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: animation,
+                        child: ScaleTransition(
+                          scale: Tween<double>(
+                            begin: 0.98,
+                            end: 1,
+                          ).animate(animation),
+                          child: child,
+                        ),
+                      ),
+                      child: _buildBody(context),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -131,6 +153,7 @@ class HomeDashboardContent extends StatelessWidget {
       onOpenTodayWorkout: onOpenTodayWorkout,
       onOpenRecentActivity: onOpenRecentActivity,
       onOpenProgress: onOpenProgress,
+      now: now,
     );
   }
 
