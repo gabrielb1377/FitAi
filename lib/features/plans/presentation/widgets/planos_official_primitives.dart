@@ -15,6 +15,7 @@ class PlanosOfficialPage extends StatelessWidget {
     this.onBack,
     this.actions = const [],
     this.bottomAction,
+    this.showHeader = true,
   });
 
   final String title;
@@ -23,6 +24,7 @@ class PlanosOfficialPage extends StatelessWidget {
   final VoidCallback? onBack;
   final List<Widget> actions;
   final Widget? bottomAction;
+  final bool showHeader;
 
   @override
   Widget build(BuildContext context) {
@@ -41,13 +43,14 @@ class PlanosOfficialPage extends StatelessWidget {
                 height: constraints.maxHeight,
                 child: Column(
                   children: [
-                    FitHeader(
-                      title: title,
-                      subtitle: subtitle,
-                      showBackButton: onBack != null,
-                      onBack: onBack,
-                      actions: actions,
-                    ),
+                    if (showHeader)
+                      FitHeader(
+                        title: title,
+                        subtitle: subtitle,
+                        showBackButton: onBack != null,
+                        onBack: onBack,
+                        actions: actions,
+                      ),
                     Expanded(child: child),
                   ],
                 ),

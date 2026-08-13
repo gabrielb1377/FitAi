@@ -9,6 +9,7 @@ import '../../../../services/treino_service.dart';
 import '../../../core_journey/presentation/core_journey_scope.dart';
 import '../../domain/workout_history_models.dart';
 import '../../workout_execution/pages/workout_preview_page.dart';
+import '../widgets/planos_plan_detail_content.dart';
 import '../widgets/planos_official_primitives.dart';
 import 'plan_workout_history_pages.dart';
 
@@ -19,11 +20,15 @@ class PlanosPlanDetailPage extends StatefulWidget {
     required this.plan,
     required this.progress,
     this.onXpUpdated,
+    this.isOffline = false,
+    this.hasPartialFailure = false,
   });
 
   final TreinoModel plan;
   final PlanProgressSnapshot progress;
   final Future<void> Function()? onXpUpdated;
+  final bool isOffline;
+  final bool hasPartialFailure;
 
   @override
   State<PlanosPlanDetailPage> createState() => _PlanosPlanDetailPageState();
@@ -34,161 +39,53 @@ class _PlanosPlanDetailPageState extends State<PlanosPlanDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final progress = widget.progress.weeklyProgress;
     final days = _days(_plan);
+    final currentWeek = widget.progress.weeks
+        .where((week) => week.isCurrent)
+        .firstOrNull;
+    final currentWeekLabel = currentWeek == null
+        ? 'Semana atual'
+        : 'Semana ${currentWeek.number}';
     return PlanosOfficialPage(
       title: '',
       onBack: () => Navigator.of(context).maybePop(),
-      actions: [
-        PopupMenuButton<_PlanAction>(
-          tooltip: 'Opcoes do plano',
-          icon: const Icon(FitIcons.more),
-          onSelected: _handleAction,
-          itemBuilder: (context) => const [
-            PopupMenuItem(value: _PlanAction.edit, child: Text('Editar plano')),
-            PopupMenuItem(
-              value: _PlanAction.statistics,
-              child: Text('Estatisticas'),
-            ),
-            PopupMenuItem(
-              value: _PlanAction.calendar,
-              child: Text('Calendario'),
-            ),
-            PopupMenuItem(
-              value: _PlanAction.duplicate,
-              child: Text('Duplicar plano'),
-            ),
-            PopupMenuItem(
-              value: _PlanAction.share,
-              child: Text('Compartilhar'),
-            ),
-            PopupMenuItem(value: _PlanAction.archive, child: Text('Arquivar')),
-            PopupMenuItem(
-              value: _PlanAction.delete,
-              child: Text('Excluir plano'),
-            ),
-          ],
-        ),
-      ],
+      showHeader: false,
       bottomAction: FitPrimaryButton(
         label: 'Iniciar treino',
         icon: FitIcons.play,
         fullWidth: true,
         onPressed: () => _openWeek(days),
       ),
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          FitSpacing.s16,
-          FitSpacing.s4,
-          FitSpacing.s16,
-          FitSpacing.s24,
-        ),
-        children: [
-          Stack(
-            children: [
-              PlanosPlanMedia(
-                assetPath: _imageFor(_plan),
-                height: FitLayout.domainChartHeight + FitSpacing.s64,
-              ),
-              Positioned(
-                right: FitSpacing.s12,
-                bottom: FitSpacing.s12,
-                child: FitChip(label: _plan.objetivo, selected: true),
-              ),
-            ],
-          ),
-          const SizedBox(height: FitSpacing.s16),
-          Text(_plan.nome, style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: FitSpacing.s8),
-          Text(
-            _plan.descricao.isEmpty
-                ? 'Plano focado em evolucao consistente e desempenho muscular.'
-                : _plan.descricao,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: FitSpacing.s16),
-          PlanosMetricRow(
-            metrics: [
-              PlanosMetricData(
-                label: 'dias/semana',
-                value: '${days.length}',
-                icon: FitIcons.calendar,
-              ),
-              const PlanosMetricData(
-                label: 'semanas',
-                value: '8',
-                icon: FitIcons.calendarRange,
-              ),
-              PlanosMetricData(
-                label: 'exercicios',
-                value: '${_plan.exercicios.length}',
-                icon: FitIcons.exercise,
-              ),
-            ],
-          ),
-          const SizedBox(height: FitSpacing.s16),
-          FitCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Progresso do plano',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: FitSpacing.s12),
-                FitProgress(
-                  value: progress,
-                  label: 'Semana 6 de 8',
-                  trailing: '${(progress * 100).round()}%',
-                  animate: true,
-                ),
-              ],
+      child: PlanosPlanDetailContent(
+        planName: _plan.nome,
+        description: _plan.descricao,
+        objective: _plan.objetivo,
+        mediaAssetPath: _imageFor(_plan),
+        daysPerWeek: _dayCount(_plan),
+        estimatedMinutes: _plan.tempoEstimado,
+        exerciseCount: _plan.exercicios.length,
+        weeklyCompleted: widget.progress.weeklyCompletedWorkouts,
+        weeklyTarget: widget.progress.weeklyTargetWorkouts,
+        currentWeekLabel: currentWeekLabel,
+        workouts: [
+          for (final day in days)
+            PlanosDetailWorkout(
+              id: day.code,
+              name: day.name,
+              weekday: day.weekday,
+              exerciseCount: day.exerciseIds.length,
+              isCurrent: day.order - 1 == widget.progress.nextDayIndex,
             ),
-          ),
-          const SizedBox(height: FitSpacing.s24),
-          FitSectionHeader(
-            title: 'Treinos da semana',
-            viewAllLabel: 'Ver semana',
-            onViewAll: () => _openWeek(days),
-          ),
-          const SizedBox(height: FitSpacing.s8),
-          for (final day in days) ...[
-            _weekDayRow(day),
-            const SizedBox(height: FitSpacing.s8),
-          ],
         ],
-      ),
-    );
-  }
-
-  Widget _weekDayRow(PlanosPlanDayView day) {
-    return FitCard(
-      variant: FitCardVariant.clickable,
-      onTap: () => _openDay(day),
-      padding: const EdgeInsets.all(FitSpacing.s12),
-      child: Row(
-        children: [
-          Text(day.weekday, style: Theme.of(context).textTheme.labelMedium),
-          const SizedBox(width: FitSpacing.s12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(day.name, style: Theme.of(context).textTheme.titleMedium),
-                Text(
-                  day.subtitle,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
-          ),
-          Icon(
-            day.isToday ? FitIcons.play : FitIcons.check,
-            color: day.isToday
-                ? Theme.of(context).colorScheme.primary
-                : Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ],
+        onBack: () => Navigator.of(context).maybePop(),
+        onMore: _showActions,
+        onOpenWeek: () => _openWeek(days),
+        onOpenCalendar: () => _handleAction(_PlanAction.calendar),
+        onOpenProgress: () => _handleAction(_PlanAction.statistics),
+        onOpenWorkout: (workout) =>
+            _openDay(days.firstWhere((day) => day.code == workout.id)),
+        isOffline: widget.isOffline,
+        hasPartialFailure: widget.hasPartialFailure,
       ),
     );
   }
@@ -207,6 +104,57 @@ class _PlanosPlanDetailPageState extends State<PlanosPlanDetailPage> {
         builder: (_) => PlanosWorkoutDetailPage(plan: _plan, day: day),
       ),
     );
+  }
+
+  Future<void> _showActions() {
+    return FitActionSheet.show<void>(
+      context: context,
+      title: 'Opcoes do plano',
+      isScrollControlled: true,
+      items: [
+        FitActionSheetItem(
+          label: 'Editar plano',
+          icon: FitIcons.edit,
+          onTap: () => _dismissSheetThen(_PlanAction.edit),
+        ),
+        FitActionSheetItem(
+          label: 'Estatisticas',
+          icon: FitIcons.progress,
+          onTap: () => _dismissSheetThen(_PlanAction.statistics),
+        ),
+        FitActionSheetItem(
+          label: 'Calendario',
+          icon: FitIcons.calendar,
+          onTap: () => _dismissSheetThen(_PlanAction.calendar),
+        ),
+        FitActionSheetItem(
+          label: 'Duplicar plano',
+          icon: FitIcons.share,
+          onTap: () => _dismissSheetThen(_PlanAction.duplicate),
+        ),
+        FitActionSheetItem(
+          label: 'Compartilhar',
+          icon: FitIcons.share,
+          onTap: () => _dismissSheetThen(_PlanAction.share),
+        ),
+        FitActionSheetItem(
+          label: 'Arquivar',
+          icon: FitIcons.archive,
+          onTap: () => _dismissSheetThen(_PlanAction.archive),
+        ),
+        FitActionSheetItem(
+          label: 'Excluir plano',
+          icon: FitIcons.delete,
+          isDestructive: true,
+          onTap: () => _dismissSheetThen(_PlanAction.delete),
+        ),
+      ],
+    );
+  }
+
+  void _dismissSheetThen(_PlanAction action) {
+    Navigator.of(context).pop();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _handleAction(action));
   }
 
   Future<void> _handleAction(_PlanAction action) async {

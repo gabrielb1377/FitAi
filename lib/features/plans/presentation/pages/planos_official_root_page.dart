@@ -240,6 +240,8 @@ class _PlanosOfficialRootPageState extends State<PlanosOfficialRootPage> {
       plan: plan,
       progress: _controller.progressFor(plan),
       onXpUpdated: widget.onXpUpdated,
+      isOffline: _controller.isOffline,
+      hasPartialFailure: _controller.error != null,
     ),
   );
 }
