@@ -316,15 +316,50 @@ class PlanosLoadingState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(FitSpacing.s16),
+      padding: const EdgeInsets.fromLTRB(
+        FitSpacing.s16,
+        FitSpacing.s16,
+        FitSpacing.s16,
+        FitSpacing.s32,
+      ),
       children: [
-        const FitSkeleton(height: FitSpacing.s48, width: FitSpacing.s64),
+        const Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            FitSkeleton(height: FitSpacing.s32, width: FitSpacing.s64),
+            FitSkeleton(height: FitLayout.minimumTouchTarget),
+          ],
+        ),
         const SizedBox(height: FitSpacing.s16),
-        const FitSkeleton(height: FitLayout.domainChartHeight),
-        const SizedBox(height: FitSpacing.s16),
-        const FitSkeleton(height: FitLayout.domainChartHeight),
-        const SizedBox(height: FitSpacing.s16),
-        const FitSkeleton(height: FitLayout.domainChartHeight),
+        FitCard(
+          semanticLabel: 'Carregando plano ativo',
+          child: const ExcludeSemantics(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                FitSkeleton(height: FitSpacing.s16, width: FitSpacing.s64),
+                SizedBox(height: FitSpacing.s16),
+                FitSkeleton(height: FitSpacing.s32),
+                SizedBox(height: FitSpacing.s16),
+                FitSkeleton(height: FitLayout.progressCompactThickness),
+                SizedBox(height: FitSpacing.s16),
+                FitSkeleton(height: FitSpacing.s64),
+                SizedBox(height: FitSpacing.s16),
+                FitSkeleton(height: FitLayout.buttonHeightMedium),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: FitSpacing.s24),
+        const FitSkeleton(height: FitSpacing.s24, width: FitLayout.tagMaxWidth),
+        const SizedBox(height: FitSpacing.s12),
+        const Row(
+          children: [
+            Expanded(child: FitLoadingCard()),
+            SizedBox(width: FitSpacing.s12),
+            Expanded(child: FitLoadingCard()),
+          ],
+        ),
       ],
     );
   }

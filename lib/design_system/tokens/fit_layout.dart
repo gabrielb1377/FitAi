@@ -74,6 +74,11 @@ abstract final class FitLayout {
   static const domainProfileAvatar = 56.0;
   static const domainQuickActionMinHeight = 112.0;
   static const domainHomeMaxContentWidth = 470.0;
+  static const domainPlansMaxContentWidth = 860.0;
+  static const domainPlanPreviewWidth = 200.0;
+  static const domainExplorePlanPreviewWidth = 168.0;
+  static const domainPlanPreviewMediaHeight = 64.0;
+  static const domainExplorePlanPreviewMediaHeight = 88.0;
   static const domainCoachInsightMaxLines = 4;
   static const domainExerciseTagLimit = 3;
 }

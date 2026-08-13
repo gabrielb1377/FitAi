@@ -26,7 +26,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Meus Planos'), findsOneWidget);
+    expect(find.text('Planos'), findsOneWidget);
     expect(find.text('Seu proximo plano comeca aqui'), findsOneWidget);
     expect(find.text('Criar com IA'), findsOneWidget);
     expect(find.text('Explorar biblioteca'), findsOneWidget);
@@ -42,6 +42,38 @@ void main() {
 
     expect(find.text('Personalize seu plano'), findsOneWidget);
     expect(find.text('Gerar meu plano'), findsOneWidget);
+  });
+
+  testWidgets('PLAN-001 abre detalhe e preserva a criacao em sheet', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(PlanosOfficialRootPage(checkBackend: () async => false)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Continuar plano'));
+    await tester.pumpAndSettle();
+    expect(find.byType(PlanosPlanDetailPage), findsOneWidget);
+
+    Navigator.of(tester.element(find.byType(PlanosPlanDetailPage))).pop();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Criar plano'));
+    await tester.pumpAndSettle();
+    expect(find.text('Como voce quer criar?'), findsOneWidget);
+
+    await tester.tap(find.text('Criar com IA'));
+    await tester.pumpAndSettle();
+    expect(find.byType(PlanosAiGoalPage), findsOneWidget);
+
+    Navigator.of(tester.element(find.byType(PlanosAiGoalPage))).pop();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Mais opcoes de planos'));
+    await tester.pumpAndSettle();
+    expect(find.text('Calendario e lembretes'), findsOneWidget);
+    expect(find.text('Comparar planos'), findsOneWidget);
+    expect(find.text('Historico de planos'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('PLAN-006 a PLAN-010 exibem fluxo manual sem overflow', (

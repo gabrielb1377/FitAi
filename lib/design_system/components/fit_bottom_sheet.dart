@@ -152,11 +152,13 @@ class FitActionSheet extends StatelessWidget {
     required List<FitActionSheetItem> items,
     String? title,
     String? subtitle,
+    bool isScrollControlled = false,
   }) {
     return FitBottomSheet.show<T>(
       context: context,
       title: title,
       subtitle: subtitle,
+      isScrollControlled: isScrollControlled,
       child: FitActionSheet(items: items),
     );
   }
