@@ -19,8 +19,9 @@ class WorkoutSessionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final largeText = MediaQuery.textScalerOf(context).scale(1) > 1.3;
     return SizedBox(
-      height: 72,
+      height: largeText ? 116 : 72,
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -36,6 +37,7 @@ class WorkoutSessionHeader extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 64),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
@@ -45,24 +47,27 @@ class WorkoutSessionHeader extends StatelessWidget {
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 const SizedBox(height: FitSpacing.s4),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const SizedBox.square(
-                      dimension: 8,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: FitColors.primary,
-                          shape: BoxShape.circle,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox.square(
+                        dimension: 8,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: FitColors.primary,
+                            shape: BoxShape.circle,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: FitSpacing.s8),
-                    Text(
-                      elapsedLabel,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ],
+                      const SizedBox(width: FitSpacing.s8),
+                      Text(
+                        elapsedLabel,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -135,42 +140,15 @@ class WorkoutQuickActionsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primaryActions = actions.take(4).toList(growable: false);
-    final moreAction = actions.length > 4 ? actions[4] : null;
+    final primaryActions = <WorkoutQuickAction>[
+      for (final label in const ['Coach IA', 'Histórico', 'Mais opções'])
+        for (final action in actions)
+          if (action.label == label) action,
+    ];
 
     if (primaryActions.isEmpty) return const SizedBox.shrink();
 
-    return Container(
-      padding: const EdgeInsets.all(FitSpacing.s8),
-      decoration: BoxDecoration(
-        color: FitColors.surfaceVariant,
-        borderRadius: FitRadius.largeBorder,
-        border: Border.all(color: FitColors.outlineSoft),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) => Column(
-          children: [
-            if (constraints.maxWidth < 390)
-              _NarrowQuickActionsGrid(actions: primaryActions)
-            else
-              _QuickActionsRow(actions: primaryActions),
-            if (moreAction != null) ...[
-              const SizedBox(height: FitSpacing.s4),
-              const Divider(height: 1, color: FitColors.outlineSoft),
-              Align(
-                alignment: Alignment.centerRight,
-                child: FitButton(
-                  label: moreAction.label,
-                  leadingIcon: moreAction.icon,
-                  onPressed: moreAction.onTap,
-                  variant: FitButtonVariant.ghost,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
+    return _QuickActionsRow(actions: primaryActions);
   }
 }
 
@@ -181,13 +159,20 @@ class _QuickActionsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        for (var index = 0; index < actions.length; index++) ...[
-          if (index > 0) const SizedBox(width: FitSpacing.s4),
-          Expanded(child: _QuickActionTile(action: actions[index])),
-        ],
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 340) {
+          return _NarrowQuickActionsGrid(actions: actions);
+        }
+        return Row(
+          children: [
+            for (var index = 0; index < actions.length; index++) ...[
+              if (index > 0) const SizedBox(width: FitSpacing.s8),
+              Expanded(child: _QuickActionTile(action: actions[index])),
+            ],
+          ],
+        );
+      },
     );
   }
 }
@@ -203,10 +188,10 @@ class _NarrowQuickActionsGrid extends StatelessWidget {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisExtent: 58,
-        crossAxisSpacing: FitSpacing.s4,
-        mainAxisSpacing: FitSpacing.s4,
+        crossAxisCount: 3,
+        mainAxisExtent: FitLayout.buttonHeightLarge,
+        crossAxisSpacing: FitSpacing.s8,
+        mainAxisSpacing: FitSpacing.s8,
       ),
       itemCount: actions.length,
       itemBuilder: (context, index) =>
@@ -237,17 +222,20 @@ class _QuickActionTile extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             onTap: action.onTap,
-            borderRadius: FitRadius.mediumBorder,
+            borderRadius: FitRadius.smallBorder,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 48),
+              constraints: const BoxConstraints(
+                minHeight: FitLayout.minimumTouchTarget,
+              ),
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: FitSpacing.s4,
                   vertical: FitSpacing.s4,
                 ),
                 decoration: BoxDecoration(
+                  color: FitColors.surface,
                   border: Border.all(color: FitColors.outlineSoft),
-                  borderRadius: FitRadius.mediumBorder,
+                  borderRadius: FitRadius.smallBorder,
                 ),
                 child: compact
                     ? Row(
@@ -299,6 +287,7 @@ class WorkoutMoreOptionsSheet {
     return FitBottomSheet.show<void>(
       context: context,
       title: 'Mais opções',
+      isScrollControlled: true,
       child: _WorkoutMoreOptionsContent(
         actions: actions,
         onEndWorkout: onEndWorkout,
@@ -414,129 +403,91 @@ class _MoreOptionsActionTile extends StatelessWidget {
 class WorkoutSessionBottomNavigation extends StatelessWidget {
   const WorkoutSessionBottomNavigation({
     super.key,
-    required this.restSeconds,
-    required this.isResting,
-    required this.onRestTap,
+    required this.exerciseIndex,
+    required this.exerciseCount,
     this.onPrevious,
     this.onNext,
   });
 
-  final int restSeconds;
-  final bool isResting;
-  final VoidCallback onRestTap;
+  final int exerciseIndex;
+  final int exerciseCount;
   final VoidCallback? onPrevious;
   final VoidCallback? onNext;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: FitColors.surface,
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(FitRadius.xLarge),
-        ),
-        border: Border(top: BorderSide(color: FitColors.outlineSoft)),
-      ),
-      child: SafeArea(
-        top: false,
-        minimum: const EdgeInsets.fromLTRB(
-          FitSpacing.s16,
-          FitSpacing.s12,
-          FitSpacing.s16,
-          FitSpacing.s12,
-        ),
-        child: Center(
-          heightFactor: 1,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600),
-            child: Row(
-              children: [
-                Expanded(
-                  child: FitButton(
-                    label: 'Anterior',
-                    leadingIcon: Icons.chevron_left_rounded,
-                    variant: FitButtonVariant.outlined,
-                    onPressed: onPrevious,
-                    expand: true,
-                  ),
-                ),
-                const SizedBox(width: FitSpacing.s12),
-                _RestNavigationButton(
-                  seconds: restSeconds,
-                  isResting: isResting,
-                  onTap: onRestTap,
-                ),
-                const SizedBox(width: FitSpacing.s12),
-                Expanded(
-                  flex: 2,
-                  child: FitButton(
-                    label: 'Próximo exercício',
-                    trailingIcon: Icons.chevron_right_rounded,
-                    onPressed: onNext,
-                    expand: true,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RestNavigationButton extends StatelessWidget {
-  const _RestNavigationButton({
-    required this.seconds,
-    required this.isResting,
-    required this.onTap,
-  });
-
-  final int seconds;
-  final bool isResting;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final minutes = (seconds ~/ 60).toString().padLeft(2, '0');
-    final remainder = (seconds % 60).toString().padLeft(2, '0');
     return Tooltip(
-      message: isResting ? 'Pular descanso $minutes:$remainder' : 'Descanso',
+      message: 'Navegação entre exercícios',
       child: Semantics(
-        button: true,
-        label: isResting
-            ? 'Descanso $minutes minutos e $remainder segundos'
-            : 'Iniciar descanso',
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: FitRadius.pillBorder,
-          child: Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isResting ? FitColors.warning : FitColors.outline,
-              ),
-              color: FitColors.surfaceVariant,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.timer_outlined,
-                  color: isResting ? FitColors.warning : FitColors.textPrimary,
-                ),
-                Text(
-                  isResting ? '$minutes:$remainder' : 'REST',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: isResting
-                        ? FitColors.warning
-                        : FitColors.textSecondary,
+        container: true,
+        label:
+            'Navegação entre exercícios. Exercício ${exerciseIndex + 1} de $exerciseCount',
+        child: Container(
+          padding: const EdgeInsets.only(top: FitSpacing.s16),
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: FitColors.outlineSoft)),
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final compact =
+                  constraints.maxWidth < 340 ||
+                  MediaQuery.textScalerOf(context).scale(1) > 1.2;
+              return Row(
+                children: [
+                  compact
+                      ? FitIconButton(
+                          icon: Icons.chevron_left_rounded,
+                          tooltip: 'Exercício anterior',
+                          variant: FitIconButtonVariant.outlined,
+                          onPressed: onPrevious,
+                        )
+                      : Expanded(
+                          child: FitButton(
+                            label: 'Anterior',
+                            leadingIcon: Icons.chevron_left_rounded,
+                            variant: FitButtonVariant.ghost,
+                            onPressed: onPrevious,
+                            expand: true,
+                          ),
+                        ),
+                  const SizedBox(width: FitSpacing.s8),
+                  SizedBox(
+                    width: FitLayout.buttonHeightLarge,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          (exerciseIndex + 1).toString().padLeft(2, '0'),
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(color: FitColors.primary),
+                        ),
+                        Text(
+                          'de $exerciseCount',
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
+                  const SizedBox(width: FitSpacing.s8),
+                  compact
+                      ? FitIconButton(
+                          icon: Icons.chevron_right_rounded,
+                          tooltip: 'Próximo exercício',
+                          variant: FitIconButtonVariant.outlined,
+                          onPressed: onNext,
+                        )
+                      : Expanded(
+                          child: FitButton(
+                            label: 'Próximo',
+                            trailingIcon: Icons.chevron_right_rounded,
+                            variant: FitButtonVariant.ghost,
+                            onPressed: onNext,
+                            expand: true,
+                          ),
+                        ),
+                ],
+              );
+            },
           ),
         ),
       ),

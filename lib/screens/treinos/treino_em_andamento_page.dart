@@ -1448,12 +1448,16 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
         isResting: _emDescanso,
         restTotalSeconds: _descansoTotal,
         restPaused: _descansoPausado,
+        nextExerciseName: _exercicioAtual + 1 < _totalExercicios
+            ? _exercicios[_exercicioAtual + 1].nome
+            : null,
         progress: progresso,
         history: setHistory,
         quickActions: quickActions,
         onClose: _confirmarEncerrarTreino,
         onMenu: _abrirMenuEdicaoTreino,
         onViewExecution: _abrirExecucaoSheet,
+        onViewMuscles: _abrirMusculosSheet,
         onCompleteSet: _registrarSerie,
         onRestTap: _emDescanso ? _pularDescanso : _iniciarDescanso,
         onRestTogglePause: _alternarPausaDescanso,
@@ -1603,6 +1607,16 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     WorkoutMoreOptionsSheet.show(
       context: context,
       actions: [
+        WorkoutQuickAction(
+          label: 'Trocar exercício',
+          icon: Icons.swap_horiz_rounded,
+          onTap: _trocarExercicioAtual,
+        ),
+        WorkoutQuickAction(
+          label: 'Ver GIF',
+          icon: Icons.play_circle_outline_rounded,
+          onTap: _abrirExecucaoSheet,
+        ),
         WorkoutQuickAction(
           label: 'Pausar',
           icon: Icons.pause_circle_outline_rounded,

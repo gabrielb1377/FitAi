@@ -6,6 +6,8 @@ import '../../../../models/exercicio_model.dart';
 import '../../../../widgets/exercicio_gif_viewer.dart';
 import 'workout_session_models.dart';
 
+/// Conteudo principal da sessao de treino, inspirado no prototipo HTML
+/// canonico. Ele e puramente apresentacional e nao controla timers ou dados.
 class WorkoutExercisePanel extends StatelessWidget {
   const WorkoutExercisePanel({
     super.key,
@@ -19,12 +21,15 @@ class WorkoutExercisePanel extends StatelessWidget {
     required this.isResting,
     required this.history,
     required this.onViewExecution,
+    required this.onViewMuscles,
     required this.onCompleteSet,
     required this.onRestTap,
     required this.onViewAllHistory,
     required this.onChanged,
     this.restTotalSeconds = 60,
     this.restPaused = false,
+    this.nextExerciseName,
+    this.onCoach,
     this.onRestTogglePause,
     this.onRestSkip,
     this.onRestAddTime,
@@ -40,138 +45,84 @@ class WorkoutExercisePanel extends StatelessWidget {
   final bool isResting;
   final List<WorkoutSetSnapshot> history;
   final VoidCallback onViewExecution;
+  final VoidCallback onViewMuscles;
   final Future<void> Function() onCompleteSet;
   final VoidCallback onRestTap;
   final VoidCallback onViewAllHistory;
   final ValueChanged<String> onChanged;
   final int restTotalSeconds;
   final bool restPaused;
+  final String? nextExerciseName;
+  final VoidCallback? onCoach;
   final VoidCallback? onRestTogglePause;
   final VoidCallback? onRestSkip;
   final VoidCallback? onRestAddTime;
 
   @override
   Widget build(BuildContext context) {
-    return FitCard(
-      variant: FitCardVariant.outlined,
-      padding: const EdgeInsets.all(FitSpacing.s16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _ExerciseHeading(
-            exercise: exercise,
-            number: exerciseNumber,
-            onViewExecution: onViewExecution,
-          ),
-          const SizedBox(height: FitSpacing.s16),
-          _ExerciseMediaHero(exercise: exercise),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _ExerciseHeading(
+          exercise: exercise,
+          number: exerciseNumber,
+          onViewMuscles: onViewMuscles,
+        ),
+        const SizedBox(height: FitSpacing.s12),
+        _ExerciseMediaHero(
+          exercise: exercise,
+          onViewExecution: onViewExecution,
+        ),
+        if (onCoach != null) ...[
           const SizedBox(height: FitSpacing.s12),
-          Text(
-            '$targetSets séries  •  ${_repetitions(exercise)} reps  •  ${_configuredRest(exercise)}s descanso',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: FitSpacing.s16),
-          SizedBox(
-            height: 56,
-            child: FitButton(
-              label: 'CONCLUIR SÉRIE',
-              leadingIcon: Icons.check_circle_rounded,
-              onPressedAsync: onCompleteSet,
-              expand: true,
-            ),
-          ),
-          const SizedBox(height: FitSpacing.s16),
-          _WorkoutMetricsRow(
-            repetitionsController: repetitionsController,
-            weightController: weightController,
-            restSeconds: restSeconds,
-            isResting: isResting,
-            onRestTap: onRestTap,
-            onChanged: onChanged,
-          ),
-          if (isResting) ...[
-            const SizedBox(height: FitSpacing.s12),
-            _InlineRestTimer(
-              seconds: restSeconds,
-              totalSeconds: restTotalSeconds,
-              paused: restPaused,
-              onTogglePause: onRestTogglePause,
-              onSkip: onRestSkip ?? onRestTap,
-              onAddTime: onRestAddTime,
-            ),
-          ],
-          const SizedBox(height: FitSpacing.s20),
-          _SetHistoryStrip(
-            completedSets: completedSets,
-            targetSets: targetSets,
-            history: history,
-            onViewAll: onViewAllHistory,
+          _CoachStrip(onTap: onCoach!),
+        ],
+        const SizedBox(height: FitSpacing.s20),
+        _WorkoutIndicators(
+          repetitions: _targetRepetitions(exercise, repetitionsController.text),
+          restSeconds: restSeconds,
+          isResting: isResting,
+          completedSets: completedSets,
+          targetSets: targetSets,
+          onRestTap: onRestTap,
+        ),
+        const SizedBox(height: FitSpacing.s20),
+        _RegisterSetPanel(
+          repetitionsController: repetitionsController,
+          weightController: weightController,
+          onChanged: onChanged,
+          onCompleteSet: onCompleteSet,
+        ),
+        if (isResting) ...[
+          const SizedBox(height: FitSpacing.s12),
+          _RestContext(
+            seconds: restSeconds,
+            totalSeconds: restTotalSeconds,
+            paused: restPaused,
+            nextExerciseName: nextExerciseName,
+            onTogglePause: onRestTogglePause,
+            onSkip: onRestSkip ?? onRestTap,
+            onAddTime: onRestAddTime,
           ),
         ],
-      ),
+        const SizedBox(height: FitSpacing.s20),
+        _SetHistoryPanel(
+          completedSets: completedSets,
+          targetSets: targetSets,
+          history: history,
+          onViewAll: onViewAllHistory,
+        ),
+      ],
     );
   }
 
-  static String _repetitions(ExercicioModel value) =>
-      value.repeticoes.trim().isEmpty ? '8-12' : value.repeticoes;
-
-  static int _configuredRest(ExercicioModel value) =>
-      value.descansoSegundos <= 0 ? 60 : value.descansoSegundos;
-}
-
-/// Descanso entre séries mostrado dentro do painel do exercício ativo.
-///
-/// O relógio é controlado pela sessão; este widget apenas representa o estado
-/// atual e encaminha as ações do usuário.
-class _InlineRestTimer extends StatelessWidget {
-  const _InlineRestTimer({
-    required this.seconds,
-    required this.totalSeconds,
-    required this.paused,
-    this.onTogglePause,
-    this.onSkip,
-    this.onAddTime,
-  });
-
-  final int seconds;
-  final int totalSeconds;
-  final bool paused;
-  final VoidCallback? onTogglePause;
-  final VoidCallback? onSkip;
-  final VoidCallback? onAddTime;
-
-  @override
-  Widget build(BuildContext context) {
-    final minutes = (seconds ~/ 60).toString().padLeft(2, '0');
-    final remainder = (seconds % 60).toString().padLeft(2, '0');
-    final safeTotal = totalSeconds <= 0 ? 1 : totalSeconds;
-    final progress = ((safeTotal - seconds) / safeTotal).clamp(0.0, 1.0);
-
-    return Semantics(
-      container: true,
-      label: paused ? 'Descanso pausado' : 'Descanso entre séries',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            paused ? 'Descanso pausado' : 'Descanso entre séries',
-            style: Theme.of(context).textTheme.titleSmall,
-          ),
-          const SizedBox(height: FitSpacing.s8),
-          FitRestTimerWidget(
-            embedded: true,
-            remainingLabel: '$minutes:$remainder',
-            progress: progress,
-            progressRingSize: FitLayout.domainThumbnailSmall,
-            paused: paused,
-            onTogglePause: onTogglePause,
-            onSkip: onSkip,
-            onAddTime: onAddTime,
-            addTimeLabel: '+15 s',
-          ),
-        ],
-      ),
-    );
+  static String _targetRepetitions(
+    ExercicioModel exercise,
+    String currentValue,
+  ) {
+    final range = exercise.repeticoes.trim();
+    if (range.isNotEmpty) return range;
+    return currentValue.trim().isEmpty ? '-' : currentValue.trim();
   }
 }
 
@@ -179,24 +130,24 @@ class _ExerciseHeading extends StatelessWidget {
   const _ExerciseHeading({
     required this.exercise,
     required this.number,
-    required this.onViewExecution,
+    required this.onViewMuscles,
   });
 
   final ExercicioModel exercise;
   final int number;
-  final VoidCallback onViewExecution;
+  final VoidCallback onViewMuscles;
 
   @override
   Widget build(BuildContext context) {
+    final muscles = _muscles(exercise);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final compact = constraints.maxWidth < 320;
-            final numberBadge = Container(
-              width: 36,
-              height: 36,
+        Row(
+          children: [
+            Container(
+              width: FitLayout.compactTouchTarget,
+              height: FitLayout.compactTouchTarget,
               alignment: Alignment.center,
               decoration: const BoxDecoration(
                 color: FitColors.primary,
@@ -208,59 +159,61 @@ class _ExerciseHeading extends StatelessWidget {
                   context,
                 ).textTheme.titleMedium?.copyWith(color: FitColors.onPrimary),
               ),
-            );
-            final label = Text(
-              'EXERCÍCIO ATUAL',
-              style: Theme.of(
-                context,
-              ).textTheme.labelLarge?.copyWith(color: FitColors.primary),
-            );
-            final action = FitButton(
-              label: 'Ver execução',
-              leadingIcon: Icons.play_arrow_rounded,
-              size: FitButtonSize.compact,
-              variant: FitButtonVariant.outlined,
-              onPressed: onViewExecution,
-            );
-            if (compact) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      numberBadge,
-                      const SizedBox(width: FitSpacing.s12),
-                      Expanded(child: label),
-                    ],
-                  ),
-                  const SizedBox(height: FitSpacing.s8),
-                  Align(alignment: Alignment.centerRight, child: action),
-                ],
-              );
-            }
-            return Row(
-              children: [
-                numberBadge,
-                const SizedBox(width: FitSpacing.s12),
-                Expanded(child: label),
-                action,
-              ],
-            );
-          },
+            ),
+            const SizedBox(width: FitSpacing.s12),
+            Expanded(
+              child: Text(
+                'EXERCICIO ATUAL',
+                style: Theme.of(
+                  context,
+                ).textTheme.labelLarge?.copyWith(color: FitColors.primary),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: FitSpacing.s12),
+        const SizedBox(height: FitSpacing.s8),
         Text(
           exercise.nome,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.headlineMedium,
         ),
-        const SizedBox(height: FitSpacing.s8),
-        Text(
-          _muscles(exercise),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.bodyLarge,
+        const SizedBox(height: FitSpacing.s4),
+        Align(
+          alignment: Alignment.centerRight,
+          child: Tooltip(
+            message: 'Ver musculos trabalhados',
+            child: Semantics(
+              button: true,
+              label: 'Ver musculos trabalhados: $muscles',
+              child: InkWell(
+                onTap: onViewMuscles,
+                borderRadius: FitRadius.smallBorder,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: FitSpacing.s4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          muscles,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.end,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        size: FitLayout.iconSizeCompact,
+                        color: FitColors.textSecondary,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       ],
     );
@@ -274,110 +227,398 @@ class _ExerciseHeading extends StatelessWidget {
     if (names.isEmpty && value.categoria.trim().isNotEmpty) {
       names.add(value.categoria.trim());
     }
-    return names.isEmpty ? 'Grupo muscular não informado' : names.join('  •  ');
+    return names.isEmpty ? 'Grupo muscular nao informado' : names.join(' - ');
   }
 }
 
 class _ExerciseMediaHero extends StatelessWidget {
-  const _ExerciseMediaHero({required this.exercise});
+  const _ExerciseMediaHero({
+    required this.exercise,
+    required this.onViewExecution,
+  });
 
   final ExercicioModel exercise;
+  final VoidCallback onViewExecution;
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 1.7,
-      child: Stack(
-        children: [
-          Positioned.fill(
+    return Semantics(
+      button: true,
+      label: 'Abrir midia do exercicio ${exercise.nome} em tela cheia',
+      child: Tooltip(
+        message: 'Toque para ampliar',
+        child: InkWell(
+          onTap: onViewExecution,
+          borderRadius: FitRadius.largeBorder,
+          child: AspectRatio(
+            aspectRatio: FitLayout.domainCompactMediaAspectRatio,
             child: ClipRRect(
-              borderRadius: FitRadius.mediumBorder,
-              child: ExercicioGifImage(
-                imagem: exercise.imagem,
-                titulo: exercise.nome,
-                gifPath: exercise.gifPath,
-                fit: BoxFit.contain,
-                cacheHeight: 640,
+              borderRadius: FitRadius.largeBorder,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ExercicioGifImage(
+                    imagem: exercise.imagem,
+                    titulo: exercise.nome,
+                    gifPath: exercise.gifPath,
+                    fit: BoxFit.cover,
+                    cacheHeight: 640,
+                  ),
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Colors.transparent, FitColors.overlay],
+                        stops: [0.45, 1],
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: FitSpacing.s12,
+                    bottom: FitSpacing.s12,
+                    child: _MediaBadge(
+                      icon: Icons.circle,
+                      label: 'GIF',
+                      iconColor: FitColors.primary,
+                    ),
+                  ),
+                  const Positioned(
+                    right: FitSpacing.s12,
+                    bottom: FitSpacing.s12,
+                    child: _MediaBadge(
+                      icon: Icons.fullscreen_rounded,
+                      label: 'Toque para ampliar',
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-          Positioned(
-            left: FitSpacing.s12,
-            bottom: FitSpacing.s12,
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: FitSpacing.s12,
-                vertical: FitSpacing.s8,
-              ),
-              decoration: const BoxDecoration(
-                color: FitColors.overlay,
-                borderRadius: FitRadius.mediumBorder,
-              ),
-              child: const Text('GIF'),
-            ),
-          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MediaBadge extends StatelessWidget {
+  const _MediaBadge({
+    required this.icon,
+    required this.label,
+    this.iconColor = FitColors.textPrimary,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: FitSpacing.s8,
+        vertical: FitSpacing.s4,
+      ),
+      decoration: BoxDecoration(
+        color: FitColors.overlay,
+        border: Border.all(color: FitColors.outlineSoft),
+        borderRadius: FitRadius.pillBorder,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: FitLayout.iconSizeSmall, color: iconColor),
+          const SizedBox(width: FitSpacing.s4),
+          Text(label, style: Theme.of(context).textTheme.labelSmall),
         ],
       ),
     );
   }
 }
 
-class _WorkoutMetricsRow extends StatelessWidget {
-  const _WorkoutMetricsRow({
-    required this.repetitionsController,
-    required this.weightController,
+class _CoachStrip extends StatelessWidget {
+  const _CoachStrip({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Abrir Coach FitIA para esta serie',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: FitRadius.mediumBorder,
+        child: Container(
+          constraints: const BoxConstraints(
+            minHeight: FitLayout.minimumTouchTarget,
+          ),
+          padding: const EdgeInsets.all(FitSpacing.s12),
+          decoration: BoxDecoration(
+            color: FitColors.aiContainer,
+            border: Border.all(color: FitColors.ai),
+            borderRadius: FitRadius.mediumBorder,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: FitLayout.compactTouchTarget,
+                height: FitLayout.compactTouchTarget,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  color: FitColors.surface,
+                  borderRadius: FitRadius.smallBorder,
+                ),
+                child: const Icon(
+                  Icons.auto_awesome_rounded,
+                  size: FitLayout.iconSizeCompact,
+                  color: FitColors.ai,
+                ),
+              ),
+              const SizedBox(width: FitSpacing.s8),
+              Expanded(
+                child: Text(
+                  'Registre uma serie para receber contexto do Coach.',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: FitColors.textSecondary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: FitSpacing.s8),
+              Flexible(
+                child: Text(
+                  'Coach IA',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelMedium?.copyWith(color: FitColors.ai),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkoutIndicators extends StatelessWidget {
+  const _WorkoutIndicators({
+    required this.repetitions,
     required this.restSeconds,
     required this.isResting,
+    required this.completedSets,
+    required this.targetSets,
     required this.onRestTap,
+  });
+
+  final String repetitions;
+  final int restSeconds;
+  final bool isResting;
+  final int completedSets;
+  final int targetSets;
+  final VoidCallback onRestTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _Indicator(value: repetitions, label: 'Reps'),
+        ),
+        const SizedBox(width: FitSpacing.s12),
+        Expanded(
+          child: _Indicator(
+            value: _formatTime(restSeconds),
+            label: 'Descanso',
+            selected: isResting,
+            onTap: onRestTap,
+            semanticLabel: isResting
+                ? 'Descanso em andamento, ${_formatTime(restSeconds)} restantes'
+                : 'Iniciar descanso de ${_formatTime(restSeconds)}',
+          ),
+        ),
+        const SizedBox(width: FitSpacing.s12),
+        Expanded(
+          child: _Indicator(
+            value: '${completedSets + 1}/$targetSets',
+            label: 'Series',
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatTime(int seconds) {
+    final minutes = (seconds ~/ 60).toString().padLeft(2, '0');
+    final remainder = (seconds % 60).toString().padLeft(2, '0');
+    return '$minutes:$remainder';
+  }
+}
+
+class _Indicator extends StatelessWidget {
+  const _Indicator({
+    required this.value,
+    required this.label,
+    this.selected = false,
+    this.onTap,
+    this.semanticLabel,
+  });
+
+  final String value;
+  final String label;
+  final bool selected;
+  final VoidCallback? onTap;
+  final String? semanticLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final content = AspectRatio(
+      aspectRatio: 1,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: selected ? FitColors.primaryContainer : FitColors.surface,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: selected ? FitColors.primary : FitColors.outlineSoft,
+          ),
+        ),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(FitSpacing.s8),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    value,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: selected ? FitColors.primary : null,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: FitSpacing.s4),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (onTap == null) return content;
+    return Semantics(
+      button: true,
+      label: semanticLabel ?? '$label $value',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(FitLayout.domainProgressRingLarge),
+        child: content,
+      ),
+    );
+  }
+}
+
+class _RegisterSetPanel extends StatelessWidget {
+  const _RegisterSetPanel({
+    required this.repetitionsController,
+    required this.weightController,
     required this.onChanged,
+    required this.onCompleteSet,
   });
 
   final TextEditingController repetitionsController;
   final TextEditingController weightController;
-  final int restSeconds;
-  final bool isResting;
-  final VoidCallback onRestTap;
   final ValueChanged<String> onChanged;
+  final Future<void> Function() onCompleteSet;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: FitSpacing.s12),
+      padding: const EdgeInsets.all(FitSpacing.s16),
       decoration: BoxDecoration(
+        color: FitColors.surface,
         border: Border.all(color: FitColors.outlineSoft),
         borderRadius: FitRadius.mediumBorder,
       ),
-      child: IntrinsicHeight(
-        child: Row(
-          children: [
-            Expanded(
-              child: _MetricInput(
-                icon: Icons.repeat_rounded,
-                controller: repetitionsController,
-                label: 'reps',
-                onChanged: onChanged,
-              ),
-            ),
-            const VerticalDivider(),
-            Expanded(
-              child: _MetricInput(
-                icon: Icons.fitness_center_rounded,
-                controller: weightController,
-                label: 'kg',
-                decimal: true,
-                onChanged: onChanged,
-              ),
-            ),
-            const VerticalDivider(),
-            Expanded(
-              child: _RestMetric(
-                seconds: restSeconds,
-                isResting: isResting,
-                onTap: onRestTap,
-              ),
-            ),
-          ],
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'REGISTRAR SERIE',
+            style: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(color: FitColors.primary),
+          ),
+          const SizedBox(height: FitSpacing.s12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact =
+                  constraints.maxWidth < 280 ||
+                  MediaQuery.textScalerOf(context).scale(1) > 1.2;
+              final fields = Row(
+                children: [
+                  Expanded(
+                    child: _MetricInput(
+                      controller: weightController,
+                      label: 'Carga',
+                      unit: 'kg',
+                      decimal: true,
+                      semanticLabel: 'Carga em quilogramas',
+                      onChanged: onChanged,
+                    ),
+                  ),
+                  const SizedBox(width: FitSpacing.s8),
+                  Expanded(
+                    child: _MetricInput(
+                      controller: repetitionsController,
+                      label: 'Reps',
+                      semanticLabel: 'Quantidade de repeticoes',
+                      onChanged: onChanged,
+                    ),
+                  ),
+                ],
+              );
+              final submit = SizedBox(
+                width: compact ? double.infinity : FitLayout.buttonHeightLarge,
+                height: FitLayout.buttonHeightLarge,
+                child: FitButton(
+                  label: '+',
+                  semanticLabel: 'Registrar serie',
+                  tooltip: 'Registrar serie',
+                  size: FitButtonSize.large,
+                  onPressedAsync: onCompleteSet,
+                  enableHapticFeedback: true,
+                ),
+              );
+              if (compact) {
+                return Column(
+                  children: [
+                    fields,
+                    const SizedBox(height: FitSpacing.s8),
+                    submit,
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: fields),
+                  const SizedBox(width: FitSpacing.s8),
+                  submit,
+                ],
+              );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -385,94 +626,203 @@ class _WorkoutMetricsRow extends StatelessWidget {
 
 class _MetricInput extends StatelessWidget {
   const _MetricInput({
-    required this.icon,
     required this.controller,
     required this.label,
+    required this.semanticLabel,
     required this.onChanged,
+    this.unit,
     this.decimal = false,
   });
 
-  final IconData icon;
   final TextEditingController controller;
   final String label;
+  final String semanticLabel;
   final ValueChanged<String> onChanged;
+  final String? unit;
   final bool decimal;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, color: FitColors.primary, size: 22),
-        TextField(
-          controller: controller,
-          keyboardType: TextInputType.numberWithOptions(decimal: decimal),
-          inputFormatters: [
-            FilteringTextInputFormatter.allow(
-              decimal ? RegExp(r'[0-9,.]') : RegExp(r'[0-9]'),
-            ),
-          ],
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.headlineSmall,
-          decoration: const InputDecoration(
-            isDense: true,
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
-            contentPadding: EdgeInsets.symmetric(vertical: FitSpacing.s4),
-          ),
-          onChanged: onChanged,
+    return Semantics(
+      textField: true,
+      label: semanticLabel,
+      child: Container(
+        height: FitLayout.buttonHeightLarge,
+        padding: const EdgeInsets.symmetric(horizontal: FitSpacing.s12),
+        decoration: BoxDecoration(
+          color: FitColors.card,
+          border: Border.all(color: FitColors.outlineSoft),
+          borderRadius: FitRadius.smallBorder,
         ),
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
-      ],
-    );
-  }
-}
-
-class _RestMetric extends StatelessWidget {
-  const _RestMetric({
-    required this.seconds,
-    required this.isResting,
-    required this.onTap,
-  });
-
-  final int seconds;
-  final bool isResting;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final minutes = (seconds ~/ 60).toString().padLeft(2, '0');
-    final remainder = (seconds % 60).toString().padLeft(2, '0');
-    return InkWell(
-      onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.timer_outlined, color: FitColors.warning, size: 22),
-          const SizedBox(height: FitSpacing.s4),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              '$minutes:$remainder',
-              style: Theme.of(context).textTheme.headlineSmall,
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: FitSpacing.s4),
+              child: Text(
+                label,
+                style: Theme.of(
+                  context,
+                ).textTheme.labelSmall?.copyWith(color: FitColors.textTertiary),
+              ),
             ),
-          ),
-          Text('descanso', style: Theme.of(context).textTheme.bodySmall),
-          Text(
-            isResting ? 'Pular' : 'Iniciar',
-            style: Theme.of(
-              context,
-            ).textTheme.labelSmall?.copyWith(color: FitColors.primary),
-          ),
-        ],
+            Align(
+              alignment: Alignment.bottomLeft,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  right: unit == null ? 0 : FitSpacing.s20,
+                ),
+                child: TextField(
+                  controller: controller,
+                  keyboardType: TextInputType.numberWithOptions(
+                    decimal: decimal,
+                  ),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(
+                      decimal ? RegExp(r'[0-9,.]') : RegExp(r'[0-9]'),
+                    ),
+                  ],
+                  textAlign: TextAlign.left,
+                  style: Theme.of(context).textTheme.titleLarge,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  onChanged: onChanged,
+                ),
+              ),
+            ),
+            if (unit != null)
+              Align(
+                alignment: Alignment.bottomRight,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: FitSpacing.s8),
+                  child: Text(
+                    unit!,
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _SetHistoryStrip extends StatelessWidget {
-  const _SetHistoryStrip({
+class _RestContext extends StatelessWidget {
+  const _RestContext({
+    required this.seconds,
+    required this.totalSeconds,
+    required this.paused,
+    required this.nextExerciseName,
+    this.onTogglePause,
+    this.onSkip,
+    this.onAddTime,
+  });
+
+  final int seconds;
+  final int totalSeconds;
+  final bool paused;
+  final String? nextExerciseName;
+  final VoidCallback? onTogglePause;
+  final VoidCallback? onSkip;
+  final VoidCallback? onAddTime;
+
+  @override
+  Widget build(BuildContext context) {
+    final message = nextExerciseName == null
+        ? 'Proxima serie fica pronta ao terminar.'
+        : 'Proximo: $nextExerciseName';
+    final label = _formatTime(seconds);
+    final safeTotal = totalSeconds <= 0 ? 1 : totalSeconds;
+    final progress = ((safeTotal - seconds) / safeTotal).clamp(0.0, 1.0);
+
+    return Semantics(
+      container: true,
+      label: paused
+          ? 'Descanso pausado em $label'
+          : 'Descanso em andamento, $label restantes',
+      child: Container(
+        padding: const EdgeInsets.all(FitSpacing.s12),
+        decoration: BoxDecoration(
+          color: FitColors.primaryContainer,
+          border: Border.all(color: FitColors.primary),
+          borderRadius: FitRadius.smallBorder,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    paused ? 'Descanso pausado' : 'Descanso iniciado',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.labelLarge?.copyWith(color: FitColors.primary),
+                  ),
+                ),
+                Text(
+                  label,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleMedium?.copyWith(color: FitColors.primary),
+                ),
+              ],
+            ),
+            const SizedBox(height: FitSpacing.s4),
+            Text(message, style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: FitSpacing.s8),
+            FitProgress(
+              value: progress,
+              height: FitLayout.progressCompactThickness,
+            ),
+            const SizedBox(height: FitSpacing.s8),
+            Wrap(
+              spacing: FitSpacing.s8,
+              runSpacing: FitSpacing.s8,
+              children: [
+                if (onAddTime != null)
+                  FitButton(
+                    label: '+15 s',
+                    variant: FitButtonVariant.ghost,
+                    size: FitButtonSize.compact,
+                    onPressed: onAddTime,
+                  ),
+                if (onTogglePause != null)
+                  FitButton(
+                    label: paused ? 'Retomar' : 'Pausar',
+                    variant: FitButtonVariant.ghost,
+                    size: FitButtonSize.compact,
+                    onPressed: onTogglePause,
+                  ),
+                if (onSkip != null)
+                  FitButton(
+                    label: 'Pular',
+                    variant: FitButtonVariant.ghost,
+                    size: FitButtonSize.compact,
+                    onPressed: onSkip,
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatTime(int value) {
+    final minutes = (value ~/ 60).toString().padLeft(2, '0');
+    final seconds = (value % 60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+}
+
+class _SetHistoryPanel extends StatelessWidget {
+  const _SetHistoryPanel({
     required this.completedSets,
     required this.targetSets,
     required this.history,
@@ -486,111 +836,150 @@ class _SetHistoryStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final completed = history
+        .where((set) => set.isCompleted)
+        .toList(growable: false);
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         LayoutBuilder(
           builder: (context, constraints) {
-            final title = Text(
-              'HISTÓRICO DA SÉRIE',
-              style: Theme.of(context).textTheme.labelMedium,
+            final compact =
+                constraints.maxWidth < 300 ||
+                MediaQuery.textScalerOf(context).scale(1) > 1.2;
+            final heading = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'REGISTRO ATUAL',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(color: FitColors.primary),
+                ),
+                const SizedBox(height: FitSpacing.s4),
+                Text(
+                  'Historico',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ],
             );
-            final status = Text('$completedSets de $targetSets');
-            final action = TextButton(
-              onPressed: onViewAll,
-              child: const Text('Ver todas'),
+            final actions = Wrap(
+              spacing: FitSpacing.s8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text('$completedSets de $targetSets'),
+                FitButton(
+                  label: 'Ver todas',
+                  variant: FitButtonVariant.ghost,
+                  size: FitButtonSize.compact,
+                  onPressed: onViewAll,
+                ),
+              ],
             );
-            if (constraints.maxWidth < 320) {
+            if (compact) {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  title,
-                  Wrap(
-                    spacing: FitSpacing.s8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [status, action],
-                  ),
+                  heading,
+                  const SizedBox(height: FitSpacing.s8),
+                  actions,
                 ],
               );
             }
-            return Wrap(
-              spacing: FitSpacing.s8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [title, status, action],
+            return Row(
+              children: [
+                Expanded(child: heading),
+                actions,
+              ],
             );
           },
         ),
-        const SizedBox(height: FitSpacing.s8),
-        SizedBox(
-          height: 118,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: history.length,
-            separatorBuilder: (_, _) => const SizedBox(width: FitSpacing.s8),
-            itemBuilder: (context, index) =>
-                _SetHistoryCard(snapshot: history[index]),
+        const SizedBox(height: FitSpacing.s12),
+        if (completed.isEmpty)
+          const _HistoryEmptyState()
+        else
+          Column(
+            children: [
+              for (final set in completed) ...[
+                _HistoryRow(snapshot: set),
+                const SizedBox(height: FitSpacing.s8),
+              ],
+            ],
           ),
-        ),
       ],
     );
   }
 }
 
-class _SetHistoryCard extends StatelessWidget {
-  const _SetHistoryCard({required this.snapshot});
+class _HistoryEmptyState extends StatelessWidget {
+  const _HistoryEmptyState();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(FitSpacing.s12),
+    decoration: BoxDecoration(
+      border: Border.all(color: FitColors.outlineSoft),
+      borderRadius: FitRadius.smallBorder,
+    ),
+    child: Text(
+      'Registre sua primeira serie.',
+      textAlign: TextAlign.center,
+      style: Theme.of(
+        context,
+      ).textTheme.bodySmall?.copyWith(color: FitColors.textTertiary),
+    ),
+  );
+}
+
+class _HistoryRow extends StatelessWidget {
+  const _HistoryRow({required this.snapshot});
 
   final WorkoutSetSnapshot snapshot;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 142,
-      padding: const EdgeInsets.all(FitSpacing.s12),
-      decoration: BoxDecoration(
-        color: snapshot.isCurrent
-            ? FitColors.primaryContainer
-            : Colors.transparent,
-        borderRadius: FitRadius.mediumBorder,
-        border: Border.all(
-          color: snapshot.isCurrent ? FitColors.primary : FitColors.outline,
+    return Semantics(
+      label:
+          'Serie ${snapshot.number}, ${snapshot.weight} quilogramas por ${snapshot.repetitions} repeticoes',
+      child: Container(
+        constraints: const BoxConstraints(
+          minHeight: FitLayout.minimumTouchTarget,
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: FitColors.textSecondary),
-                ),
-                child: Text('${snapshot.number}'),
+        padding: const EdgeInsets.symmetric(
+          horizontal: FitSpacing.s12,
+          vertical: FitSpacing.s8,
+        ),
+        decoration: BoxDecoration(
+          color: FitColors.card,
+          border: Border.all(color: FitColors.outlineSoft),
+          borderRadius: FitRadius.smallBorder,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: FitLayout.iconSizeLarge,
+              height: FitLayout.iconSizeLarge,
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                color: FitColors.primaryContainer,
+                shape: BoxShape.circle,
               ),
-              const Spacer(),
-              if (snapshot.isCompleted)
-                const Icon(
-                  Icons.check_circle_rounded,
-                  color: FitColors.primary,
-                  size: 22,
-                ),
-            ],
-          ),
-          const Spacer(),
-          Text(
-            '${snapshot.weight} kg x ${snapshot.repetitions}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleSmall,
-          ),
-          const SizedBox(height: FitSpacing.s4),
-          Text(
-            '${snapshot.restSeconds}s',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ],
+              child: Text('${snapshot.number}'),
+            ),
+            const SizedBox(width: FitSpacing.s12),
+            Expanded(
+              child: Text(
+                '${snapshot.weight} kg x ${snapshot.repetitions}',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
+            Text(
+              '${snapshot.restSeconds}s',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
       ),
     );
   }

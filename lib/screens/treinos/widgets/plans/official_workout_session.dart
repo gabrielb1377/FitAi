@@ -6,9 +6,11 @@ import 'workout_session_chrome.dart';
 import 'workout_session_exercise_panel.dart';
 import 'workout_session_models.dart';
 
-/// Superficie oficial PLAN-009.
+/// Superficie oficial da execucao de treino.
 ///
-/// Recebe estado e callbacks da sessao sem conter regras de treino.
+/// O widget recebe apenas estado projetado e callbacks da sessao. Regras de
+/// persistencia, descanso, historico e finalizacao permanecem no controlador
+/// chamador.
 class OfficialWorkoutSession extends StatelessWidget {
   const OfficialWorkoutSession({
     super.key,
@@ -29,12 +31,14 @@ class OfficialWorkoutSession extends StatelessWidget {
     required this.onClose,
     required this.onMenu,
     required this.onViewExecution,
+    required this.onViewMuscles,
     required this.onCompleteSet,
     required this.onRestTap,
     required this.onViewAllHistory,
     required this.onChanged,
     this.restTotalSeconds = 60,
     this.restPaused = false,
+    this.nextExerciseName,
     this.onRestTogglePause,
     this.onRestSkip,
     this.onRestAddTime,
@@ -59,12 +63,14 @@ class OfficialWorkoutSession extends StatelessWidget {
   final VoidCallback onClose;
   final VoidCallback onMenu;
   final VoidCallback onViewExecution;
+  final VoidCallback onViewMuscles;
   final Future<void> Function() onCompleteSet;
   final VoidCallback onRestTap;
   final VoidCallback onViewAllHistory;
   final ValueChanged<String> onChanged;
   final int restTotalSeconds;
   final bool restPaused;
+  final String? nextExerciseName;
   final VoidCallback? onRestTogglePause;
   final VoidCallback? onRestSkip;
   final VoidCallback? onRestAddTime;
@@ -74,6 +80,8 @@ class OfficialWorkoutSession extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final coachAction = _actionNamed('Coach IA');
+
     return Scaffold(
       resizeToAvoidBottomInset: true,
       backgroundColor: FitColors.background,
@@ -81,15 +89,15 @@ class OfficialWorkoutSession extends StatelessWidget {
         bottom: false,
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 640),
+            constraints: const BoxConstraints(maxWidth: 560),
             child: ListView(
               physics: const BouncingScrollPhysics(),
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: EdgeInsets.fromLTRB(
+                FitSpacing.s20,
                 FitSpacing.s16,
-                FitSpacing.s4,
-                FitSpacing.s16,
-                FitSpacing.s24 + FitSpacing.s64 + bottomInset,
+                FitSpacing.s20,
+                FitSpacing.s32 + bottomInset,
               ),
               children: [
                 WorkoutSessionHeader(
@@ -104,7 +112,7 @@ class OfficialWorkoutSession extends StatelessWidget {
                   exerciseIndex: exerciseIndex + 1,
                   exerciseCount: exerciseCount,
                 ),
-                const SizedBox(height: FitSpacing.s24),
+                const SizedBox(height: FitSpacing.s20),
                 WorkoutExercisePanel(
                   exercise: exercise,
                   exerciseNumber: exerciseIndex + 1,
@@ -116,8 +124,11 @@ class OfficialWorkoutSession extends StatelessWidget {
                   isResting: isResting,
                   restTotalSeconds: restTotalSeconds,
                   restPaused: restPaused,
+                  nextExerciseName: nextExerciseName,
                   history: history,
                   onViewExecution: onViewExecution,
+                  onViewMuscles: onViewMuscles,
+                  onCoach: coachAction?.onTap,
                   onCompleteSet: onCompleteSet,
                   onRestTap: onRestTap,
                   onViewAllHistory: onViewAllHistory,
@@ -126,27 +137,39 @@ class OfficialWorkoutSession extends StatelessWidget {
                   onRestSkip: onRestSkip,
                   onRestAddTime: onRestAddTime,
                 ),
-                const SizedBox(height: FitSpacing.s12),
+                const SizedBox(height: FitSpacing.s20),
                 WorkoutQuickActionsPanel(actions: quickActions),
+                const SizedBox(height: FitSpacing.s20),
+                WorkoutSessionBottomNavigation(
+                  exerciseIndex: exerciseIndex,
+                  exerciseCount: exerciseCount,
+                  onPrevious: onPrevious,
+                  onNext: onNext,
+                ),
               ],
             ),
           ),
         ),
       ),
-      bottomNavigationBar: WorkoutSessionBottomNavigation(
-        restSeconds: restSeconds,
-        isResting: isResting,
-        onRestTap: onRestTap,
-        onPrevious: onPrevious,
-        onNext: onNext,
-      ),
     );
+  }
+
+  WorkoutQuickAction? _actionNamed(String label) {
+    for (final action in quickActions) {
+      if (action.label == label) return action;
+    }
+    return null;
   }
 
   String _elapsedLabel(String value) {
     final parts = value.split(':').map(int.tryParse).toList();
     if (parts.length != 3 || parts.any((part) => part == null)) return value;
-    final minutes = (parts[0]! * 60) + parts[1]!;
-    return '$minutes min';
+    final hours = parts[0]!;
+    final minutes = parts[1]!;
+    final seconds = parts[2]!;
+    final prefix = hours == 0
+        ? minutes.toString().padLeft(2, '0')
+        : '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
+    return '$prefix:${seconds.toString().padLeft(2, '0')}';
   }
 }

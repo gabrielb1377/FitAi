@@ -65,15 +65,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('PROGRESSO DO TREINO'), findsOneWidget);
-    expect(find.text('EXERCÍCIO ATUAL'), findsOneWidget);
-    expect(find.text('CONCLUIR SÉRIE'), findsOneWidget);
-    expect(find.text('REST'), findsOneWidget);
-    expect(find.text('Próximo exercício'), findsOneWidget);
+    expect(find.text('EXERCICIO ATUAL'), findsOneWidget);
+    expect(find.text('REGISTRAR SERIE'), findsOneWidget);
+    expect(find.byTooltip('Registrar serie'), findsOneWidget);
+    expect(find.text('Descanso'), findsOneWidget);
     await _scrollToQuickAction(tester, 'Mais opções');
-    expect(find.text('Coach IA'), findsOneWidget);
+    expect(find.text('Coach IA'), findsAtLeastNWidgets(1));
     expect(find.text('Histórico'), findsOneWidget);
-    expect(find.text('Trocar exercício'), findsOneWidget);
-    expect(find.text('Ver GIF'), findsOneWidget);
     expect(find.text('Mais opções'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
@@ -137,7 +135,7 @@ void main() {
 
     await tester.drag(find.byType(ListView).first, const Offset(0, -620));
     await tester.pump();
-    final completeSet = find.text('CONCLUIR SÉRIE');
+    final completeSet = find.byTooltip('Registrar serie');
     await tester.tap(completeSet);
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('1 de 4'), findsOneWidget);
@@ -164,7 +162,7 @@ void main() {
     await tester.pump();
     await _scrollToQuickAction(tester, 'Coach IA');
 
-    await tester.tap(find.text('Coach IA'));
+    await tester.tap(find.text('Coach IA').last);
     await tester.pump(const Duration(milliseconds: 250));
     expect(find.text('Coach FitIA'), findsOneWidget);
   });
@@ -179,12 +177,15 @@ void main() {
     expect(find.text('Histórico do exercício'), findsOneWidget);
   });
 
-  testWidgets('sessao abre o GIF pelo atalho compacto', (tester) async {
+  testWidgets('sessao abre o GIF pela midia principal', (tester) async {
     await tester.pumpWidget(_app(TreinoEmAndamentoPage(treino: _plan())));
     await tester.pump();
-    await _scrollToQuickAction(tester, 'Ver GIF');
-
-    await tester.tap(find.text('Ver GIF'));
+    await tester.scrollUntilVisible(
+      find.byTooltip('Toque para ampliar'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byTooltip('Toque para ampliar'));
     await tester.pump(const Duration(milliseconds: 250));
     expect(find.text('Execução de Remada curvada'), findsOneWidget);
   });
@@ -199,12 +200,14 @@ void main() {
 
     await tester.drag(find.byType(ListView).first, const Offset(0, -620));
     await tester.pump();
-    await tester.tap(find.text('CONCLUIR SÉRIE'));
+    await tester.tap(find.byTooltip('Registrar serie'));
     await tester.pump();
     expect(find.text('1 de 4'), findsOneWidget);
 
-    await _scrollToQuickAction(tester, 'Trocar exercício');
-    await tester.tap(find.text('Trocar exercício'));
+    await _scrollToQuickAction(tester, 'Mais opções');
+    await tester.tap(find.text('Mais opções'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Trocar exercício').last);
     await tester.pumpAndSettle();
 
     expect(find.byType(BibliotecaExerciciosPage), findsOneWidget);
@@ -223,6 +226,8 @@ void main() {
     expect(find.text('Progressão'), findsOneWidget);
     expect(find.text('Notas'), findsOneWidget);
     expect(find.text('Músculos'), findsOneWidget);
+    expect(find.text('Trocar exercício'), findsOneWidget);
+    expect(find.text('Ver GIF'), findsOneWidget);
     expect(find.text('Encerrar treino'), findsOneWidget);
 
     await tester.tap(find.text('Encerrar treino'));
@@ -259,7 +264,7 @@ void main() {
 
     await tester.drag(find.byType(ListView).first, const Offset(0, -620));
     await tester.pump();
-    final completeSet = find.text('CONCLUIR SÉRIE');
+    final completeSet = find.byTooltip('Registrar serie');
     await tester.tap(completeSet);
     await tester.tap(completeSet);
     await tester.pump(const Duration(milliseconds: 900));

@@ -17,17 +17,36 @@ void main() {
   testWidgets('WORK-001 mostra a prévia com dados reais do plano', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final plan = _plan();
     final day = buildPlanDays(plan).first;
 
-    await tester.pumpWidget(_app(WorkoutPreviewPage(plan: plan, day: day)));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: WorkoutPreviewPage(plan: plan, day: day),
+      ),
+    );
 
-    expect(find.text('Upper A'), findsOneWidget);
+    expect(find.text('PREPARAR TREINO'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Resumo do treino'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Resumo do treino'), findsOneWidget);
-    expect(find.text('Destaques'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Exercicios do treino'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Exercicios do treino'), findsOneWidget);
     expect(find.text('Ver lista'), findsOneWidget);
-    await tester.drag(find.byType(ListView), const Offset(0, -420));
-    await tester.pump();
+    expect(find.text('Supino reto'), findsOneWidget);
     expect(find.text('Iniciar treino'), findsOneWidget);
   });
 
@@ -37,7 +56,7 @@ void main() {
 
     await _tapCompleteSet(tester);
 
-    expect(find.text('Descanso entre séries'), findsOneWidget);
+    expect(find.text('Descanso iniciado'), findsOneWidget);
     expect(find.text('+15 s'), findsOneWidget);
     expect(find.text('Pausar'), findsOneWidget);
 
@@ -47,7 +66,7 @@ void main() {
 
     await _ensureAndTap(tester, find.text('Retomar'));
     await tester.pump();
-    expect(find.text('Descanso entre séries'), findsOneWidget);
+    expect(find.text('Descanso iniciado'), findsOneWidget);
   });
 
   testWidgets(
@@ -171,7 +190,7 @@ void main() {
     await tester.pumpWidget(_app(TreinoEmAndamentoPage(treino: _plan())));
     await tester.pump();
 
-    final complete = find.text('CONCLUIR SÉRIE');
+    final complete = find.byTooltip('Registrar serie');
     await tester.scrollUntilVisible(
       complete,
       300,
@@ -192,21 +211,64 @@ void main() {
     await tester.pump();
 
     final fields = find.byType(TextField);
-    await tester.enterText(fields.at(0), '9');
-    await tester.enterText(fields.at(1), '42,5');
-    await tester.tap(find.text('Próximo exercício'));
+    await tester.enterText(fields.at(0), '42,5');
+    await tester.enterText(fields.at(1), '9');
+    await tester.scrollUntilVisible(
+      find.text('Próximo'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Próximo'));
     await tester.pump();
+    await tester.scrollUntilVisible(
+      find.text('Anterior'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('Anterior'));
     await tester.pump();
 
     final restored = tester.widgetList<TextField>(find.byType(TextField));
-    expect(restored.elementAt(0).controller?.text, '9');
-    expect(restored.elementAt(1).controller?.text, '42,5');
+    expect(restored.elementAt(0).controller?.text, '42,5');
+    expect(restored.elementAt(1).controller?.text, '9');
+  });
+
+  testWidgets('execucao mantem controles acessiveis a 200% de texto', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      _app(
+        TreinoEmAndamentoPage(treino: _plan(longExerciseName: true)),
+        textScale: 2,
+      ),
+    );
+    await tester.pump();
+
+    final register = find.byTooltip('Registrar serie');
+    if (register.evaluate().isEmpty) {
+      await tester.scrollUntilVisible(
+        register,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pump();
+    }
+    await tester.ensureVisible(register);
+    expect(find.bySemanticsLabel('Registrar serie'), findsOneWidget);
+    expect(register, findsOneWidget);
+    expect(tester.takeException(), isNull);
+    semantics.dispose();
   });
 }
 
 Future<void> _tapCompleteSet(WidgetTester tester) async {
-  final complete = find.text('CONCLUIR SÉRIE');
+  final complete = find.byTooltip('Registrar serie');
   if (complete.evaluate().isEmpty) {
     await tester.drag(find.byType(ListView).first, const Offset(0, 1200));
     await tester.pump();
@@ -226,10 +288,13 @@ Future<void> _ensureAndTap(WidgetTester tester, Finder finder) async {
 Widget _app(Widget home, {double textScale = 1}) {
   return MaterialApp(
     theme: AppTheme.dark,
-    home: MediaQuery(
-      data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
-      child: home,
+    builder: (context, child) => MediaQuery(
+      data: MediaQuery.of(
+        context,
+      ).copyWith(textScaler: TextScaler.linear(textScale)),
+      child: child ?? const SizedBox.shrink(),
     ),
+    home: home,
   );
 }
 
