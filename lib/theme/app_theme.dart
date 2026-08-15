@@ -116,8 +116,11 @@ class AppScrollBehavior extends MaterialScrollBehavior {
 class AppTheme {
   AppTheme._();
 
-  /// Alias de compatibilidade para o tema oficial do Design System 3.0.
+  /// Alias de compatibilidade para o tema escuro oficial.
   static ThemeData get dark => FitTheme.dark();
+
+  /// Tema claro com contraste e superficies proprios.
+  static ThemeData get light => FitTheme.light();
 
   /// Configuração estrutural legada preservada para migração.
   ///

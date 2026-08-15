@@ -29,7 +29,6 @@ class WorkoutExercisePanel extends StatelessWidget {
     this.restTotalSeconds = 60,
     this.restPaused = false,
     this.nextExerciseName,
-    this.onCoach,
     this.onRestTogglePause,
     this.onRestSkip,
     this.onRestAddTime,
@@ -53,7 +52,6 @@ class WorkoutExercisePanel extends StatelessWidget {
   final int restTotalSeconds;
   final bool restPaused;
   final String? nextExerciseName;
-  final VoidCallback? onCoach;
   final VoidCallback? onRestTogglePause;
   final VoidCallback? onRestSkip;
   final VoidCallback? onRestAddTime;
@@ -73,11 +71,7 @@ class WorkoutExercisePanel extends StatelessWidget {
           exercise: exercise,
           onViewExecution: onViewExecution,
         ),
-        if (onCoach != null) ...[
-          const SizedBox(height: FitSpacing.s12),
-          _CoachStrip(onTap: onCoach!),
-        ],
-        const SizedBox(height: FitSpacing.s20),
+        const SizedBox(height: FitSpacing.s16),
         _WorkoutIndicators(
           repetitions: _targetRepetitions(exercise, repetitionsController.text),
           restSeconds: restSeconds,
@@ -86,7 +80,7 @@ class WorkoutExercisePanel extends StatelessWidget {
           targetSets: targetSets,
           onRestTap: onRestTap,
         ),
-        const SizedBox(height: FitSpacing.s20),
+        const SizedBox(height: FitSpacing.s16),
         _RegisterSetPanel(
           repetitionsController: repetitionsController,
           weightController: weightController,
@@ -105,7 +99,7 @@ class WorkoutExercisePanel extends StatelessWidget {
             onAddTime: onRestAddTime,
           ),
         ],
-        const SizedBox(height: FitSpacing.s20),
+        const SizedBox(height: FitSpacing.s16),
         _SetHistoryPanel(
           completedSets: completedSets,
           targetSets: targetSets,
@@ -140,24 +134,25 @@ class _ExerciseHeading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final muscles = _muscles(exercise);
+    final colors = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
             Container(
-              width: FitLayout.compactTouchTarget,
-              height: FitLayout.compactTouchTarget,
+              width: FitSpacing.s32,
+              height: FitSpacing.s32,
               alignment: Alignment.center,
-              decoration: const BoxDecoration(
-                color: FitColors.primary,
-                shape: BoxShape.circle,
+              decoration: BoxDecoration(
+                color: colors.primary,
+                borderRadius: FitRadius.smallBorder,
               ),
               child: Text(
                 '$number',
                 style: Theme.of(
                   context,
-                ).textTheme.titleMedium?.copyWith(color: FitColors.onPrimary),
+                ).textTheme.labelLarge?.copyWith(color: colors.onPrimary),
               ),
             ),
             const SizedBox(width: FitSpacing.s12),
@@ -166,7 +161,7 @@ class _ExerciseHeading extends StatelessWidget {
                 'EXERCICIO ATUAL',
                 style: Theme.of(
                   context,
-                ).textTheme.labelLarge?.copyWith(color: FitColors.primary),
+                ).textTheme.labelLarge?.copyWith(color: colors.primary),
               ),
             ),
           ],
@@ -179,37 +174,33 @@ class _ExerciseHeading extends StatelessWidget {
           style: Theme.of(context).textTheme.headlineMedium,
         ),
         const SizedBox(height: FitSpacing.s4),
-        Align(
-          alignment: Alignment.centerRight,
-          child: Tooltip(
-            message: 'Ver musculos trabalhados',
-            child: Semantics(
-              button: true,
-              label: 'Ver musculos trabalhados: $muscles',
-              child: InkWell(
-                onTap: onViewMuscles,
-                borderRadius: FitRadius.smallBorder,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: FitSpacing.s4),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          muscles,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.end,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
+        Tooltip(
+          message: 'Ver musculos trabalhados',
+          child: Semantics(
+            button: true,
+            label: 'Ver musculos trabalhados: $muscles',
+            child: InkWell(
+              onTap: onViewMuscles,
+              borderRadius: FitRadius.smallBorder,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: FitSpacing.s4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        muscles,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyMedium,
                       ),
-                      const Icon(
-                        Icons.chevron_right_rounded,
-                        size: FitLayout.iconSizeCompact,
-                        color: FitColors.textSecondary,
-                      ),
-                    ],
-                  ),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: FitLayout.iconSizeCompact,
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -242,6 +233,7 @@ class _ExerciseMediaHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Semantics(
       button: true,
       label: 'Abrir midia do exercicio ${exercise.nome} em tela cheia',
@@ -249,11 +241,11 @@ class _ExerciseMediaHero extends StatelessWidget {
         message: 'Toque para ampliar',
         child: InkWell(
           onTap: onViewExecution,
-          borderRadius: FitRadius.largeBorder,
+          borderRadius: FitRadius.mediumBorder,
           child: AspectRatio(
             aspectRatio: FitLayout.domainCompactMediaAspectRatio,
             child: ClipRRect(
-              borderRadius: FitRadius.largeBorder,
+              borderRadius: FitRadius.mediumBorder,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -261,17 +253,12 @@ class _ExerciseMediaHero extends StatelessWidget {
                     imagem: exercise.imagem,
                     titulo: exercise.nome,
                     gifPath: exercise.gifPath,
-                    fit: BoxFit.cover,
+                    fit: BoxFit.contain,
                     cacheHeight: 640,
                   ),
-                  const DecoratedBox(
+                  DecoratedBox(
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, FitColors.overlay],
-                        stops: [0.45, 1],
-                      ),
+                      gradient: Theme.of(context).fitGradients.mediaScrim,
                     ),
                   ),
                   Positioned(
@@ -280,7 +267,7 @@ class _ExerciseMediaHero extends StatelessWidget {
                     child: _MediaBadge(
                       icon: Icons.circle,
                       label: 'GIF',
-                      iconColor: FitColors.primary,
+                      iconColor: colors.primary,
                     ),
                   ),
                   const Positioned(
@@ -302,104 +289,36 @@ class _ExerciseMediaHero extends StatelessWidget {
 }
 
 class _MediaBadge extends StatelessWidget {
-  const _MediaBadge({
-    required this.icon,
-    required this.label,
-    this.iconColor = FitColors.textPrimary,
-  });
+  const _MediaBadge({required this.icon, required this.label, this.iconColor});
 
   final IconData icon;
   final String label;
-  final Color iconColor;
+  final Color? iconColor;
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: FitSpacing.s8,
         vertical: FitSpacing.s4,
       ),
       decoration: BoxDecoration(
-        color: FitColors.overlay,
-        border: Border.all(color: FitColors.outlineSoft),
+        color: Theme.of(context).fitSemanticColors.overlayScrim,
+        border: Border.all(color: colors.outlineVariant),
         borderRadius: FitRadius.pillBorder,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: FitLayout.iconSizeSmall, color: iconColor),
+          Icon(
+            icon,
+            size: FitLayout.iconSizeSmall,
+            color: iconColor ?? colors.onSurface,
+          ),
           const SizedBox(width: FitSpacing.s4),
           Text(label, style: Theme.of(context).textTheme.labelSmall),
         ],
-      ),
-    );
-  }
-}
-
-class _CoachStrip extends StatelessWidget {
-  const _CoachStrip({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: 'Abrir Coach FitIA para esta serie',
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: FitRadius.mediumBorder,
-        child: Container(
-          constraints: const BoxConstraints(
-            minHeight: FitLayout.minimumTouchTarget,
-          ),
-          padding: const EdgeInsets.all(FitSpacing.s12),
-          decoration: BoxDecoration(
-            color: FitColors.aiContainer,
-            border: Border.all(color: FitColors.ai),
-            borderRadius: FitRadius.mediumBorder,
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: FitLayout.compactTouchTarget,
-                height: FitLayout.compactTouchTarget,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  color: FitColors.surface,
-                  borderRadius: FitRadius.smallBorder,
-                ),
-                child: const Icon(
-                  Icons.auto_awesome_rounded,
-                  size: FitLayout.iconSizeCompact,
-                  color: FitColors.ai,
-                ),
-              ),
-              const SizedBox(width: FitSpacing.s8),
-              Expanded(
-                child: Text(
-                  'Registre uma serie para receber contexto do Coach.',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: FitColors.textSecondary,
-                  ),
-                ),
-              ),
-              const SizedBox(width: FitSpacing.s8),
-              Flexible(
-                child: Text(
-                  'Coach IA',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelMedium?.copyWith(color: FitColors.ai),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -476,14 +395,17 @@ class _Indicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     final content = AspectRatio(
       aspectRatio: 1,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: selected ? FitColors.primaryContainer : FitColors.surface,
+          color: selected
+              ? colors.primaryContainer
+              : Theme.of(context).fitSemanticColors.surfaceSubtle,
           shape: BoxShape.circle,
           border: Border.all(
-            color: selected ? FitColors.primary : FitColors.outlineSoft,
+            color: selected ? colors.primary : colors.outlineVariant,
           ),
         ),
         child: Center(
@@ -497,7 +419,7 @@ class _Indicator extends StatelessWidget {
                   child: Text(
                     value,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: selected ? FitColors.primary : null,
+                      color: selected ? colors.primary : null,
                     ),
                   ),
                 ),
@@ -543,11 +465,17 @@ class _RegisterSetPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.all(FitSpacing.s16),
+      padding: const EdgeInsets.fromLTRB(
+        FitSpacing.s16,
+        FitSpacing.s12,
+        FitSpacing.s12,
+        FitSpacing.s12,
+      ),
       decoration: BoxDecoration(
-        color: FitColors.surface,
-        border: Border.all(color: FitColors.outlineSoft),
+        color: Theme.of(context).fitSemanticColors.surfaceSubtle,
+        border: Border(left: BorderSide(color: colors.primary, width: 4)),
         borderRadius: FitRadius.mediumBorder,
       ),
       child: Column(
@@ -557,7 +485,7 @@ class _RegisterSetPanel extends StatelessWidget {
             'REGISTRAR SERIE',
             style: Theme.of(
               context,
-            ).textTheme.labelLarge?.copyWith(color: FitColors.primary),
+            ).textTheme.labelLarge?.copyWith(color: colors.primary),
           ),
           const SizedBox(height: FitSpacing.s12),
           LayoutBuilder(
@@ -643,6 +571,7 @@ class _MetricInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Semantics(
       textField: true,
       label: semanticLabel,
@@ -650,8 +579,8 @@ class _MetricInput extends StatelessWidget {
         height: FitLayout.buttonHeightLarge,
         padding: const EdgeInsets.symmetric(horizontal: FitSpacing.s12),
         decoration: BoxDecoration(
-          color: FitColors.card,
-          border: Border.all(color: FitColors.outlineSoft),
+          color: colors.surface,
+          border: Border.all(color: colors.outlineVariant),
           borderRadius: FitRadius.smallBorder,
         ),
         child: Stack(
@@ -660,9 +589,9 @@ class _MetricInput extends StatelessWidget {
               padding: const EdgeInsets.only(top: FitSpacing.s4),
               child: Text(
                 label,
-                style: Theme.of(
-                  context,
-                ).textTheme.labelSmall?.copyWith(color: FitColors.textTertiary),
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
               ),
             ),
             Align(
@@ -739,6 +668,7 @@ class _RestContext extends StatelessWidget {
     final label = _formatTime(seconds);
     final safeTotal = totalSeconds <= 0 ? 1 : totalSeconds;
     final progress = ((safeTotal - seconds) / safeTotal).clamp(0.0, 1.0);
+    final colors = Theme.of(context).colorScheme;
 
     return Semantics(
       container: true,
@@ -748,8 +678,8 @@ class _RestContext extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(FitSpacing.s12),
         decoration: BoxDecoration(
-          color: FitColors.primaryContainer,
-          border: Border.all(color: FitColors.primary),
+          color: colors.primaryContainer,
+          border: Border(left: BorderSide(color: colors.primary, width: 4)),
           borderRadius: FitRadius.smallBorder,
         ),
         child: Column(
@@ -762,14 +692,14 @@ class _RestContext extends StatelessWidget {
                     paused ? 'Descanso pausado' : 'Descanso iniciado',
                     style: Theme.of(
                       context,
-                    ).textTheme.labelLarge?.copyWith(color: FitColors.primary),
+                    ).textTheme.labelLarge?.copyWith(color: colors.primary),
                   ),
                 ),
                 Text(
                   label,
                   style: Theme.of(
                     context,
-                  ).textTheme.titleMedium?.copyWith(color: FitColors.primary),
+                  ).textTheme.titleMedium?.copyWith(color: colors.primary),
                 ),
               ],
             ),
@@ -852,9 +782,9 @@ class _SetHistoryPanel extends StatelessWidget {
               children: [
                 Text(
                   'REGISTRO ATUAL',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelLarge?.copyWith(color: FitColors.primary),
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                 ),
                 const SizedBox(height: FitSpacing.s4),
                 Text(
@@ -915,19 +845,21 @@ class _HistoryEmptyState extends StatelessWidget {
   const _HistoryEmptyState();
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(FitSpacing.s12),
+  Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
-      border: Border.all(color: FitColors.outlineSoft),
-      borderRadius: FitRadius.smallBorder,
+      border: Border.symmetric(
+        horizontal: BorderSide(color: Theme.of(context).dividerColor),
+      ),
     ),
-    child: Text(
-      'Registre sua primeira serie.',
-      textAlign: TextAlign.center,
-      style: Theme.of(
-        context,
-      ).textTheme.bodySmall?.copyWith(color: FitColors.textTertiary),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: FitSpacing.s16),
+      child: Text(
+        'Registre sua primeira serie.',
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
     ),
   );
 }
@@ -939,6 +871,7 @@ class _HistoryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Semantics(
       label:
           'Serie ${snapshot.number}, ${snapshot.weight} quilogramas por ${snapshot.repetitions} repeticoes',
@@ -951,9 +884,7 @@ class _HistoryRow extends StatelessWidget {
           vertical: FitSpacing.s8,
         ),
         decoration: BoxDecoration(
-          color: FitColors.card,
-          border: Border.all(color: FitColors.outlineSoft),
-          borderRadius: FitRadius.smallBorder,
+          border: Border(bottom: BorderSide(color: colors.outlineVariant)),
         ),
         child: Row(
           children: [
@@ -961,8 +892,8 @@ class _HistoryRow extends StatelessWidget {
               width: FitLayout.iconSizeLarge,
               height: FitLayout.iconSizeLarge,
               alignment: Alignment.center,
-              decoration: const BoxDecoration(
-                color: FitColors.primaryContainer,
+              decoration: BoxDecoration(
+                color: colors.primaryContainer,
                 shape: BoxShape.circle,
               ),
               child: Text('${snapshot.number}'),

@@ -1,4 +1,5 @@
 import 'package:fitai/features/plans/presentation/pages/planos_official_plan_pages.dart';
+import 'package:fitai/design_system/fit_design_system.dart';
 import 'package:fitai/features/plans/presentation/pages/planos_official_root_page.dart';
 import 'package:fitai/features/plans/presentation/pages/planos_official_wizards.dart';
 import 'package:fitai/features/plans/presentation/widgets/planos_official_primitives.dart';
@@ -109,7 +110,7 @@ void main() {
     );
 
     expect(find.byType(PlanosPlanDetailPage), findsOneWidget);
-    expect(find.byType(PlanosMetricRow), findsOneWidget);
+    expect(find.byType(FitMetricRail), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Ver semana'),
       240,

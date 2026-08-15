@@ -39,7 +39,7 @@ class HomeHeader extends StatelessWidget {
             maxWidth: FitLayout.domainHomeMaxContentWidth,
           ),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
                 child: Column(
@@ -47,16 +47,16 @@ class HomeHeader extends StatelessWidget {
                   children: [
                     Text(
                       '${_greeting(date)}, $firstName',
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: context.textTheme.bodyMedium,
+                      style: context.textTheme.headlineMedium,
                     ),
-                    const SizedBox(height: FitSpacing.s2),
+                    const SizedBox(height: FitSpacing.s4),
                     Text(
                       _formattedDate(date),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: context.textTheme.headlineMedium,
+                      style: context.textTheme.labelMedium,
                     ),
                   ],
                 ),
@@ -141,11 +141,23 @@ class _NotificationAvatar extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           onLongPress: onLongPress,
-          customBorder: const CircleBorder(),
+          borderRadius: FitRadius.mediumBorder,
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              FitAvatar(name: name, size: FitAvatarSize.medium),
+              Container(
+                width: FitLayout.avatarMedium,
+                height: FitLayout.avatarMedium,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: context.colors.surfaceContainerHighest,
+                  borderRadius: FitRadius.mediumBorder,
+                ),
+                child: Text(
+                  name.characters.first.toUpperCase(),
+                  style: context.textTheme.titleMedium,
+                ),
+              ),
               if (count > 0)
                 Positioned(
                   top: FitLayout.none,
@@ -154,10 +166,10 @@ class _NotificationAvatar extends StatelessWidget {
                     width: FitSpacing.s12,
                     height: FitSpacing.s12,
                     decoration: BoxDecoration(
-                      color: FitColors.primary,
+                      color: context.colors.primary,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: FitColors.background,
+                        color: context.colors.surface,
                         width: FitLayout.borderThin,
                       ),
                     ),

@@ -17,59 +17,14 @@ class HomeRecentAchievement extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final item = achievement;
-    return FitCard(
+    return FitActionRow(
       key: const ValueKey('home-recent-achievement'),
+      icon: FitIcons.achievement,
+      iconColor: context.fitColors.achievement,
+      title: item?.nome ?? 'Suas conquistas',
+      subtitle:
+          item?.descricao ?? 'Continue ativo para desbloquear novos marcos.',
       onTap: onOpenAchievements,
-      variant: FitCardVariant.clickable,
-      padding: const EdgeInsets.all(FitSpacing.s16),
-      semanticLabel: item == null
-          ? 'Abrir conquistas'
-          : 'Conquista recente: ${item.nome}',
-      child: Row(
-        children: [
-          Container(
-            width: FitLayout.avatarSmall,
-            height: FitLayout.avatarSmall,
-            decoration: const BoxDecoration(
-              color: FitColors.achievementContainer,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              FitIcons.achievement,
-              color: FitColors.achievement,
-              size: FitLayout.iconSizeCompact,
-            ),
-          ),
-          const SizedBox(width: FitSpacing.s12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item?.nome ?? 'Suas conquistas',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.textTheme.titleSmall,
-                ),
-                const SizedBox(height: FitSpacing.s2),
-                Text(
-                  item?.descricao ??
-                      'Continue ativo para desbloquear novos marcos.',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.textTheme.bodySmall,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: FitSpacing.s8),
-          const Icon(
-            FitIcons.forward,
-            color: FitColors.textTertiary,
-            size: FitLayout.iconSizeCompact,
-          ),
-        ],
-      ),
     );
   }
 }

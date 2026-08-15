@@ -40,23 +40,39 @@ class HomeWeekTimeline extends StatelessWidget {
           ],
         ),
         const SizedBox(height: FitSpacing.s8),
-        FitCard(
+        Semantics(
           key: const ValueKey('home-week-timeline-card'),
-          onTap: onOpenHistory,
-          variant: FitCardVariant.clickable,
-          padding: const EdgeInsets.all(FitSpacing.s16),
-          semanticLabel: 'Abrir historico dos ultimos sete dias',
-          child: Row(
-            children: [
-              for (final date in dates)
-                Expanded(
-                  child: _TimelineDay(
-                    date: date,
-                    isToday: DateUtils.isSameDay(date, today),
-                    completed: _hasWorkoutOn(date),
+          button: true,
+          label: 'Abrir historico dos ultimos sete dias',
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onOpenHistory,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: FitSpacing.s16),
+                decoration: BoxDecoration(
+                  border: Border.symmetric(
+                    horizontal: BorderSide(
+                      color: context.colors.outlineVariant,
+                    ),
                   ),
                 ),
-            ],
+                child: ExcludeSemantics(
+                  child: Row(
+                    children: [
+                      for (final date in dates)
+                        Expanded(
+                          child: _TimelineDay(
+                            date: date,
+                            isToday: DateUtils.isSameDay(date, today),
+                            completed: _hasWorkoutOn(date),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ],
@@ -83,6 +99,7 @@ class _TimelineDay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     final label = _weekdayLabel(date.weekday);
     final status = completed
         ? 'treino registrado'
@@ -90,12 +107,12 @@ class _TimelineDay extends StatelessWidget {
         ? 'hoje'
         : 'sem treino registrado';
     final fill = completed
-        ? FitColors.primary
+        ? colors.primary
         : isToday
-        ? FitColors.primaryContainer
-        : FitColors.cardInner;
-    final border = isToday ? FitColors.primary : FitColors.borderSubtle;
-    final foreground = completed ? FitColors.onPrimary : FitColors.textTertiary;
+        ? colors.primaryContainer
+        : context.fitColors.surfaceSubtle;
+    final border = isToday ? colors.primary : colors.outlineVariant;
+    final foreground = completed ? colors.onPrimary : colors.onSurfaceVariant;
 
     return Semantics(
       label: '$label, $status',
@@ -113,9 +130,9 @@ class _TimelineDay extends StatelessWidget {
                 border: Border.all(color: border, width: FitLayout.borderThin),
               ),
               child: completed
-                  ? const Icon(
+                  ? Icon(
                       FitIcons.check,
-                      color: FitColors.onPrimary,
+                      color: colors.onPrimary,
                       size: FitLayout.iconSizeSmall,
                     )
                   : Text(

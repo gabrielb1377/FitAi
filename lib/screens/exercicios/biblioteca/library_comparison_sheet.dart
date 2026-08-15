@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../core/design_system/components/navigation/fit_containers.dart';
 import '../../../core/exercises/exercise_library_intelligence.dart';
-import '../../../design_system/tokens/fit_colors.dart';
 import '../../../models/exercicio_model.dart';
 
 Future<void> showLibraryExerciseComparisonSheet({
@@ -105,10 +104,7 @@ class _LibraryComparisonSheetState extends State<_LibraryComparisonSheet> {
             for (final item in comparison.summary)
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
-                child: Text(
-                  item,
-                  style: const TextStyle(color: FitColors.textSecondary),
-                ),
+                child: Text(item, style: Theme.of(context).textTheme.bodySmall),
               ),
           ],
         ),
@@ -131,19 +127,10 @@ class _ComparisonRow extends StatelessWidget {
       children: [
         SizedBox(
           width: 142,
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: FitColors.textPrimary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          child: Text(label, style: Theme.of(context).textTheme.titleSmall),
         ),
         Expanded(
-          child: Text(
-            value,
-            style: const TextStyle(color: FitColors.textSecondary),
-          ),
+          child: Text(value, style: Theme.of(context).textTheme.bodySmall),
         ),
       ],
     ),

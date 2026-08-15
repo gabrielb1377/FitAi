@@ -23,7 +23,7 @@ class SettingsPage extends StatelessWidget {
       );
     }
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: ListView(
           key: const PageStorageKey('settings-scroll'),
@@ -37,6 +37,7 @@ class SettingsPage extends StatelessWidget {
             FitHeader(
               title: 'Configuracoes',
               subtitle: 'Preferencias, dados e suporte',
+              padding: EdgeInsets.zero,
               showBackButton: Navigator.of(context).canPop(),
               onBack: Navigator.of(context).canPop()
                   ? () => Navigator.of(context).maybePop()

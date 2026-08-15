@@ -139,11 +139,14 @@ class _HomeCustomizePageState extends State<HomeCustomizePage> {
                 child: FitDashboardCustomizerTile(
                   title: item.title,
                   enabled: item.enabled,
-                  leading: Icon(item.icon, color: FitColors.primary),
+                  leading: Icon(
+                    item.icon,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   onChanged: (_) => _remove(item),
-                  dragHandle: const Icon(
+                  dragHandle: Icon(
                     Icons.drag_handle_rounded,
-                    color: FitColors.textSecondary,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
               );

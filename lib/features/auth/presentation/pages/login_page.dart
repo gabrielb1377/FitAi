@@ -80,11 +80,15 @@ class _LoginPageState extends State<LoginPage> {
           children: [
             const AuthBackButton(),
             const SizedBox(height: FitSpacing.s24),
-            const Center(child: AuthLogo(compact: true)),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: AuthLogo(compact: true),
+            ),
             const SizedBox(height: FitSpacing.s40),
             const AuthPageTitle(
               title: 'Bem-vindo de volta.',
               subtitle: 'Entre para continuar sua evolucao.',
+              centered: false,
             ),
             const SizedBox(height: FitSpacing.s32),
             FitTextField(

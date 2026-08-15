@@ -210,8 +210,8 @@ class _WorkoutMediaFallback extends StatelessWidget {
   const _WorkoutMediaFallback();
 
   @override
-  Widget build(BuildContext context) => const ColoredBox(
-    color: FitColors.cardInner,
-    child: Icon(FitIcons.workout, color: FitColors.primary),
+  Widget build(BuildContext context) => ColoredBox(
+    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+    child: Icon(FitIcons.workout, color: Theme.of(context).colorScheme.primary),
   );
 }

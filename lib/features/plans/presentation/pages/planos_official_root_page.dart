@@ -49,7 +49,7 @@ class _PlanosOfficialRootPageState extends State<PlanosOfficialRootPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: FitColors.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
         bottom: false,
         child: LayoutBuilder(

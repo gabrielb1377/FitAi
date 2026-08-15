@@ -27,7 +27,7 @@ class _WorkoutPreviewPageState extends State<WorkoutPreviewPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: FitColors.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) => Align(
@@ -94,7 +94,7 @@ class _WorkoutPreparationStartBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: FitColors.background,
+      color: Theme.of(context).colorScheme.surface,
       child: SafeArea(
         top: false,
         minimum: const EdgeInsets.fromLTRB(

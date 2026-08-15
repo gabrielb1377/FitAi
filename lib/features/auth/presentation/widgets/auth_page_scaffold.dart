@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../../design_system/tokens/fit_colors.dart';
 import '../../../../design_system/tokens/fit_duration.dart';
 import '../../../../design_system/tokens/fit_layout.dart';
 import '../../../../design_system/tokens/fit_spacing.dart';
@@ -31,7 +30,7 @@ class AuthPageScaffold extends StatelessWidget {
     );
 
     return Scaffold(
-      backgroundColor: FitColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: AnimatedPadding(
           duration: FitDuration.transition,

@@ -28,23 +28,19 @@ class SettingsGroup extends StatelessWidget {
   Widget build(BuildContext context) {
     return FitSection(
       title: title,
-      child: FitCard(
-        variant: FitCardVariant.outlined,
-        padding: EdgeInsets.zero,
-        child: Column(
-          children: [
-            for (var index = 0; index < items.length; index++) ...[
-              FitActionTile(
-                title: items[index].title,
-                description: items[index].description,
-                icon: items[index].icon,
-                destructive: items[index].destructive,
-                onTap: items[index].onTap,
-              ),
-              if (index < items.length - 1) const FitDivider(),
-            ],
+      child: Column(
+        children: [
+          for (var index = 0; index < items.length; index++) ...[
+            FitActionRow(
+              title: items[index].title,
+              subtitle: items[index].description,
+              icon: items[index].icon,
+              destructive: items[index].destructive,
+              onTap: items[index].onTap,
+            ),
+            if (index < items.length - 1) const Divider(),
           ],
-        ),
+        ],
       ),
     );
   }

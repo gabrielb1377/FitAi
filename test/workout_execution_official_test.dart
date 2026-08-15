@@ -105,14 +105,9 @@ void main() {
     await tester.pumpWidget(_app(TreinoEmAndamentoPage(treino: _plan())));
     await tester.pump();
 
-    await tester.scrollUntilVisible(
-      find.text('Mais opções'),
-      260,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(find.text('Mais opções'));
+    await _ensureAndTap(tester, find.text('Mais opções'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Pausar'));
+    await _ensureAndTap(tester, find.text('Pausar'));
     await tester.pumpAndSettle();
 
     expect(find.text('Treino pausado'), findsOneWidget);
@@ -213,19 +208,9 @@ void main() {
     final fields = find.byType(TextField);
     await tester.enterText(fields.at(0), '42,5');
     await tester.enterText(fields.at(1), '9');
-    await tester.scrollUntilVisible(
-      find.text('Próximo'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(find.text('Próximo'));
+    await _ensureAndTap(tester, find.text('Próximo'));
     await tester.pump();
-    await tester.scrollUntilVisible(
-      find.text('Anterior'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(find.text('Anterior'));
+    await _ensureAndTap(tester, find.text('Anterior'));
     await tester.pump();
 
     final restored = tester.widgetList<TextField>(find.byType(TextField));
@@ -280,8 +265,15 @@ Future<void> _tapCompleteSet(WidgetTester tester) async {
 }
 
 Future<void> _ensureAndTap(WidgetTester tester, Finder finder) async {
+  if (finder.evaluate().isEmpty) {
+    await tester.scrollUntilVisible(
+      finder,
+      260,
+      scrollable: find.byType(Scrollable).first,
+    );
+  }
   await tester.ensureVisible(finder);
-  await tester.pump();
+  await tester.pumpAndSettle();
   await tester.tap(finder);
 }
 

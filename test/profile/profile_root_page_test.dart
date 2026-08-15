@@ -48,7 +48,7 @@ void main() {
     await tester.pumpWidget(profileTestApp(controller));
     await tester.pumpAndSettle();
 
-    expect(find.text('Seu Perfil esta pronto para comecar'), findsOneWidget);
+    expect(find.text('Complete o essencial'), findsOneWidget);
     expect(find.text('Editar perfil'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

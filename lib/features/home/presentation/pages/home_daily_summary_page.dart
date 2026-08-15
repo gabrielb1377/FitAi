@@ -33,12 +33,12 @@ class HomeDailySummaryPage extends StatelessWidget {
     return HomeDetailScaffold(
       title: 'Resumo diário',
       subtitle: '',
-      actions: const [
+      actions: [
         Padding(
-          padding: EdgeInsets.only(right: FitSpacing.s12),
+          padding: const EdgeInsets.only(right: FitSpacing.s12),
           child: Icon(
             FitIcons.calendar,
-            color: FitColors.textSecondary,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
             size: FitLayout.iconSizeCompact,
           ),
         ),
@@ -47,9 +47,9 @@ class HomeDailySummaryPage extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.chevron_left_rounded,
-                color: FitColors.textSecondary,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
               Expanded(
                 child: Text(
@@ -58,9 +58,9 @@ class HomeDailySummaryPage extends StatelessWidget {
                   style: context.textTheme.titleMedium,
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.chevron_right_rounded,
-                color: FitColors.textSecondary,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ],
           ),

@@ -158,11 +158,28 @@ class _SettingsBody extends StatelessWidget {
 
   Widget _appearance(BuildContext context) => _SettingsCard(
     children: [
-      const FitListTile(
-        title: 'Tema escuro FitIA',
-        subtitle: 'A identidade visual oficial atual usa apenas tema escuro.',
-        leading: Icon(Icons.dark_mode_outlined),
-        enabled: false,
+      _ChoiceTile<AppThemePreference>(
+        title: 'Usar tema do sistema',
+        description: 'Acompanha a aparencia configurada no dispositivo.',
+        value: AppThemePreference.system,
+        groupValue: settings.device.appearance.theme,
+        onChanged: _setTheme,
+      ),
+      const FitDivider(),
+      _ChoiceTile<AppThemePreference>(
+        title: 'Escuro',
+        description: 'Superficies profundas para ambientes com pouca luz.',
+        value: AppThemePreference.dark,
+        groupValue: settings.device.appearance.theme,
+        onChanged: _setTheme,
+      ),
+      const FitDivider(),
+      _ChoiceTile<AppThemePreference>(
+        title: 'Claro',
+        description: 'Contraste limpo para ambientes iluminados.',
+        value: AppThemePreference.light,
+        groupValue: settings.device.appearance.theme,
+        onChanged: _setTheme,
       ),
       const FitDivider(),
       FitSwitch(
@@ -726,6 +743,17 @@ class _SettingsBody extends StatelessWidget {
         locale: current.device.locale.copyWith(
           locale: value,
           metadata: current.device.locale.metadata.touch(),
+        ),
+      ),
+    ),
+  );
+
+  void _setTheme(AppThemePreference value) => onUpdate(
+    (current) => current.copyWith(
+      device: current.device.copyWith(
+        appearance: current.device.appearance.copyWith(
+          theme: value,
+          metadata: current.device.appearance.metadata.touch(),
         ),
       ),
     ),

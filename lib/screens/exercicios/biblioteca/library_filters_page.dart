@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../design_system/components/fit_button.dart';
-import '../../../design_system/tokens/fit_colors.dart';
 import '../../../design_system/tokens/fit_radius.dart';
 import '../../../design_system/tokens/fit_spacing.dart';
 import 'library_catalog_controller.dart';
@@ -203,10 +202,7 @@ class _LibraryFiltersPageState extends State<LibraryFiltersPage> {
               children: [
                 Text(
                   '$resultCount resultados',
-                  style: const TextStyle(
-                    color: FitColors.textSecondary,
-                    fontSize: 12,
-                  ),
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const SizedBox(height: FitSpacing.s8),
                 FitButton(
@@ -231,8 +227,10 @@ class _LibraryFiltersPageState extends State<LibraryFiltersPage> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: FitSpacing.s12),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: libraryBorder)),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Theme.of(context).dividerColor),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -242,11 +240,7 @@ class _LibraryFiltersPageState extends State<LibraryFiltersPage> {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
-                    color: FitColors.textPrimary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: Theme.of(context).textTheme.titleSmall,
                 ),
               ),
               if (showClear)
@@ -294,7 +288,9 @@ class _FilterOption extends StatelessWidget {
       selected: selected,
       label: label,
       child: Material(
-        color: selected ? FitColors.primaryDark : librarySurface,
+        color: selected
+            ? Theme.of(context).colorScheme.primaryContainer
+            : Theme.of(context).colorScheme.surfaceContainerLow,
         borderRadius: FitRadius.smallBorder,
         child: InkWell(
           onTap: onTap,
@@ -308,8 +304,8 @@ class _FilterOption extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: selected
-                      ? FitColors.onPrimary
-                      : FitColors.textSecondary,
+                      ? Theme.of(context).colorScheme.onPrimaryContainer
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: 11,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 ),

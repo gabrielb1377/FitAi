@@ -145,7 +145,7 @@ class HomeMetricTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = item.color ?? FitColors.primary;
+    final color = item.color ?? Theme.of(context).colorScheme.primary;
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -264,7 +264,7 @@ class HomeListAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = color ?? FitColors.primary;
+    final accent = color ?? Theme.of(context).colorScheme.primary;
     return FitCard(
       onTap: onTap,
       variant: onTap == null
@@ -330,9 +330,9 @@ class HomeListAction extends StatelessWidget {
             trailing!,
           ] else if (onTap != null) ...[
             const SizedBox(width: FitSpacing.s8),
-            const Icon(
+            Icon(
               FitIcons.forward,
-              color: FitColors.textSecondary,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               size: FitLayout.iconSizeCompact,
             ),
           ],

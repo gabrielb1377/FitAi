@@ -126,7 +126,7 @@ class _PerfilPageState extends State<PerfilPage> {
 
   Widget _state(Widget content) {
     return Scaffold(
-      backgroundColor: FitColors.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
         bottom: false,
         child: Padding(
@@ -151,7 +151,7 @@ class _PerfilPageState extends State<PerfilPage> {
 
   Widget _content(ProfileHubData data) {
     return Scaffold(
-      backgroundColor: FitColors.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
         bottom: false,
         child: RefreshIndicator(

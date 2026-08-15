@@ -20,6 +20,7 @@ class WorkoutSessionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final largeText = MediaQuery.textScalerOf(context).scale(1) > 1.3;
+    final colors = Theme.of(context).colorScheme;
     return SizedBox(
       height: largeText ? 116 : 72,
       child: Stack(
@@ -52,11 +53,11 @@ class WorkoutSessionHeader extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const SizedBox.square(
+                      SizedBox.square(
                         dimension: 8,
                         child: DecoratedBox(
                           decoration: BoxDecoration(
-                            color: FitColors.primary,
+                            color: colors.primary,
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -102,6 +103,7 @@ class WorkoutProgressHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final percentage = (progress.clamp(0.0, 1.0) * 100).round();
+    final colors = Theme.of(context).colorScheme;
     return Semantics(
       label:
           'Progresso do treino, exercício $exerciseIndex de $exerciseCount, $percentage por cento',
@@ -121,7 +123,7 @@ class WorkoutProgressHeader extends StatelessWidget {
                 '$percentage%',
                 style: Theme.of(
                   context,
-                ).textTheme.titleMedium?.copyWith(color: FitColors.primary),
+                ).textTheme.titleMedium?.copyWith(color: colors.primary),
               ),
             ],
           ),
@@ -148,7 +150,14 @@ class WorkoutQuickActionsPanel extends StatelessWidget {
 
     if (primaryActions.isEmpty) return const SizedBox.shrink();
 
-    return _QuickActionsRow(actions: primaryActions);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.symmetric(
+          horizontal: BorderSide(color: Theme.of(context).dividerColor),
+        ),
+      ),
+      child: _QuickActionsRow(actions: primaryActions),
+    );
   }
 }
 
@@ -208,10 +217,11 @@ class _QuickActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = action.color ?? FitColors.textSecondary;
+    final colors = Theme.of(context).colorScheme;
+    final color = action.color ?? colors.onSurfaceVariant;
     final labelStyle = Theme.of(
       context,
-    ).textTheme.labelSmall?.copyWith(color: FitColors.textPrimary);
+    ).textTheme.labelSmall?.copyWith(color: colors.onSurface);
 
     return Tooltip(
       message: action.label,
@@ -227,15 +237,10 @@ class _QuickActionTile extends StatelessWidget {
               constraints: const BoxConstraints(
                 minHeight: FitLayout.minimumTouchTarget,
               ),
-              child: Container(
+              child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: FitSpacing.s4,
-                  vertical: FitSpacing.s4,
-                ),
-                decoration: BoxDecoration(
-                  color: FitColors.surface,
-                  border: Border.all(color: FitColors.outlineSoft),
-                  borderRadius: FitRadius.smallBorder,
+                  vertical: FitSpacing.s8,
                 ),
                 child: compact
                     ? Row(
@@ -332,7 +337,7 @@ class _WorkoutMoreOptionsContent extends StatelessWidget {
             );
           },
         ),
-        const Divider(height: FitSpacing.s16, color: FitColors.outlineSoft),
+        Divider(height: FitSpacing.s16, color: Theme.of(context).dividerColor),
         SizedBox(
           width: double.infinity,
           child: FitButton(
@@ -365,7 +370,7 @@ class _MoreOptionsActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = action.color ?? FitColors.textPrimary;
+    final color = action.color ?? Theme.of(context).colorScheme.onSurface;
     return Tooltip(
       message: action.label,
       child: Semantics(
@@ -424,8 +429,10 @@ class WorkoutSessionBottomNavigation extends StatelessWidget {
             'Navegação entre exercícios. Exercício ${exerciseIndex + 1} de $exerciseCount',
         child: Container(
           padding: const EdgeInsets.only(top: FitSpacing.s16),
-          decoration: const BoxDecoration(
-            border: Border(top: BorderSide(color: FitColors.outlineSoft)),
+          decoration: BoxDecoration(
+            border: Border(
+              top: BorderSide(color: Theme.of(context).dividerColor),
+            ),
           ),
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -459,7 +466,9 @@ class WorkoutSessionBottomNavigation extends StatelessWidget {
                         Text(
                           (exerciseIndex + 1).toString().padLeft(2, '0'),
                           style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(color: FitColors.primary),
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
                         ),
                         Text(
                           'de $exerciseCount',

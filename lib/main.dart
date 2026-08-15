@@ -36,10 +36,24 @@ class FitAI extends StatelessWidget {
             .device
             .locale
             .locale;
+        final appearance = SettingsRuntime
+            .controller
+            .state
+            .snapshot
+            ?.settings
+            .device
+            .appearance;
+        final themeMode = switch (appearance?.theme) {
+          AppThemePreference.light => ThemeMode.light,
+          AppThemePreference.system => ThemeMode.system,
+          _ => ThemeMode.dark,
+        };
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           title: 'FitIA',
-          theme: AppTheme.dark,
+          theme: AppTheme.light,
+          darkTheme: AppTheme.dark,
+          themeMode: themeMode,
           locale: locale == AppLocalePreference.portugueseBrazil
               ? const Locale('pt', 'BR')
               : null,

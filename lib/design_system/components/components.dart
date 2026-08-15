@@ -14,6 +14,7 @@ export 'fit_coach_insight_card.dart';
 export 'fit_dialog.dart';
 export 'fit_divider.dart';
 export 'fit_empty_state.dart';
+export 'fit_editorial.dart';
 export 'fit_error_state.dart';
 export 'fit_exercise_card.dart';
 export 'fit_feedback.dart';

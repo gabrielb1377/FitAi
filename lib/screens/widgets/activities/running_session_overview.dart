@@ -38,6 +38,7 @@ class RunningSessionOverview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final runningColor = Theme.of(context).fitSemanticColors.running;
     final action = isFinalizing
         ? const FitButton(
             label: 'Salvando corrida',
@@ -76,44 +77,47 @@ class RunningSessionOverview extends StatelessWidget {
             expand: true,
           );
 
-    return FitCard(
-      variant: FitCardVariant.outlined,
-      elevation: 1,
-      title: isActive ? 'Corrida em andamento' : 'Pronto para correr?',
+    return FitEditorialHero(
+      eyebrow: isActive ? 'Corrida ativa' : 'Corrida',
+      title: isActive ? 'Em movimento' : 'Pronto para correr?',
       subtitle: isActive
           ? (isFinalizing
-                ? 'Finalização protegida neste dispositivo.'
+                ? 'Finalizacao protegida neste dispositivo.'
                 : isPaused
                 ? 'Sessao pausada.'
                 : gpsConnected
                 ? 'GPS conectado.'
-                : 'Buscando GPS.')
-          : 'Inicie uma corrida para acompanhar seus dados.',
+                : 'Buscando sinal de GPS.')
+          : 'Tempo, distancia e ritmo salvos mesmo sem internet.',
+      accentColor: runningColor,
+      trailing: Icon(Icons.directions_run_rounded, color: runningColor),
+      action: action,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Distancia', style: Theme.of(context).textTheme.labelSmall),
+          Text('DISTANCIA', style: Theme.of(context).textTheme.labelSmall),
           const SizedBox(height: FitSpacing.s4),
           Text(
             '${distanceKm.toStringAsFixed(2)} km',
-            style: Theme.of(context).textTheme.headlineLarge,
+            style: Theme.of(context).textTheme.displayMedium,
           ),
           const SizedBox(height: FitSpacing.s16),
-          Row(
-            children: [
-              Expanded(
-                child: _SessionValue(
-                  label: 'Tempo',
-                  value: _formatTime(elapsedSeconds),
-                ),
+          FitMetricRail(
+            items: [
+              FitMetricRailItem(
+                label: 'Tempo',
+                value: _formatTime(elapsedSeconds),
+                icon: Icons.timer_outlined,
+                color: runningColor,
               ),
-              Expanded(
-                child: _SessionValue(label: 'Pace', value: _formatPace(pace)),
+              FitMetricRailItem(
+                label: 'Pace',
+                value: _formatPace(pace),
+                icon: Icons.route_outlined,
+                color: runningColor,
               ),
             ],
           ),
-          const SizedBox(height: FitSpacing.s20),
-          action,
           if (isActive && !isFinalizing && onCancel != null) ...[
             const SizedBox(height: FitSpacing.s8),
             Align(
@@ -142,29 +146,5 @@ class RunningSessionOverview extends StatelessWidget {
     if (pace <= 0) return '--';
     final seconds = (pace * 60).round();
     return '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')} min/km';
-  }
-}
-
-class _SessionValue extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _SessionValue({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: Theme.of(context).textTheme.labelSmall),
-        const SizedBox(height: FitSpacing.s4),
-        Text(
-          value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-      ],
-    );
   }
 }

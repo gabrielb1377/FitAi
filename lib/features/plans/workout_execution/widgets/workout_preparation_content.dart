@@ -59,7 +59,7 @@ class WorkoutPreparationContent extends StatelessWidget {
           planLabel: planLabel,
           onBack: onBack,
         ),
-        const SizedBox(height: FitSpacing.s20),
+        const SizedBox(height: FitSpacing.s24),
         if (status == WorkoutPreparationStatus.offline) ...[
           const FitOfflineState(compact: true),
           const SizedBox(height: FitSpacing.s16),
@@ -93,13 +93,13 @@ class WorkoutPreparationContent extends StatelessWidget {
             planLabel: planLabel,
             onOpenExercise: () => onOpenExercise(exercises.first),
           ),
-          const SizedBox(height: FitSpacing.s20),
+          const SizedBox(height: FitSpacing.s24),
           _WorkoutPreparationSummary(
             exerciseCount: exercises.length,
             setCount: _setCount(exercises),
             estimatedMinutes: estimatedMinutes,
           ),
-          const SizedBox(height: FitSpacing.s16),
+          const SizedBox(height: FitSpacing.s20),
           _WorkoutPreparationContext(
             focus: _focus(exercises),
             equipment: _equipment(exercises),
@@ -158,6 +158,7 @@ class _PreparationHeader extends StatelessWidget {
       header: true,
       label: 'Preparar treino, $workoutName, $planLabel',
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           FitIconButton(
             icon: FitIcons.back,
@@ -168,6 +169,7 @@ class _PreparationHeader extends StatelessWidget {
           const SizedBox(width: FitSpacing.s12),
           Expanded(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'PREPARAR TREINO',
@@ -182,15 +184,15 @@ class _PreparationHeader extends StatelessWidget {
                   workoutName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleLarge,
+                  textAlign: TextAlign.start,
+                  style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 const SizedBox(height: FitSpacing.s2),
                 Text(
                   planLabel,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
+                  textAlign: TextAlign.start,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
@@ -223,10 +225,8 @@ class _WorkoutPreparationHero extends StatelessWidget {
       ...exercise.musculosSecundarios.where((name) => name.trim().isNotEmpty),
     }.take(3).join(' · ');
 
-    return FitCard(
-      variant: FitCardVariant.outlined,
-      padding: const EdgeInsets.all(FitSpacing.s12),
-      semanticLabel: 'Primeiro exercicio, ${exercise.nome}',
+    return Semantics(
+      label: 'Primeiro exercicio, ${exercise.nome}',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -260,11 +260,14 @@ class _WorkoutPreparationHero extends StatelessWidget {
             ),
           ],
           const SizedBox(height: FitSpacing.s16),
-          FitExerciseMedia(
-            semanticLabel: 'Midia do exercicio ${exercise.nome}',
-            fallbackLabel: 'Midia de ${exercise.nome} indisponivel',
-            onTap: onOpenExercise,
-            child: ExerciseMedia(exercise: exercise),
+          ClipRRect(
+            borderRadius: FitRadius.mediumBorder,
+            child: FitExerciseMedia(
+              semanticLabel: 'Midia do exercicio ${exercise.nome}',
+              fallbackLabel: 'Midia de ${exercise.nome} indisponivel',
+              onTap: onOpenExercise,
+              child: ExerciseMedia(exercise: exercise),
+            ),
           ),
           const SizedBox(height: FitSpacing.s12),
           Align(
@@ -294,24 +297,29 @@ class _WorkoutPreparationSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FitWorkoutSummaryCard(
-      title: 'Resumo do treino',
-      metrics: [
-        FitMetricData(
-          label: 'Exercicios',
-          value: '$exerciseCount',
-          icon: FitIcons.exercise,
-        ),
-        FitMetricData(
-          label: 'Series',
-          value: '$setCount',
-          icon: FitIcons.repetitions,
-        ),
-        FitMetricData(
-          label: 'Duracao',
-          value: '$estimatedMinutes',
-          unit: 'min',
-          icon: FitIcons.timer,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Resumo do treino', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: FitSpacing.s12),
+        FitMetricRail(
+          items: [
+            FitMetricRailItem(
+              label: 'Exercicios',
+              value: '$exerciseCount',
+              icon: FitIcons.exercise,
+            ),
+            FitMetricRailItem(
+              label: 'Series',
+              value: '$setCount',
+              icon: FitIcons.repetitions,
+            ),
+            FitMetricRailItem(
+              label: 'Duracao',
+              value: '$estimatedMinutes min',
+              icon: FitIcons.timer,
+            ),
+          ],
         ),
       ],
     );
@@ -331,9 +339,12 @@ class _WorkoutPreparationContext extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FitCard(
-      variant: FitCardVariant.outlined,
-      padding: const EdgeInsets.all(FitSpacing.s12),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.symmetric(
+          horizontal: BorderSide(color: Theme.of(context).dividerColor),
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -417,26 +428,19 @@ class _WorkoutExerciseList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FitCard(
-      variant: FitCardVariant.outlined,
-      padding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          for (var index = 0; index < exercises.length; index++) ...[
-            FitExerciseCompactRow(
-              name: exercises[index].nome,
-              subtitle: _prescription(exercises[index]),
-              media: _ExerciseOrder(index: index + 1),
-              onTap: () => onOpenExercise(exercises[index]),
-            ),
-            if (index != exercises.length - 1)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: FitSpacing.s12),
-                child: Divider(height: FitLayout.none),
-              ),
-          ],
+    return Column(
+      children: [
+        for (var index = 0; index < exercises.length; index++) ...[
+          FitExerciseCompactRow(
+            name: exercises[index].nome,
+            subtitle: _prescription(exercises[index]),
+            media: _ExerciseOrder(index: index + 1),
+            onTap: () => onOpenExercise(exercises[index]),
+          ),
+          if (index != exercises.length - 1)
+            const Divider(height: FitLayout.none),
         ],
-      ),
+      ],
     );
   }
 

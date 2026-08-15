@@ -23,7 +23,7 @@ class HomeDetailScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: FitColors.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       bottomNavigationBar: bottomNavigationBar,
       body: SafeArea(
         bottom: false,

@@ -268,8 +268,8 @@ class _CalendarGrid extends StatelessWidget {
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     color: selected
-                        ? FitColors.primary
-                        : FitColors.surfaceRaised,
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context).colorScheme.surfaceContainerHighest,
                     borderRadius: FitRadius.smallBorder,
                   ),
                   child: Stack(
@@ -279,8 +279,8 @@ class _CalendarGrid extends StatelessWidget {
                         '${day.data.day}',
                         style: context.textTheme.labelMedium?.copyWith(
                           color: selected
-                              ? FitColors.onPrimary
-                              : FitColors.textPrimary,
+                              ? Theme.of(context).colorScheme.onPrimary
+                              : Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                       if (active)

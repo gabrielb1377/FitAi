@@ -55,7 +55,7 @@ void main() {
     expect(find.text('4'), findsOneWidget);
     expect(find.text('60 min'), findsOneWidget);
     expect(find.text('8'), findsOneWidget);
-    expect(find.text('Semana 6'), findsNWidgets(2));
+    expect(find.text('Semana 6'), findsOneWidget);
     expect(find.text('2 de 4 treinos'), findsOneWidget);
     expect(find.text('8 semanas'), findsNothing);
 
@@ -79,6 +79,11 @@ void main() {
       expect(
         find.text('Exibindo o plano salvo neste dispositivo.'),
         findsOneWidget,
+      );
+      await tester.scrollUntilVisible(
+        find.text('Alguns dados estao indisponiveis'),
+        240,
+        scrollable: find.byType(Scrollable).first,
       );
       expect(find.text('Alguns dados estao indisponiveis'), findsOneWidget);
       await tester.scrollUntilVisible(
@@ -178,6 +183,11 @@ void main() {
     expect(
       find.text('Plano focado em evolucao consistente e desempenho muscular.'),
       findsNothing,
+    );
+    await tester.scrollUntilVisible(
+      find.text('Nenhum treino neste plano'),
+      240,
+      scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('Nenhum treino neste plano'), findsOneWidget);
   });

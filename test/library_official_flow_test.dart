@@ -156,9 +156,16 @@ void main() {
     final compareButton = find
         .byKey(const ValueKey('library_compare_button'))
         .last;
-    await tester.drag(
-      find.byKey(const ValueKey('LIB-004')),
-      const Offset(0, -720),
+    final detailScroll = find
+        .descendant(
+          of: find.byKey(const ValueKey('LIB-004')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    await tester.scrollUntilVisible(
+      compareButton,
+      240,
+      scrollable: detailScroll,
     );
     await tester.pumpAndSettle();
     await tester.tap(compareButton);

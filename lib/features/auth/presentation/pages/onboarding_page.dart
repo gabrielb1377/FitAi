@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../design_system/components/fit_button.dart';
-import '../../../../design_system/tokens/fit_colors.dart';
 import '../../../../design_system/tokens/fit_icons.dart';
 import '../../../../design_system/tokens/fit_layout.dart';
 import '../../../../design_system/tokens/fit_spacing.dart';
@@ -170,6 +169,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
           const AuthPageTitle(
             title: 'Como voce treina?',
             subtitle: 'A experiencia e a frequencia definem o ritmo inicial.',
+            centered: false,
           ),
           const SizedBox(height: FitSpacing.s20),
           _ChipChoices(
@@ -233,7 +233,7 @@ class _ChoiceStep extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      AuthPageTitle(title: title, subtitle: subtitle),
+      AuthPageTitle(title: title, subtitle: subtitle, centered: false),
       const SizedBox(height: FitSpacing.s20),
       for (final option in options) ...[
         Semantics(
@@ -249,15 +249,15 @@ class _ChoiceStep extends StatelessWidget {
                 style: OutlinedButton.styleFrom(
                   alignment: Alignment.centerLeft,
                   backgroundColor: selected == option
-                      ? FitColors.primaryContainer
-                      : FitColors.surface,
+                      ? Theme.of(context).colorScheme.primaryContainer
+                      : Colors.transparent,
                   foregroundColor: selected == option
-                      ? FitColors.primary
-                      : FitColors.textPrimary,
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurface,
                   side: BorderSide(
                     color: selected == option
-                        ? FitColors.primary
-                        : FitColors.borderSubtle,
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context).colorScheme.outlineVariant,
                   ),
                 ),
                 onPressed: () => onSelected(option),
@@ -361,6 +361,7 @@ class _OnboardingReview extends StatelessWidget {
       const AuthPageTitle(
         title: 'Seu ponto de partida.',
         subtitle: 'Voce podera ajustar tudo depois nas configuracoes.',
+        centered: false,
       ),
       const SizedBox(height: FitSpacing.s24),
       _ReviewRow(label: 'Objetivo', value: draft.objective ?? '-'),

@@ -24,18 +24,13 @@ class RecentActivity extends StatelessWidget {
     return FitSection(
       title: 'Historico resumido',
       padding: EdgeInsets.zero,
-      child: FitCard(
-        variant: FitCardVariant.outlined,
-        padding: const EdgeInsets.all(FitSpacing.s16),
-        child: Column(
-          children: [
-            for (var index = 0; index < items.length && index < 3; index++) ...[
-              _RecentActivityRow(item: items[index]),
-              if (index < items.length - 1 && index < 2)
-                const FitDivider(verticalSpacing: FitSpacing.s12),
-            ],
+      child: Column(
+        children: [
+          for (var index = 0; index < items.length && index < 3; index++) ...[
+            _RecentActivityRow(item: items[index]),
+            if (index < items.length - 1 && index < 2) const Divider(),
           ],
-        ),
+        ],
       ),
     );
   }

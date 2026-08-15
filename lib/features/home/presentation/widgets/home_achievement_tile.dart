@@ -11,7 +11,9 @@ class HomeAchievementTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final unlocked = achievement.desbloqueada;
-    final accent = unlocked ? FitColors.achievement : FitColors.textHint;
+    final accent = unlocked
+        ? context.fitColors.achievement
+        : Theme.of(context).colorScheme.onSurfaceVariant;
     return Semantics(
       label:
           '${achievement.nome}. ${unlocked ? 'Desbloqueada' : 'Bloqueada'}. ${achievement.descricao}',
@@ -46,7 +48,9 @@ class HomeAchievementTile extends StatelessWidget {
                   Text(
                     achievement.nome,
                     style: context.textTheme.titleSmall?.copyWith(
-                      color: unlocked ? null : FitColors.textSecondary,
+                      color: unlocked
+                          ? null
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(height: FitSpacing.s4),

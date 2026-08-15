@@ -8,9 +8,7 @@ import 'fit_colors.dart';
 /// padrão; gradientes não devem decorar listas ou substituir hierarquia.
 abstract final class FitGradients {
   static const actionPrimary = LinearGradient(
-    begin: Alignment.centerLeft,
-    end: Alignment.centerRight,
-    colors: [FitColors.primaryMuted, FitColors.primaryEmphasis],
+    colors: [FitColors.primary, FitColors.primary],
   );
 
   static const mediaScrim = LinearGradient(
@@ -22,21 +20,21 @@ abstract final class FitGradients {
   static const chartArea = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [FitColors.primaryContainer, Color(0x0070A527)],
+    colors: [FitColors.primaryContainer, Color(0x00C9F548)],
   );
 
-  static const aiGlow = RadialGradient(
-    colors: [FitColors.aiContainer, Color(0x0044B89C)],
+  static const aiGlow = LinearGradient(
+    colors: [FitColors.aiContainer, FitColors.aiContainer],
   );
 
-  static const premiumGlow = RadialGradient(
-    colors: [FitColors.achievementContainer, Color(0x00F7B703)],
+  static const premiumGlow = LinearGradient(
+    colors: [FitColors.achievementContainer, FitColors.achievementContainer],
   );
 
   static const surfaceDepth = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [FitColors.surfaceRaised, FitColors.surface],
+    colors: [FitColors.surfaceRaised, FitColors.surfaceRaised],
   );
 
   // Aliases públicos preservados para a biblioteca existente.

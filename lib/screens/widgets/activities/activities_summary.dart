@@ -16,18 +16,18 @@ class ActivitiesSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final metrics = [
-      FitMetric(
+    final metrics = <FitMetricRailItem>[
+      FitMetricRailItem(
         label: 'Passos hoje',
         value: steps,
         icon: Icons.directions_walk_rounded,
       ),
-      FitMetric(
+      FitMetricRailItem(
         label: 'Distancia hoje',
         value: distance,
         icon: Icons.route_rounded,
       ),
-      FitMetric(
+      FitMetricRailItem(
         label: 'Tempo ativo',
         value: activeTime,
         icon: Icons.timer_outlined,
@@ -36,22 +36,7 @@ class ActivitiesSummary extends StatelessWidget {
     return FitSection(
       title: 'Resumo de hoje',
       padding: EdgeInsets.zero,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final columns = constraints.maxWidth >= 680 ? 4 : 2;
-          final spacing = FitSpacing.s16;
-          final width =
-              (constraints.maxWidth - spacing * (columns - 1)) / columns;
-          return Wrap(
-            spacing: spacing,
-            runSpacing: FitSpacing.s20,
-            children: [
-              for (final metric in metrics)
-                SizedBox(width: width, child: metric),
-            ],
-          );
-        },
-      ),
+      child: FitMetricRail(items: metrics),
     );
   }
 }

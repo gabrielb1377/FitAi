@@ -117,24 +117,18 @@ class _ActivitiesBrowseActions extends StatelessWidget {
       padding: EdgeInsets.zero,
       child: Column(
         children: [
-          FitCard(
-            variant: FitCardVariant.clickable,
-            onTap: onOpenTimeline,
-            leading: const Icon(FitIcons.activities),
+          FitActionRow(
+            icon: FitIcons.activities,
             title: 'Linha do tempo',
             subtitle: 'Corridas e resumos diarios de passos.',
-            trailing: const Icon(FitIcons.forward),
-            child: const SizedBox(),
+            onTap: onOpenTimeline,
           ),
-          const SizedBox(height: FitSpacing.s12),
-          FitCard(
-            variant: FitCardVariant.clickable,
-            onTap: onOpenCalendar,
-            leading: const Icon(FitIcons.calendar),
+          const Divider(),
+          FitActionRow(
+            icon: FitIcons.calendar,
             title: 'Calendario',
             subtitle: 'Veja corridas e metas de passos por dia.',
-            trailing: const Icon(FitIcons.forward),
-            child: const SizedBox(),
+            onTap: onOpenCalendar,
           ),
         ],
       ),

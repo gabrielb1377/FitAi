@@ -73,7 +73,7 @@ class LibraryCenteredHeader extends StatelessWidget {
                     title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.headlineSmall,
+                    style: Theme.of(context).textTheme.headlineMedium,
                   ),
                 ),
                 if (subtitle != null) ...[
@@ -147,14 +147,14 @@ class LibrarySearchRow extends StatelessWidget {
                     width: FitLayout.iconSizeCompact,
                     height: FitLayout.iconSizeCompact,
                     alignment: Alignment.center,
-                    decoration: const BoxDecoration(
-                      color: FitColors.primary,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary,
                       shape: BoxShape.circle,
                     ),
                     child: Text(
                       '$filterCount',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: FitColors.onPrimary,
+                        color: Theme.of(context).colorScheme.onPrimary,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -192,16 +192,9 @@ class LibraryIconButton extends StatelessWidget {
         message: tooltip,
         child: Material(
           color: selected
-              ? FitColors.primaryContainer
-              : Theme.of(context).colorScheme.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: FitRadius.mediumBorder,
-            side: BorderSide(
-              color: selected
-                  ? FitColors.primary
-                  : Theme.of(context).colorScheme.outlineVariant,
-            ),
-          ),
+              ? Theme.of(context).colorScheme.primaryContainer
+              : Theme.of(context).colorScheme.surfaceContainerHighest,
+          shape: RoundedRectangleBorder(borderRadius: FitRadius.mediumBorder),
           child: InkWell(
             onTap: onPressed,
             borderRadius: FitRadius.mediumBorder,
@@ -210,7 +203,9 @@ class LibraryIconButton extends StatelessWidget {
               height: FitLayout.minimumTouchTarget,
               child: Icon(
                 icon,
-                color: selected ? FitColors.primary : FitColors.textSecondary,
+                color: selected
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
                 size: FitLayout.iconSizeButton,
               ),
             ),
@@ -237,26 +232,38 @@ class LibraryQuickAccessRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _LibraryQuickAccess(
-            icon: Icons.star_outline_rounded,
-            label: 'Favoritos',
-            count: favoriteCount,
-            onTap: onFavorites,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.symmetric(
+          horizontal: BorderSide(
+            color: Theme.of(context).colorScheme.outlineVariant,
           ),
         ),
-        const SizedBox(width: FitSpacing.s8),
-        Expanded(
-          child: _LibraryQuickAccess(
-            icon: Icons.history_rounded,
-            label: 'Recentes',
-            count: recentCount,
-            onTap: onRecent,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _LibraryQuickAccess(
+              icon: Icons.star_outline_rounded,
+              label: 'Favoritos',
+              count: favoriteCount,
+              onTap: onFavorites,
+            ),
           ),
-        ),
-      ],
+          SizedBox(
+            height: FitSpacing.s32,
+            child: const VerticalDivider(width: FitLayout.borderThin),
+          ),
+          Expanded(
+            child: _LibraryQuickAccess(
+              icon: Icons.history_rounded,
+              label: 'Recentes',
+              count: recentCount,
+              onTap: onRecent,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -276,16 +283,11 @@ class _LibraryQuickAccess extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     return Semantics(
       button: true,
       label: '$label, $count itens',
       child: Material(
-        color: colors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: FitRadius.mediumBorder,
-          side: BorderSide(color: colors.outlineVariant),
-        ),
+        color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
           borderRadius: FitRadius.mediumBorder,
@@ -343,7 +345,7 @@ class LibrarySectionHeader extends StatelessWidget {
           child: Text(
             title,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: FitColors.textPrimary,
+              color: Theme.of(context).colorScheme.onSurface,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -355,7 +357,7 @@ class LibrarySectionHeader extends StatelessWidget {
             style: TextButton.styleFrom(
               minimumSize: const Size(48, 44),
               padding: const EdgeInsets.symmetric(horizontal: FitSpacing.s4),
-              foregroundColor: FitColors.primary,
+              foregroundColor: Theme.of(context).colorScheme.primary,
               textStyle: const TextStyle(fontWeight: FontWeight.w700),
             ),
             child: Text(actionLabel!),
@@ -384,10 +386,9 @@ class LibraryMuscleTile extends StatelessWidget {
       button: true,
       label: 'Abrir exercícios de ${group.label}',
       child: Material(
-        color: colors.surface,
-        shape: RoundedRectangleBorder(
+        color: colors.surfaceContainerHighest,
+        shape: const RoundedRectangleBorder(
           borderRadius: FitRadius.smallBorder,
-          side: BorderSide(color: colors.outlineVariant),
         ),
         child: InkWell(
           onTap: onTap,
@@ -405,7 +406,7 @@ class LibraryMuscleTile extends StatelessWidget {
                     group.label,
                     maxLines: 1,
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: FitColors.textPrimary,
+                      color: colors.onSurface,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -658,7 +659,10 @@ class LibraryExerciseTile extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: libraryDifficultyColor(difficulty),
+                              color: libraryDifficultyColor(
+                                context,
+                                difficulty,
+                              ),
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -702,17 +706,17 @@ class LibraryExerciseMedia extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: FitColors.backgroundSubtle,
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: ExercicioGifImage(
         imagem: exercise.imagem,
         gifPath: exercise.gifPath,
         titulo: exercise.nome,
         fit: fit,
         cacheHeight: 420,
-        placeholder: const Center(
+        placeholder: Center(
           child: Icon(
             Icons.fitness_center_rounded,
-            color: FitColors.primary,
+            color: Theme.of(context).colorScheme.primary,
             size: FitLayout.iconSizeMedium,
           ),
         ),
@@ -758,8 +762,10 @@ class LibrarySegmentTabs<T> extends StatelessWidget {
                             maxLines: 1,
                             style: TextStyle(
                               color: value == selected
-                                  ? FitColors.primary
-                                  : FitColors.textSecondary,
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
                               fontWeight: value == selected
                                   ? FontWeight.w700
                                   : FontWeight.w500,
@@ -772,7 +778,7 @@ class LibrarySegmentTabs<T> extends StatelessWidget {
                       duration: FitDuration.fast,
                       height: FitLayout.borderFocused,
                       color: value == selected
-                          ? FitColors.primary
+                          ? Theme.of(context).colorScheme.primary
                           : Colors.transparent,
                     ),
                   ],
@@ -827,11 +833,12 @@ class LibraryOfflineBanner extends StatelessWidget {
   }
 }
 
-Color libraryDifficultyColor(String value) {
+Color libraryDifficultyColor(BuildContext context, String value) {
   final normalized = normalizeLibraryText(value);
-  if (normalized.contains('avanc')) return FitColors.danger;
-  if (normalized.contains('inter')) return FitColors.primary;
-  return FitColors.success;
+  if (normalized.contains('avanc')) {
+    return Theme.of(context).colorScheme.error;
+  }
+  return Theme.of(context).colorScheme.primary;
 }
 
 extension<T> on List<T> {

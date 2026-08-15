@@ -1,35 +1,35 @@
 import 'package:flutter/material.dart';
 
-/// Paleta primitiva medida na Official UI.
+/// Paleta primitiva do FitIA Design System Next.
 ///
 /// Consumidores devem usar [FitColors]. A paleta permanece privada para evitar
 /// que nomes físicos virem contrato de componente.
 abstract final class _FitPalette {
-  static const neutral1000 = Color(0xFF00060C);
-  static const neutral950 = Color(0xFF010910);
-  static const neutral900 = Color(0xFF080E13);
-  static const neutral850 = Color(0xFF091015);
-  static const neutral800 = Color(0xFF0A1218);
-  static const neutral700 = Color(0xFF10161B);
-  static const neutral600 = Color(0xFF1C2028);
-  static const neutral500 = Color(0xFF25272C);
-  static const neutral300 = Color(0xFF7D7E7F);
-  static const neutral200 = Color(0xFFA3A4A5);
-  static const neutral0 = Color(0xFFFFFFFF);
+  static const neutral1000 = Color(0xFF090B08);
+  static const neutral950 = Color(0xFF0C0F0B);
+  static const neutral900 = Color(0xFF11140F);
+  static const neutral850 = Color(0xFF161A13);
+  static const neutral800 = Color(0xFF1A1F17);
+  static const neutral700 = Color(0xFF22291E);
+  static const neutral600 = Color(0xFF30382B);
+  static const neutral500 = Color(0xFF465140);
+  static const neutral300 = Color(0xFF7F8979);
+  static const neutral200 = Color(0xFFB7BFAF);
+  static const neutral0 = Color(0xFFF5F7EE);
 
-  // Valores cromáticos DS3 provisórios, mantidos centralizados até validação.
-  static const primaryDeep = Color(0xFF5E8701);
-  static const primaryDefault = Color(0xFF70A527);
-  static const primaryBright = Color(0xFF7BAF01);
-  static const aiDefault = Color(0xFF44B89C);
-  static const infoDefault = Color(0xFF2F9ADB);
-  static const energyDefault = Color(0xFFED9606);
-  static const warningDefault = Color(0xFFF7B703);
-  static const errorDefault = Color(0xFFC32722);
-  static const xpDefault = Color(0xFF7049D3);
+  // Lima eletrica e a assinatura esportiva. Azul fica reservado para IA.
+  static const primaryDeep = Color(0xFF8EAD2B);
+  static const primaryDefault = Color(0xFFC9F548);
+  static const primaryBright = Color(0xFFE0FF7A);
+  static const aiDefault = Color(0xFF63AFFF);
+  static const infoDefault = Color(0xFF68B8E8);
+  static const energyDefault = Color(0xFFFF9640);
+  static const warningDefault = Color(0xFFF5C04A);
+  static const errorDefault = Color(0xFFFF6161);
+  static const xpDefault = Color(0xFFFFB44A);
 }
 
-/// Tokens semânticos oficiais do FitIA Design System 3.0.
+/// Tokens semânticos oficiais do FitIA Design System Next.
 ///
 /// Neutros são confirmados pela documentação DS3. Valores cromáticos continuam
 /// provisórios e podem mudar sem alterar os nomes semânticos desta API.
@@ -73,15 +73,14 @@ abstract final class FitColors {
   static const focus = primaryEmphasis;
   static const surfaceDisabled = surfaceRaised;
 
-  /// Alpha de overlays e containers permanece provisório no DS3.
-  static const overlay = Color(0x99000000);
-  static const primaryContainer = Color(0x2470A527);
-  static const aiContainer = Color(0x2444B89C);
-  static const achievementContainer = Color(0x24F7B703);
+  static const overlay = Color(0xB3000000);
+  static const primaryContainer = Color(0x26C9F548);
+  static const aiContainer = Color(0x2463AFFF);
+  static const achievementContainer = Color(0x24FFB44A);
 
   static const onInfo = background;
   static const onAchievement = background;
-  static const onError = textPrimary;
+  static const onError = background;
 
   // Aliases de compatibilidade para consumidores existentes.
   static const primaryDark = primaryMuted;
@@ -114,5 +113,52 @@ abstract final class FitColors {
     outlineVariant: outlineSoft,
     error: error,
     onError: onError,
+  );
+}
+
+/// Paleta clara desenhada separadamente, sem inverter o tema escuro.
+///
+/// Componentes novos devem preferir `Theme.of(context).colorScheme` para
+/// responder corretamente a ambos os modos.
+abstract final class FitLightColors {
+  static const background = Color(0xFFF3F5EE);
+  static const backgroundSubtle = Color(0xFFEDF0E7);
+  static const surface = Color(0xFFFAFCF6);
+  static const surfaceRaised = Color(0xFFFFFFFF);
+  static const card = Color(0xFFF7F9F3);
+  static const cardInner = Color(0xFFE8ECE2);
+  static const borderSubtle = Color(0xFFDCE2D5);
+  static const borderStrong = Color(0xFFBCC6B4);
+  static const textPrimary = Color(0xFF151912);
+  static const textSecondary = Color(0xFF4E5849);
+  static const textTertiary = Color(0xFF6D7867);
+  static const textDisabled = Color(0xFF929A8D);
+  static const primary = Color(0xFF537200);
+  static const primaryContainer = Color(0xFFDFF2A7);
+  static const ai = Color(0xFF176DB8);
+  static const aiContainer = Color(0xFFDCEEFF);
+  static const energy = Color(0xFFB84D00);
+  static const warning = Color(0xFF8A6200);
+  static const error = Color(0xFFB3261E);
+  static const overlay = Color(0x66000000);
+
+  static const colorScheme = ColorScheme.light(
+    primary: primary,
+    onPrimary: Color(0xFFFFFFFF),
+    primaryContainer: primaryContainer,
+    onPrimaryContainer: Color(0xFF1C2A00),
+    secondary: ai,
+    onSecondary: Color(0xFFFFFFFF),
+    secondaryContainer: aiContainer,
+    onSecondaryContainer: Color(0xFF082E4E),
+    tertiary: energy,
+    onTertiary: Color(0xFFFFFFFF),
+    surface: surface,
+    onSurface: textPrimary,
+    surfaceContainerHighest: cardInner,
+    outline: borderStrong,
+    outlineVariant: borderSubtle,
+    error: error,
+    onError: Color(0xFFFFFFFF),
   );
 }

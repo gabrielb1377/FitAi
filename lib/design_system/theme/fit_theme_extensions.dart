@@ -47,6 +47,26 @@ class FitSemanticColors extends ThemeExtension<FitSemanticColors> {
       selectedSurface = FitColors.surfaceSelected,
       disabledSurface = FitColors.surfaceDisabled;
 
+  const FitSemanticColors.light()
+    : ai = FitLightColors.ai,
+      running = FitLightColors.energy,
+      steps = FitLightColors.ai,
+      achievement = FitLightColors.warning,
+      premium = FitLightColors.warning,
+      energy = FitLightColors.energy,
+      xp = FitLightColors.warning,
+      chartProgress = FitLightColors.primary,
+      chartInformation = FitLightColors.ai,
+      chartEnergy = FitLightColors.energy,
+      chartLimit = FitLightColors.error,
+      surfaceSubtle = FitLightColors.backgroundSubtle,
+      surfaceRaised = FitLightColors.surfaceRaised,
+      card = FitLightColors.card,
+      cardInner = FitLightColors.cardInner,
+      overlayScrim = FitLightColors.overlay,
+      selectedSurface = FitLightColors.primaryContainer,
+      disabledSurface = FitLightColors.backgroundSubtle;
+
   final Color ai;
   final Color running;
   final Color steps;
@@ -160,6 +180,30 @@ class FitThemeGradients extends ThemeExtension<FitThemeGradients> {
       premiumGlow = FitGradients.premiumGlow,
       surfaceDepth = FitGradients.surfaceDepth;
 
+  const FitThemeGradients.light()
+    : actionPrimary = const LinearGradient(
+        colors: [FitLightColors.primary, FitLightColors.primary],
+      ),
+      mediaScrim = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0x00000000), Color(0x99000000)],
+      ),
+      chartArea = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [FitLightColors.primaryContainer, Color(0x00DFF2A7)],
+      ),
+      aiGlow = const LinearGradient(
+        colors: [FitLightColors.aiContainer, FitLightColors.aiContainer],
+      ),
+      premiumGlow = const LinearGradient(
+        colors: [Color(0xFFFFE6AC), Color(0xFFFFE6AC)],
+      ),
+      surfaceDepth = const LinearGradient(
+        colors: [FitLightColors.surfaceRaised, FitLightColors.surfaceRaised],
+      );
+
   final Gradient actionPrimary;
   final Gradient mediaScrim;
   final Gradient chartArea;
@@ -204,9 +248,15 @@ class FitThemeGradients extends ThemeExtension<FitThemeGradients> {
 extension FitThemeDataExtensions on ThemeData {
   /// Retorna a extensão semântica com fallback seguro durante a migração.
   FitSemanticColors get fitSemanticColors =>
-      extension<FitSemanticColors>() ?? const FitSemanticColors.dark();
+      extension<FitSemanticColors>() ??
+      (brightness == Brightness.dark
+          ? const FitSemanticColors.dark()
+          : const FitSemanticColors.light());
 
   /// Retorna gradientes semânticos com fallback para o tema escuro atual.
   FitThemeGradients get fitGradients =>
-      extension<FitThemeGradients>() ?? const FitThemeGradients.dark();
+      extension<FitThemeGradients>() ??
+      (brightness == Brightness.dark
+          ? const FitThemeGradients.dark()
+          : const FitThemeGradients.light());
 }

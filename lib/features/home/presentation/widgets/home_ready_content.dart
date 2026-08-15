@@ -69,6 +69,13 @@ class HomeReadyContent extends StatelessWidget {
           const FitLinearLoading(),
           const SizedBox(height: FitSpacing.s12),
         ],
+        HomeTodayWorkoutHero(
+          selection: state.selection,
+          onOpenWorkout: onOpenWorkout,
+          onCreatePlan: onCreatePlan,
+          onOpenTodayWorkout: onOpenTodayWorkout,
+        ),
+        const SizedBox(height: FitSpacing.s24),
         HomeDailyProgressCard(
           xp: xp,
           level: level,
@@ -78,19 +85,7 @@ class HomeReadyContent extends StatelessWidget {
           primaryGoal: state.primaryGoal,
           onTap: onOpenOverview,
         ),
-        const SizedBox(height: FitSpacing.s16),
-        HomeCoachInsight(
-          insights: state.coachInsights,
-          onOpenCoach: onOpenCoach,
-        ),
-        const SizedBox(height: FitSpacing.s16),
-        HomeTodayWorkoutHero(
-          selection: state.selection,
-          onOpenWorkout: onOpenWorkout,
-          onCreatePlan: onCreatePlan,
-          onOpenTodayWorkout: onOpenTodayWorkout,
-        ),
-        const SizedBox(height: FitSpacing.s16),
+        const SizedBox(height: FitSpacing.s20),
         HomeDailyMetrics(
           steps: steps,
           distance: distance,
@@ -102,11 +97,16 @@ class HomeReadyContent extends StatelessWidget {
           onOpenProgress: onOpenProgress,
           onOpenOverview: onOpenOverview,
         ),
-        const SizedBox(height: FitSpacing.s24),
+        const SizedBox(height: FitSpacing.s32),
         HomeWeekTimeline(
           history: state.history,
           onOpenHistory: onOpenRecentActivity,
           now: now,
+        ),
+        const SizedBox(height: FitSpacing.s24),
+        HomeCoachInsight(
+          insights: state.coachInsights,
+          onOpenCoach: onOpenCoach,
         ),
         const SizedBox(height: FitSpacing.s16),
         HomeRecentAchievement(

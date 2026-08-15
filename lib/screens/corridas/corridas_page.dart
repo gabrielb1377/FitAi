@@ -10,7 +10,6 @@ import '../../services/running_session_service.dart';
 import '../perfil/widgets/coach_insights_card.dart';
 import '../widgets/activities/activities_navigation_header.dart';
 import '../widgets/activities/activity_page_entrance.dart';
-import '../widgets/activities/activity_stats_grid.dart';
 import '../widgets/activities/running_session_overview.dart';
 import 'historico_corridas_page.dart';
 
@@ -175,29 +174,21 @@ class _CorridasPageState extends State<CorridasPage> {
                       onCancel: _cancel,
                     ),
                     const SizedBox(height: FitSpacing.s24),
-                    ActivityStatsGrid(
+                    FitMetricRail(
                       items: [
-                        ActivityStat(
-                          label: 'Tempo',
-                          value: _formatTime(_running.elapsedSeconds),
-                          icon: Icons.timer_outlined,
-                        ),
-                        ActivityStat(
+                        FitMetricRailItem(
                           label: 'Vel. media',
                           value:
                               '${_running.averageSpeed.toStringAsFixed(1)} km/h',
                           icon: Icons.speed_outlined,
+                          color: Theme.of(context).fitSemanticColors.running,
                         ),
-                        ActivityStat(
+                        FitMetricRailItem(
                           label: 'Vel. atual',
                           value:
                               '${_running.currentSpeed.toStringAsFixed(1)} km/h',
                           icon: Icons.bolt_rounded,
-                        ),
-                        ActivityStat(
-                          label: 'Pace',
-                          value: _formatPace(_running.pace),
-                          icon: Icons.route_outlined,
+                          color: Theme.of(context).fitSemanticColors.running,
                         ),
                       ],
                     ),
@@ -266,16 +257,5 @@ class _CorridasPageState extends State<CorridasPage> {
           : 'Buscando sinal de GPS.';
     }
     return 'Inicie, acompanhe ou retome sua corrida.';
-  }
-
-  static String _formatTime(int seconds) {
-    final minutes = seconds ~/ 60;
-    return '${minutes.toString().padLeft(2, '0')}:${(seconds % 60).toString().padLeft(2, '0')}';
-  }
-
-  static String _formatPace(double pace) {
-    if (pace <= 0) return '--';
-    final seconds = (pace * 60).round();
-    return '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')} min/km';
   }
 }

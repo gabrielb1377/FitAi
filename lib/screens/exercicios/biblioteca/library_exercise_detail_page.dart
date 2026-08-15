@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../design_system/components/fit_button.dart';
+import '../../../design_system/components/fit_editorial.dart';
 import '../../../design_system/tokens/fit_colors.dart';
+import '../../../design_system/tokens/fit_layout.dart';
 import '../../../design_system/tokens/fit_radius.dart';
+import '../../../design_system/tokens/fit_spacing.dart';
 import '../../../core/exercises/exercise_library_intelligence.dart';
 import '../../../models/exercicio_model.dart';
 import '../../../models/exercise_history_model.dart';
@@ -102,7 +105,7 @@ class _BibliotecaExercicioDetalhePageState
         if (!didPop && _showTabs) setState(() => _showTabs = false);
       },
       child: Scaffold(
-        backgroundColor: FitColors.background,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         body: SafeArea(
           bottom: false,
           child: AnimatedSwitcher(
@@ -118,30 +121,36 @@ class _BibliotecaExercicioDetalhePageState
   Widget _summaryView() {
     return CustomScrollView(
       key: const ValueKey('LIB-004'),
+      primary: false,
       physics: const BouncingScrollPhysics(),
       slivers: [
         SliverToBoxAdapter(child: _hero()),
         SliverToBoxAdapter(
           child: LibraryContentFrame(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+            padding: const EdgeInsets.fromLTRB(
+              FitSpacing.s16,
+              FitSpacing.s20,
+              FitSpacing.s16,
+              FitSpacing.s32,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _exerciseHeading(),
-                const SizedBox(height: 12),
+                const SizedBox(height: FitSpacing.s20),
                 _metrics(),
-                const SizedBox(height: 14),
+                const SizedBox(height: FitSpacing.s24),
                 _musclesSummary(),
-                const SizedBox(height: 14),
+                const SizedBox(height: FitSpacing.s24),
                 _description(),
-                const SizedBox(height: 14),
+                const SizedBox(height: FitSpacing.s24),
                 _exerciseDetails(),
                 if (widget.relatedRecommendations.isNotEmpty) ...[
-                  const SizedBox(height: 18),
+                  const SizedBox(height: FitSpacing.s24),
                   _relatedExercises(),
                 ],
                 if (widget.substitutions.isNotEmpty) ...[
-                  const SizedBox(height: 18),
+                  const SizedBox(height: FitSpacing.s24),
                   _substitutions(),
                 ],
               ],
@@ -153,50 +162,62 @@ class _BibliotecaExercicioDetalhePageState
   }
 
   Widget _hero() {
-    return AspectRatio(
-      aspectRatio: 2.15,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          LibraryExerciseMedia(exercise: exercise, fit: BoxFit.cover),
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0x99000000), Colors.transparent],
-              ),
+    final colors = Theme.of(context).colorScheme;
+    return ColoredBox(
+      color: colors.surfaceContainerHighest,
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 680),
+          child: AspectRatio(
+            aspectRatio: FitLayout.domainMediaAspectRatio,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                LibraryExerciseMedia(exercise: exercise, fit: BoxFit.contain),
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.center,
+                      colors: [Color(0x80000000), Colors.transparent],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: FitSpacing.s12,
+                  top: FitSpacing.s8,
+                  child: LibraryIconButton(
+                    icon: Icons.arrow_back_rounded,
+                    tooltip: 'Voltar',
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+                Positioned(
+                  right: FitSpacing.s64,
+                  top: FitSpacing.s8,
+                  child: LibraryIconButton(
+                    icon: Icons.share_outlined,
+                    tooltip: 'Compartilhar exercicio',
+                    onPressed: _shareExercise,
+                  ),
+                ),
+                Positioned(
+                  right: FitSpacing.s12,
+                  top: FitSpacing.s8,
+                  child: LibraryIconButton(
+                    icon: _favorite
+                        ? Icons.star_rounded
+                        : Icons.star_border_rounded,
+                    tooltip: _favorite ? 'Remover dos favoritos' : 'Favoritar',
+                    selected: _favorite,
+                    onPressed: _favoriteBusy ? null : _toggleFavorite,
+                  ),
+                ),
+              ],
             ),
           ),
-          Positioned(
-            left: 10,
-            top: 8,
-            child: LibraryIconButton(
-              icon: Icons.arrow_back_rounded,
-              tooltip: 'Voltar',
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ),
-          Positioned(
-            right: 62,
-            top: 8,
-            child: LibraryIconButton(
-              icon: Icons.share_outlined,
-              tooltip: 'Compartilhar exercicio',
-              onPressed: _shareExercise,
-            ),
-          ),
-          Positioned(
-            right: 10,
-            top: 8,
-            child: LibraryIconButton(
-              icon: _favorite ? Icons.star_rounded : Icons.star_border_rounded,
-              tooltip: _favorite ? 'Remover dos favoritos' : 'Favoritar',
-              selected: _favorite,
-              onPressed: _favoriteBusy ? null : _toggleFavorite,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -209,12 +230,9 @@ class _BibliotecaExercicioDetalhePageState
           exercise.nome,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            color: FitColors.textPrimary,
-            fontWeight: FontWeight.w700,
-          ),
+          style: Theme.of(context).textTheme.headlineMedium,
         ),
-        const SizedBox(height: 5),
+        const SizedBox(height: FitSpacing.s8),
         Row(
           children: [
             Expanded(
@@ -222,18 +240,14 @@ class _BibliotecaExercicioDetalhePageState
                 exercise.categoria,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: FitColors.textSecondary,
-                  fontSize: 12,
-                ),
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
             ),
             Text(
               _difficulty,
-              style: TextStyle(
-                color: libraryDifficultyColor(_difficulty),
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: libraryDifficultyColor(context, _difficulty),
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -243,57 +257,29 @@ class _BibliotecaExercicioDetalhePageState
   }
 
   Widget _metrics() {
-    return Row(
-      children: [
-        _metric('${exercise.series > 0 ? exercise.series : 4}', 'Séries'),
-        _metric(_repetitions, 'Repetições'),
-        _metric('${_restSeconds}s', 'Descanso'),
-        _metric(_primaryEquipment, 'Equipamento'),
+    return FitMetricRail(
+      items: [
+        FitMetricRailItem(
+          label: 'Séries',
+          value: '${exercise.series > 0 ? exercise.series : 4}',
+          icon: Icons.format_list_numbered_rounded,
+        ),
+        FitMetricRailItem(
+          label: 'Repetições',
+          value: _repetitions,
+          icon: Icons.repeat_rounded,
+        ),
+        FitMetricRailItem(
+          label: 'Descanso',
+          value: '${_restSeconds}s',
+          icon: Icons.timer_outlined,
+        ),
+        FitMetricRailItem(
+          label: 'Equipamento',
+          value: _primaryEquipment,
+          icon: Icons.fitness_center_rounded,
+        ),
       ],
-    );
-  }
-
-  Widget _metric(String value, String label) {
-    return Expanded(
-      child: Container(
-        height: 58,
-        decoration: const BoxDecoration(
-          color: librarySurface,
-          border: Border.fromBorderSide(BorderSide(color: libraryBorder)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  value,
-                  maxLines: 1,
-                  style: const TextStyle(
-                    color: FitColors.textPrimary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 3),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  style: const TextStyle(
-                    color: FitColors.textHint,
-                    fontSize: 9,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
@@ -306,15 +292,11 @@ class _BibliotecaExercicioDetalhePageState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Músculos trabalhados',
-          style: TextStyle(
-            color: FitColors.textPrimary,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
+          style: Theme.of(context).textTheme.titleMedium,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: FitSpacing.s12),
         Row(
           children: [
             SizedBox(
@@ -322,7 +304,7 @@ class _BibliotecaExercicioDetalhePageState
               height: 106,
               child: LibraryMuscleGlyph(group: group, large: true),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: FitSpacing.s16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -344,7 +326,7 @@ class _BibliotecaExercicioDetalhePageState
 
   Widget _legend(String label, Color color) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: FitSpacing.s4),
       child: Row(
         children: [
           Container(
@@ -355,16 +337,13 @@ class _BibliotecaExercicioDetalhePageState
               borderRadius: BorderRadius.circular(3),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: FitSpacing.s8),
           Expanded(
             child: Text(
               label,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: FitColors.textSecondary,
-                fontSize: 11,
-              ),
+              style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
         ],
@@ -379,24 +358,13 @@ class _BibliotecaExercicioDetalhePageState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Descrição',
-          style: TextStyle(
-            color: FitColors.textPrimary,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 7),
+        Text('Descrição', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: FitSpacing.s8),
         Text(
           description,
           maxLines: 4,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: FitColors.textSecondary,
-            fontSize: 11,
-            height: 1.4,
-          ),
+          style: Theme.of(context).textTheme.bodyMedium,
         ),
         Align(
           alignment: Alignment.centerRight,
@@ -417,22 +385,19 @@ class _BibliotecaExercicioDetalhePageState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _detailRow('Execucao', exercise.comoExecutar),
-        const SizedBox(height: 12),
-        _detailRow('Respiracao', breathing),
-        const SizedBox(height: 12),
-        _detailRow('Dicas', tips),
+        _detailRow(
+          'Execução',
+          exercise.comoExecutar,
+          Icons.format_list_numbered_rounded,
+        ),
+        const Divider(),
+        _detailRow('Respiração', breathing, Icons.air_rounded),
+        const Divider(),
+        _detailRow('Dicas', tips, Icons.lightbulb_outline_rounded),
         if (exercise.tags.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          const Text(
-            'Tags',
-            style: TextStyle(
-              color: FitColors.textPrimary,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 6),
+          const SizedBox(height: FitSpacing.s16),
+          Text('Tags', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: FitSpacing.s8),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -446,30 +411,35 @@ class _BibliotecaExercicioDetalhePageState
     );
   }
 
-  Widget _detailRow(String title, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            color: FitColors.textPrimary,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+  Widget _detailRow(String title, String value, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: FitSpacing.s12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            icon,
+            size: FitLayout.iconSizeButton,
+            color: Theme.of(context).colorScheme.primary,
           ),
-        ),
-        const SizedBox(height: 5),
-        Text(
-          value.trim().isEmpty ? 'Nao informado.' : value,
-          maxLines: 4,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: FitColors.textSecondary,
-            fontSize: 11,
-            height: 1.4,
+          const SizedBox(width: FitSpacing.s12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: FitSpacing.s4),
+                Text(
+                  value.trim().isEmpty ? 'Não informado.' : value,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -477,13 +447,9 @@ class _BibliotecaExercicioDetalhePageState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Variacoes e relacionados',
-          style: TextStyle(
-            color: FitColors.textPrimary,
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-          ),
+          style: Theme.of(context).textTheme.titleMedium,
         ),
         Align(
           alignment: Alignment.centerRight,
@@ -498,13 +464,13 @@ class _BibliotecaExercicioDetalhePageState
             label: const Text('Comparar'),
           ),
         ),
-        const SizedBox(height: 2),
+        const SizedBox(height: FitSpacing.s4),
         SizedBox(
           height: 128,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: widget.relatedRecommendations.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 8),
+            separatorBuilder: (_, _) => const SizedBox(width: FitSpacing.s8),
             itemBuilder: (context, index) {
               final recommendation = widget.relatedRecommendations[index];
               final related = recommendation.exercise;
@@ -534,15 +500,11 @@ class _BibliotecaExercicioDetalhePageState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Alternativas compativeis',
-          style: TextStyle(
-            color: FitColors.textPrimary,
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-          ),
+          style: Theme.of(context).textTheme.titleMedium,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: FitSpacing.s8),
         for (final substitution in suggestions)
           Semantics(
             button: true,
@@ -554,20 +516,17 @@ class _BibliotecaExercicioDetalhePageState
                 substitution.exercise.nome,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: FitColors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: Theme.of(context).textTheme.titleSmall,
               ),
               subtitle: Text(
                 _substitutionDescription(substitution),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: FitColors.textSecondary),
+                style: Theme.of(context).textTheme.bodySmall,
               ),
-              trailing: const Icon(
+              trailing: Icon(
                 Icons.arrow_forward_ios_rounded,
-                color: FitColors.textSecondary,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 size: 16,
               ),
               onTap: () => widget.onOpenRelated?.call(substitution.exercise),
@@ -581,6 +540,32 @@ class _BibliotecaExercicioDetalhePageState
     return Column(
       key: const ValueKey('LIB-005-007'),
       children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            FitSpacing.s12,
+            FitSpacing.s8,
+            FitSpacing.s16,
+            FitSpacing.s4,
+          ),
+          child: Row(
+            children: [
+              LibraryIconButton(
+                icon: Icons.arrow_back_rounded,
+                tooltip: 'Voltar aos detalhes',
+                onPressed: () => setState(() => _showTabs = false),
+              ),
+              const SizedBox(width: FitSpacing.s12),
+              Expanded(
+                child: Text(
+                  exercise.nome,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+            ],
+          ),
+        ),
         LibrarySegmentTabs<int>(
           values: const [0, 1, 2],
           selected: _tabIndex,
@@ -610,10 +595,15 @@ class _BibliotecaExercicioDetalhePageState
     return ListView(
       key: const ValueKey('LIB-005'),
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+      padding: const EdgeInsets.fromLTRB(
+        FitSpacing.s16,
+        FitSpacing.s12,
+        FitSpacing.s16,
+        FitSpacing.s32,
+      ),
       children: [
         for (final step in steps) _instructionRow(step),
-        const SizedBox(height: 12),
+        const SizedBox(height: FitSpacing.s12),
         ClipRRect(
           borderRadius: FitRadius.smallBorder,
           child: AspectRatio(
@@ -670,7 +660,7 @@ class _BibliotecaExercicioDetalhePageState
             ),
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: FitSpacing.s24),
         _legacyInsights(),
       ],
     );
@@ -678,7 +668,7 @@ class _BibliotecaExercicioDetalhePageState
 
   Widget _instructionRow(String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: FitSpacing.s16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -690,16 +680,9 @@ class _BibliotecaExercicioDetalhePageState
               size: 17,
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: FitSpacing.s12),
           Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                color: FitColors.textPrimary,
-                fontSize: 11,
-                height: 1.45,
-              ),
-            ),
+            child: Text(text, style: Theme.of(context).textTheme.bodyMedium),
           ),
         ],
       ),
@@ -715,7 +698,12 @@ class _BibliotecaExercicioDetalhePageState
     return ListView(
       key: const ValueKey('LIB-006'),
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+      padding: const EdgeInsets.fromLTRB(
+        FitSpacing.s16,
+        FitSpacing.s16,
+        FitSpacing.s16,
+        FitSpacing.s32,
+      ),
       children: [
         SizedBox(
           height: 230,
@@ -727,9 +715,9 @@ class _BibliotecaExercicioDetalhePageState
                     Expanded(
                       child: LibraryMuscleGlyph(group: group, large: true),
                     ),
-                    const Text(
+                    Text(
                       'Frente',
-                      style: TextStyle(color: FitColors.textHint, fontSize: 10),
+                      style: Theme.of(context).textTheme.labelSmall,
                     ),
                   ],
                 ),
@@ -740,9 +728,9 @@ class _BibliotecaExercicioDetalhePageState
                     Expanded(
                       child: LibraryMuscleGlyph(group: group, large: true),
                     ),
-                    const Text(
+                    Text(
                       'Costas',
-                      style: TextStyle(color: FitColors.textHint, fontSize: 10),
+                      style: Theme.of(context).textTheme.labelSmall,
                     ),
                   ],
                 ),
@@ -750,32 +738,24 @@ class _BibliotecaExercicioDetalhePageState
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: FitSpacing.s12),
         for (final muscle in primary) _legend(muscle, FitColors.primary),
         for (var index = 0; index < secondary.length; index++)
           _legend(
             secondary[index],
             index == 0 ? FitColors.danger : FitColors.info,
           ),
-        const SizedBox(height: 14),
-        const Divider(color: libraryBorder),
-        const SizedBox(height: 10),
-        const Text(
+        const SizedBox(height: FitSpacing.s16),
+        const Divider(),
+        const SizedBox(height: FitSpacing.s12),
+        Text(
           'Músculos secundários',
-          style: TextStyle(
-            color: FitColors.textPrimary,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
+          style: Theme.of(context).textTheme.titleSmall,
         ),
-        const SizedBox(height: 7),
+        const SizedBox(height: FitSpacing.s8),
         Text(
           secondary.isEmpty ? 'Não informado' : secondary.join(', '),
-          style: const TextStyle(
-            color: FitColors.textSecondary,
-            fontSize: 11,
-            height: 1.45,
-          ),
+          style: Theme.of(context).textTheme.bodyMedium,
         ),
       ],
     );
@@ -786,7 +766,12 @@ class _BibliotecaExercicioDetalhePageState
     return ListView.separated(
       key: const ValueKey('LIB-007'),
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
+      padding: const EdgeInsets.fromLTRB(
+        FitSpacing.s16,
+        FitSpacing.s16,
+        FitSpacing.s16,
+        FitSpacing.s32,
+      ),
       itemCount: errors.length,
       separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
@@ -796,9 +781,9 @@ class _BibliotecaExercicioDetalhePageState
         return Container(
           height: 82,
           decoration: BoxDecoration(
-            color: librarySurface,
+            color: Theme.of(context).colorScheme.surfaceContainerLow,
             borderRadius: FitRadius.smallBorder,
-            border: Border.all(color: libraryBorder),
+            border: Border.all(color: Theme.of(context).dividerColor),
           ),
           clipBehavior: Clip.antiAlias,
           child: Row(
@@ -832,22 +817,14 @@ class _BibliotecaExercicioDetalhePageState
                         title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: FitColors.textPrimary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: Theme.of(context).textTheme.titleSmall,
                       ),
                       const SizedBox(height: 4),
                       Text(
                         item,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: FitColors.textSecondary,
-                          fontSize: 10,
-                          height: 1.35,
-                        ),
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
                   ),
@@ -865,15 +842,11 @@ class _BibliotecaExercicioDetalhePageState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Histórico e progressão',
-          style: TextStyle(
-            color: FitColors.textPrimary,
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-          ),
+          style: Theme.of(context).textTheme.titleMedium,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: FitSpacing.s12),
         FutureBuilder<ExerciseHistorySnapshot>(
           future: _historyFuture,
           builder: (context, snapshot) {
@@ -881,25 +854,22 @@ class _BibliotecaExercicioDetalhePageState
             final count = history?.executions.length ?? 0;
             return Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(FitSpacing.s12),
               decoration: BoxDecoration(
-                color: librarySurface,
+                color: Theme.of(context).colorScheme.surfaceContainerLow,
                 borderRadius: FitRadius.smallBorder,
-                border: Border.all(color: libraryBorder),
+                border: Border.all(color: Theme.of(context).dividerColor),
               ),
               child: Text(
                 count == 0
                     ? 'Nenhuma execução registrada.'
                     : '$count execuções registradas neste exercício.',
-                style: const TextStyle(
-                  color: FitColors.textSecondary,
-                  fontSize: 11,
-                ),
+                style: Theme.of(context).textTheme.bodySmall,
               ),
             );
           },
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: FitSpacing.s12),
         ExerciseNextProgressionCard(
           future: _progressionFuture,
           onApply: _acceptProgression,
@@ -911,37 +881,52 @@ class _BibliotecaExercicioDetalhePageState
   }
 
   Widget _bottomAction() {
-    return SafeArea(
-      top: false,
-      minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 648),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            FitButton(
-              label: widget.permitirSelecao
-                  ? 'Selecionar exercicio'
-                  : 'Adicionar ao plano',
-              icon: widget.permitirSelecao
-                  ? Icons.check_circle_outline_rounded
-                  : Icons.playlist_add_rounded,
-              onPressedAsync: widget.permitirSelecao
-                  ? _confirmSelection
-                  : _addToPlan,
-              expand: true,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
+      ),
+      child: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(
+          FitSpacing.s16,
+          FitSpacing.s8,
+          FitSpacing.s16,
+          FitSpacing.s12,
+        ),
+        child: Align(
+          alignment: Alignment.topCenter,
+          heightFactor: 1,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 648),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FitButton(
+                  label: widget.permitirSelecao
+                      ? 'Selecionar exercicio'
+                      : 'Adicionar ao plano',
+                  icon: widget.permitirSelecao
+                      ? Icons.check_circle_outline_rounded
+                      : Icons.playlist_add_rounded,
+                  onPressedAsync: widget.permitirSelecao
+                      ? _confirmSelection
+                      : _addToPlan,
+                  expand: true,
+                ),
+                if (!widget.permitirSelecao) ...[
+                  const SizedBox(height: FitSpacing.s8),
+                  FitButton(
+                    label: 'Iniciar treino rapido',
+                    icon: Icons.play_arrow_rounded,
+                    variant: FitButtonVariant.secondary,
+                    onPressedAsync: _executeNow,
+                    expand: true,
+                  ),
+                ],
+              ],
             ),
-            if (!widget.permitirSelecao) ...[
-              const SizedBox(height: 8),
-              FitButton(
-                label: 'Iniciar treino rapido',
-                icon: Icons.play_arrow_rounded,
-                variant: FitButtonVariant.secondary,
-                onPressedAsync: _executeNow,
-                expand: true,
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../../design_system/tokens/fit_colors.dart';
 import '../../../../design_system/tokens/fit_spacing.dart';
 
 class AuthPageTitle extends StatelessWidget {
@@ -29,18 +28,14 @@ class AuthPageTitle extends StatelessWidget {
           child: Text(
             title,
             textAlign: textAlign,
-            style: Theme.of(
-              context,
-            ).textTheme.headlineMedium?.copyWith(color: FitColors.textPrimary),
+            style: Theme.of(context).textTheme.headlineMedium,
           ),
         ),
         const SizedBox(height: FitSpacing.s8),
         Text(
           subtitle,
           textAlign: textAlign,
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(color: FitColors.textSecondary),
+          style: Theme.of(context).textTheme.bodyMedium,
         ),
       ],
     );

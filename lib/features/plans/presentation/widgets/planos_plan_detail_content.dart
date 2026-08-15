@@ -92,7 +92,7 @@ class PlanosPlanDetailContent extends StatelessWidget {
           onBack: onBack,
           onMore: onMore,
         ),
-        const SizedBox(height: FitSpacing.s16),
+        const SizedBox(height: FitSpacing.s20),
         if (description.trim().isNotEmpty) ...[
           Text(description, style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: FitSpacing.s16),
@@ -103,16 +103,14 @@ class PlanosPlanDetailContent extends StatelessWidget {
           exerciseCount: exerciseCount,
         ),
         const SizedBox(height: FitSpacing.s16),
-        FitCard(
-          variant: FitCardVariant.outlined,
-          semanticLabel:
-              'Progresso semanal: $completed de $target treinos concluidos.',
+        Semantics(
+          label: 'Progresso semanal: $completed de $target treinos concluidos.',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'Progresso do plano',
-                style: Theme.of(context).textTheme.titleMedium,
+                style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: FitSpacing.s12),
               FitProgress(
@@ -143,7 +141,7 @@ class PlanosPlanDetailContent extends StatelessWidget {
             tone: FitInfoCardTone.warning,
           ),
         ],
-        const SizedBox(height: FitSpacing.s16),
+        const SizedBox(height: FitSpacing.s20),
         _QuickLinks(
           onOpenWeek: onOpenWeek,
           onOpenCalendar: onOpenCalendar,
@@ -167,12 +165,6 @@ class PlanosPlanDetailContent extends StatelessWidget {
             const SizedBox(height: FitSpacing.s8),
           ],
         const SizedBox(height: FitSpacing.s16),
-        const FitInfoCard(
-          title: 'Coach FitIA',
-          description: 'Nenhuma recomendacao esta disponivel para este plano.',
-          icon: FitIcons.ai,
-          tone: FitInfoCardTone.info,
-        ),
       ],
     );
   }
@@ -198,52 +190,51 @@ class _PlanHero extends StatelessWidget {
     return Semantics(
       header: true,
       label: 'Plano ativo: $planName. Objetivo: $objective.',
-      child: Stack(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          PlanosPlanMedia(
-            assetPath: mediaAssetPath,
-            label: 'Capa do plano $planName',
-            height: FitLayout.domainChartHeight + FitSpacing.s32,
-          ),
-          Positioned(
-            top: FitSpacing.s8,
-            left: FitSpacing.s8,
-            child: FitIconButton(
-              icon: FitIcons.back,
-              tooltip: 'Voltar para Planos',
-              variant: FitIconButtonVariant.outlined,
-              onPressed: onBack,
-            ),
-          ),
-          Positioned(
-            top: FitSpacing.s8,
-            right: FitSpacing.s8,
-            child: FitIconButton(
-              icon: FitIcons.more,
-              tooltip: 'Opcoes do plano',
-              variant: FitIconButtonVariant.outlined,
-              onPressed: onMore,
-            ),
-          ),
-          Positioned(
-            right: FitSpacing.s12,
-            bottom: FitSpacing.s12,
-            child: FitChip(label: objective, selected: true),
-          ),
-          Positioned(
-            left: FitSpacing.s16,
-            right: FitSpacing.s16,
-            bottom: FitSpacing.s12,
-            child: Padding(
-              padding: const EdgeInsets.only(right: FitSpacing.s64),
-              child: Text(
-                planName,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface,
+          Row(
+            children: [
+              FitIconButton(
+                icon: FitIcons.back,
+                tooltip: 'Voltar para Planos',
+                variant: FitIconButtonVariant.subtle,
+                onPressed: onBack,
+              ),
+              const SizedBox(width: FitSpacing.s12),
+              Expanded(
+                child: Text(
+                  'PLANO ATIVO',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
+              FitIconButton(
+                icon: FitIcons.more,
+                tooltip: 'Opcoes do plano',
+                variant: FitIconButtonVariant.subtle,
+                onPressed: onMore,
+              ),
+            ],
+          ),
+          const SizedBox(height: FitSpacing.s16),
+          Text(
+            planName,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.headlineLarge,
+          ),
+          const SizedBox(height: FitSpacing.s8),
+          FitBadge(label: objective, tone: FitBadgeTone.success),
+          const SizedBox(height: FitSpacing.s20),
+          ClipRRect(
+            borderRadius: FitRadius.mediumBorder,
+            child: PlanosPlanMedia(
+              assetPath: mediaAssetPath,
+              label: 'Capa do plano $planName',
+              height: FitLayout.domainChartHeight + FitSpacing.s24,
             ),
           ),
         ],
@@ -265,19 +256,19 @@ class _PlanMetrics extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PlanosMetricRow(
-      metrics: [
-        PlanosMetricData(
+    return FitMetricRail(
+      items: [
+        FitMetricRailItem(
           label: 'dias/semana',
           value: '$daysPerWeek',
           icon: FitIcons.calendar,
         ),
-        PlanosMetricData(
+        FitMetricRailItem(
           label: 'duracao',
           value: estimatedMinutes > 0 ? '$estimatedMinutes min' : '-',
           icon: FitIcons.time,
         ),
-        PlanosMetricData(
+        FitMetricRailItem(
           label: 'exercicios',
           value: '$exerciseCount',
           icon: FitIcons.exercise,
@@ -300,32 +291,45 @@ class _QuickLinks extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _QuickLink(
-            icon: FitIcons.list,
-            label: 'Treinos',
-            onTap: onOpenWeek,
-          ),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.symmetric(
+          horizontal: BorderSide(color: Theme.of(context).dividerColor),
         ),
-        const SizedBox(width: FitSpacing.s8),
-        Expanded(
-          child: _QuickLink(
-            icon: FitIcons.calendarRange,
-            label: 'Calendario',
-            onTap: onOpenCalendar,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _QuickLink(
+              icon: FitIcons.list,
+              label: 'Treinos',
+              onTap: onOpenWeek,
+            ),
           ),
-        ),
-        const SizedBox(width: FitSpacing.s8),
-        Expanded(
-          child: _QuickLink(
-            icon: FitIcons.progress,
-            label: 'Progresso',
-            onTap: onOpenProgress,
+          SizedBox(
+            height: FitSpacing.s32,
+            child: VerticalDivider(width: FitLayout.borderThin),
           ),
-        ),
-      ],
+          Expanded(
+            child: _QuickLink(
+              icon: FitIcons.calendarRange,
+              label: 'Calendario',
+              onTap: onOpenCalendar,
+            ),
+          ),
+          SizedBox(
+            height: FitSpacing.s32,
+            child: VerticalDivider(width: FitLayout.borderThin),
+          ),
+          Expanded(
+            child: _QuickLink(
+              icon: FitIcons.progress,
+              label: 'Progresso',
+              onTap: onOpenProgress,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -395,23 +399,29 @@ class _QuickLink extends StatelessWidget {
     return Semantics(
       button: true,
       label: label,
-      child: FitCard(
-        variant: FitCardVariant.clickable,
+      child: InkWell(
         onTap: onTap,
-        padding: const EdgeInsets.symmetric(vertical: FitSpacing.s12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: FitSpacing.s4),
-            Text(
-              label,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.labelSmall,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            minHeight: FitLayout.minimumTouchTarget,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: FitSpacing.s12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(height: FitSpacing.s4),
+                Text(
+                  label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -433,48 +443,64 @@ class _WorkoutRow extends StatelessWidget {
       button: true,
       selected: workout.isCurrent,
       label: '${workout.weekday}, ${workout.name}. $stateLabel.',
-      child: FitCard(
-        variant: FitCardVariant.clickable,
-        selected: workout.isCurrent,
+      child: InkWell(
         onTap: onTap,
-        padding: const EdgeInsets.all(FitSpacing.s12),
-        child: Row(
-          children: [
-            SizedBox(
-              width: FitSpacing.s32,
-              child: Text(
-                workout.weekday,
-                style: Theme.of(context).textTheme.labelMedium,
+        child: Container(
+          constraints: const BoxConstraints(
+            minHeight: FitLayout.listTileMinHeight,
+          ),
+          padding: const EdgeInsets.symmetric(vertical: FitSpacing.s12),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: Theme.of(context).dividerColor),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: FitSpacing.s4,
+                height: FitSpacing.s32,
+                color: workout.isCurrent
+                    ? Theme.of(context).colorScheme.primary
+                    : Colors.transparent,
               ),
-            ),
-            const SizedBox(width: FitSpacing.s8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    workout.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                  const SizedBox(height: FitSpacing.s2),
-                  Text(
-                    stateLabel,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
+              const SizedBox(width: FitSpacing.s12),
+              SizedBox(
+                width: FitSpacing.s32,
+                child: Text(
+                  workout.weekday,
+                  style: Theme.of(context).textTheme.labelMedium,
+                ),
               ),
-            ),
-            Icon(
-              workout.isCurrent ? FitIcons.play : FitIcons.forward,
-              color: workout.isCurrent
-                  ? Theme.of(context).colorScheme.primary
-                  : Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ],
+              const SizedBox(width: FitSpacing.s8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      workout.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: FitSpacing.s2),
+                    Text(
+                      stateLabel,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                workout.isCurrent ? FitIcons.play : FitIcons.forward,
+                color: workout.isCurrent
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -65,6 +65,7 @@ class ProfileDashboard extends StatelessWidget {
                       FitHeader(
                         title: 'Perfil',
                         subtitle: 'Sua evolucao e conquistas.',
+                        padding: EdgeInsets.zero,
                         actions: [
                           FitIconButton(
                             icon: FitIcons.settings,

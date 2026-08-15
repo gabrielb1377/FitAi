@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../tokens/fit_elevation.dart';
-import '../tokens/fit_opacity.dart';
 import '../tokens/fit_radius.dart';
 import '../tokens/fit_spacing.dart';
 
@@ -58,16 +57,12 @@ class FitCard extends StatelessWidget {
         color ??
         switch (variant) {
           FitCardVariant.filled => colors.surfaceContainerHighest,
-          FitCardVariant.selected => colors.primary.withValues(
-            alpha: FitOpacity.selected,
-          ),
+          FitCardVariant.selected => colors.primaryContainer,
           _ => colors.surface,
         };
     final shouldShowBorder =
         showBorder ??
-        variant == FitCardVariant.outlined ||
-            variant == FitCardVariant.clickable ||
-            isSelected;
+        borderColor != null || variant == FitCardVariant.outlined || isSelected;
     final resolvedBorderColor =
         borderColor ?? (isSelected ? colors.primary : colors.outlineVariant);
     final resolvedElevation = variant == FitCardVariant.elevated
@@ -75,27 +70,30 @@ class FitCard extends StatelessWidget {
               ? 1
               : elevation
         : elevation;
-    final content = Padding(
-      padding: padding,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (header != null)
-            header!
-          else if (title != null)
-            _buildHeader(context),
-          if (header != null || title != null)
-            const SizedBox(height: FitSpacing.s12),
-          child,
-          if (footer != null) ...[
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: FitSpacing.s12),
-              child: Divider(),
-            ),
-            footer!,
+    final content = ConstrainedBox(
+      constraints: BoxConstraints(minHeight: clickable ? 48 : 0),
+      child: Padding(
+        padding: padding,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (header != null)
+              header!
+            else if (title != null)
+              _buildHeader(context),
+            if (header != null || title != null)
+              const SizedBox(height: FitSpacing.s12),
+            child,
+            if (footer != null) ...[
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: FitSpacing.s12),
+                child: Divider(),
+              ),
+              footer!,
+            ],
           ],
-        ],
+        ),
       ),
     );
     final material = Material(

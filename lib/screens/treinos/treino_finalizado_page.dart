@@ -87,63 +87,84 @@ class _TreinoFinalizadoPageState extends State<TreinoFinalizadoPage> {
                     header: true,
                     child: Text(
                       'Treino concluido!',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.headlineLarge,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                   const SizedBox(height: FitSpacing.s8),
                   Text(
-                    'Otimo trabalho. Sua evolucao foi salva.',
-                    textAlign: TextAlign.center,
+                    widget.nomeTreino,
+                    style: Theme.of(context).textTheme.headlineLarge,
+                  ),
+                  const SizedBox(height: FitSpacing.s4),
+                  Text(
+                    'Sua sessão foi salva e já conta para a sua evolução.',
                     style: Theme.of(context).textTheme.bodyLarge,
                   ),
                   const SizedBox(height: FitSpacing.s24),
-                  const _CompletionRing(),
-                  const SizedBox(height: FitSpacing.s24),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
+                      const _CompletionRing(),
+                      const SizedBox(width: FitSpacing.s20),
                       Expanded(
-                        child: _CompletionMetric(
-                          value: widget.tempo,
-                          label: 'Tempo total',
-                        ),
-                      ),
-                      const SizedBox(width: FitSpacing.s8),
-                      Expanded(
-                        child: _CompletionMetric(
-                          value: '${widget.exerciciosConcluidos}',
-                          label: 'Exercicios',
-                        ),
-                      ),
-                      const SizedBox(width: FitSpacing.s8),
-                      Expanded(
-                        child: _CompletionMetric(
-                          value: widget.volume,
-                          label: 'Volume total',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '100% concluído',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: FitSpacing.s4),
+                            Text(
+                              '${widget.seriesConcluidas} séries registradas',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: FitSpacing.s16),
-                  FitCard(
-                    variant: FitCardVariant.outlined,
+                  const SizedBox(height: FitSpacing.s24),
+                  FitMetricRail(
+                    items: [
+                      FitMetricRailItem(
+                        label: 'Tempo total',
+                        value: widget.tempo,
+                        icon: Icons.timer_outlined,
+                      ),
+                      FitMetricRailItem(
+                        label: 'Exercícios',
+                        value: '${widget.exerciciosConcluidos}',
+                        icon: Icons.fitness_center_rounded,
+                      ),
+                      FitMetricRailItem(
+                        label: 'Volume total',
+                        value: widget.volume,
+                        icon: Icons.stacked_line_chart_rounded,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: FitSpacing.s24),
+                  FitEditorialHero(
+                    eyebrow: 'Evolução',
+                    title: '+${widget.xp}',
+                    subtitle: 'XP ganhos neste treino',
+                    accentColor: Theme.of(context).colorScheme.primary,
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          '+${widget.xp}',
-                          style: Theme.of(context).textTheme.headlineSmall,
+                        Icon(
+                          Icons.bolt_rounded,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                         const SizedBox(width: FitSpacing.s8),
-                        Text(
-                          'XP',
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(color: FitColors.primary),
-                        ),
-                        const SizedBox(width: FitSpacing.s8),
-                        Text(
-                          'ganhos',
-                          style: Theme.of(context).textTheme.bodyLarge,
+                        Expanded(
+                          child: Text(
+                            'Consistência registrada no seu perfil.',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
                         ),
                       ],
                     ),
@@ -304,16 +325,18 @@ class _CompletionRing extends StatelessWidget {
       child: Semantics(
         label: 'Treino 100 por cento concluido',
         child: SizedBox.square(
-          dimension: 210,
+          dimension: FitLayout.domainProgressRingLarge,
           child: Stack(
             fit: StackFit.expand,
             children: [
-              const CircularProgressIndicator(
+              CircularProgressIndicator(
                 value: 1,
-                strokeWidth: 14,
+                strokeWidth: FitLayout.domainProgressRingStroke,
                 strokeCap: StrokeCap.round,
-                color: FitColors.primary,
-                backgroundColor: FitColors.surfaceVariant,
+                color: Theme.of(context).colorScheme.primary,
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHighest,
               ),
               Center(
                 child: Column(
@@ -321,62 +344,13 @@ class _CompletionRing extends StatelessWidget {
                   children: [
                     Text(
                       '100%',
-                      style: Theme.of(context).textTheme.displaySmall,
-                    ),
-                    const SizedBox(height: FitSpacing.s4),
-                    Text(
-                      'Concluido',
-                      style: Theme.of(context).textTheme.bodyLarge,
+                      style: Theme.of(context).textTheme.headlineMedium,
                     ),
                   ],
                 ),
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CompletionMetric extends StatelessWidget {
-  const _CompletionMetric({required this.value, required this.label});
-
-  final String value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return FitCard(
-      variant: FitCardVariant.outlined,
-      padding: const EdgeInsets.symmetric(
-        horizontal: FitSpacing.s8,
-        vertical: FitSpacing.s16,
-      ),
-      child: SizedBox(
-        height: 64,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Expanded(
-              child: Center(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    value,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: FitSpacing.s4),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall,
-            ),
-          ],
         ),
       ),
     );

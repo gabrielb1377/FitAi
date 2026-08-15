@@ -2,28 +2,28 @@ import 'package:flutter/material.dart';
 
 import 'fit_colors.dart';
 
-/// Escala tipográfica semântica do FitIA Design System 3.0.
+/// Escala tipográfica semântica do FitIA Design System Next.
 ///
 /// Os tamanhos preservam a escala já usada pelo app e permanecem provisórios
 /// até medição controlada. A família é o fallback da plataforma; nenhuma fonte
 /// externa é exigida nesta sprint.
 abstract final class FitTypography {
   static const display = TextStyle(
-    fontSize: 40,
-    fontWeight: FontWeight.w800,
+    fontSize: 42,
+    fontWeight: FontWeight.w900,
     color: FitColors.textPrimary,
     height: 1.1,
   );
   static const heading = TextStyle(
-    fontSize: 28,
-    fontWeight: FontWeight.w700,
+    fontSize: 30,
+    fontWeight: FontWeight.w800,
     color: FitColors.textPrimary,
     height: 1.2,
   );
   static const headline = heading;
   static const title = TextStyle(
     fontSize: 18,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w700,
     color: FitColors.textPrimary,
     height: 1.3,
   );
@@ -54,7 +54,7 @@ abstract final class FitTypography {
   );
   static const button = TextStyle(
     fontSize: 15,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w800,
     height: 1.2,
     letterSpacing: 0,
   );
@@ -74,7 +74,7 @@ abstract final class FitTypography {
   );
   static const metric = TextStyle(
     fontSize: 32,
-    fontWeight: FontWeight.w800,
+    fontWeight: FontWeight.w900,
     color: FitColors.textPrimary,
     height: 1.12,
     fontFeatures: [FontFeature.tabularFigures()],
@@ -98,7 +98,7 @@ abstract final class FitTypography {
     displayLarge: display,
     displayMedium: TextStyle(
       fontSize: 32,
-      fontWeight: FontWeight.w800,
+      fontWeight: FontWeight.w900,
       color: FitColors.textPrimary,
       height: 1.12,
     ),
@@ -106,7 +106,7 @@ abstract final class FitTypography {
     headlineLarge: heading,
     headlineMedium: TextStyle(
       fontSize: 22,
-      fontWeight: FontWeight.w700,
+      fontWeight: FontWeight.w800,
       color: FitColors.textPrimary,
       height: 1.25,
     ),

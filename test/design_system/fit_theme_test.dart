@@ -13,6 +13,18 @@ void main() {
     expect(FitDuration.instant, Duration.zero);
   });
 
+  test('FitTheme claro usa paleta propria e preserva papeis semanticos', () {
+    final dark = FitTheme.dark();
+    final light = FitTheme.light();
+
+    expect(light.brightness, Brightness.light);
+    expect(light.colorScheme.surface, FitLightColors.surface);
+    expect(light.colorScheme.primary, FitLightColors.primary);
+    expect(light.colorScheme.surface, isNot(dark.colorScheme.surface));
+    expect(light.extension<FitSemanticColors>()?.ai, FitLightColors.ai);
+    expect(light.textTheme.bodyMedium?.color, FitLightColors.textPrimary);
+  });
+
   testWidgets('ContextExtensions le tokens e breakpoints com fallback seguro', (
     tester,
   ) async {

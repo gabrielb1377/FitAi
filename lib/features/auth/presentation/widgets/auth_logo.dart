@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../../design_system/tokens/fit_colors.dart';
 import '../../../../design_system/tokens/fit_layout.dart';
 import '../../../../design_system/tokens/fit_radius.dart';
 import '../../../../design_system/tokens/fit_spacing.dart';
@@ -19,6 +18,7 @@ class AuthLogo extends StatelessWidget {
     final textStyle = (compact
         ? Theme.of(context).textTheme.headlineMedium
         : Theme.of(context).textTheme.displayLarge);
+    final colors = Theme.of(context).colorScheme;
     return Semantics(
       label: 'FitIA',
       child: ExcludeSemantics(
@@ -31,12 +31,12 @@ class AuthLogo extends StatelessWidget {
                 width: iconSize,
                 height: iconSize,
                 decoration: BoxDecoration(
-                  color: FitColors.primaryContainer,
+                  color: colors.primaryContainer,
                   borderRadius: FitRadius.mediumBorder,
                 ),
                 child: Icon(
                   Icons.bolt_rounded,
-                  color: FitColors.primary,
+                  color: colors.primary,
                   size: compact
                       ? FitLayout.iconSizeButton
                       : FitLayout.iconSizeLarge,
@@ -47,13 +47,13 @@ class AuthLogo extends StatelessWidget {
                 TextSpan(
                   text: 'Fit',
                   style: textStyle?.copyWith(
-                    color: FitColors.textPrimary,
-                    fontWeight: FontWeight.w800,
+                    color: colors.onSurface,
+                    fontWeight: FontWeight.w900,
                   ),
                   children: [
                     TextSpan(
                       text: 'IA',
-                      style: const TextStyle(color: FitColors.ai),
+                      style: TextStyle(color: colors.secondary),
                     ),
                   ],
                 ),

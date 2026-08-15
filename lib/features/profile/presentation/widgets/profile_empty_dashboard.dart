@@ -59,35 +59,23 @@ class ProfileEmptyDashboard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: FitSpacing.s32),
-              FitCard(
-                color: Theme.of(context).colorScheme.primaryContainer,
-                borderColor: Theme.of(context).colorScheme.primary,
-                showBorder: true,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      FitIcons.profile,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    const SizedBox(height: FitSpacing.s16),
-                    Text(
-                      'Seu Perfil esta pronto para comecar',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: FitSpacing.s8),
-                    Text(
-                      'Adicione apenas os dados que ajudam a acompanhar sua evolucao. Nada aqui bloqueia seu treino.',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: FitSpacing.s20),
-                    FitButton(
-                      label: 'Editar perfil',
-                      leadingIcon: FitIcons.edit,
-                      expand: true,
-                      onPressed: onEdit,
-                    ),
-                  ],
+              FitEditorialHero(
+                eyebrow: 'Seu espaco',
+                title: 'Complete o essencial',
+                subtitle: 'Nada aqui bloqueia seu treino.',
+                trailing: Icon(
+                  FitIcons.profile,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                action: FitPrimaryButton(
+                  label: 'Editar perfil',
+                  icon: FitIcons.edit,
+                  fullWidth: true,
+                  onPressed: onEdit,
+                ),
+                child: Text(
+                  'Adicione somente os dados que ajudam a acompanhar sua evolucao.',
+                  style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ),
               const SizedBox(height: FitSpacing.s32),
@@ -96,31 +84,29 @@ class ProfileEmptyDashboard extends StatelessWidget {
                 subtitle: 'Ajustes que deixam o FitIA com a sua cara.',
               ),
               const SizedBox(height: FitSpacing.s12),
-              FitCard(
-                child: Column(
-                  children: [
-                    FitActionTile(
-                      title: 'Dados pessoais',
-                      description: 'Nome, foto, peso e altura',
-                      icon: FitIcons.edit,
-                      onTap: onEdit,
-                    ),
-                    const FitDivider(verticalSpacing: FitSpacing.s8),
-                    FitActionTile(
-                      title: 'Configuracoes',
-                      description: 'Tema, unidades, notificacoes e saude',
-                      icon: FitIcons.settings,
-                      onTap: onSettings,
-                    ),
-                    const FitDivider(verticalSpacing: FitSpacing.s8),
-                    FitActionTile(
-                      title: 'Privacidade',
-                      description: 'Dados, permissoes e seguranca',
-                      icon: FitIcons.private,
-                      onTap: onPrivacy,
-                    ),
-                  ],
-                ),
+              Column(
+                children: [
+                  FitActionRow(
+                    title: 'Dados pessoais',
+                    subtitle: 'Nome, foto, peso e altura',
+                    icon: FitIcons.edit,
+                    onTap: onEdit,
+                  ),
+                  const Divider(),
+                  FitActionRow(
+                    title: 'Configuracoes',
+                    subtitle: 'Tema, unidades, notificacoes e saude',
+                    icon: FitIcons.settings,
+                    onTap: onSettings,
+                  ),
+                  const Divider(),
+                  FitActionRow(
+                    title: 'Privacidade',
+                    subtitle: 'Dados, permissoes e seguranca',
+                    icon: FitIcons.private,
+                    onTap: onPrivacy,
+                  ),
+                ],
               ),
             ],
           ),

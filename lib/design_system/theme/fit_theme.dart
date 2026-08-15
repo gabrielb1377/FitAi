@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../tokens/fit_colors.dart';
 import '../tokens/fit_elevation.dart';
@@ -12,9 +13,307 @@ import 'fit_theme_extensions.dart';
 
 /// Tema global oficial do FitIA Design System 3.0.
 ///
-/// Somente o tema escuro está especificado. A API em forma de factory permite
-/// adicionar um tema claro no futuro sem inferir valores ausentes hoje.
+/// Os temas claro e escuro possuem paletas próprias e compartilham apenas os
+/// papéis semânticos, a escala tipográfica e as regras estruturais.
 abstract final class FitTheme {
+  /// Tema claro desenhado como paleta propria, sem inverter o tema escuro.
+  static ThemeData light() {
+    final darkTheme = dark();
+    final textTheme = FitTypography.textTheme.apply(
+      bodyColor: FitLightColors.textPrimary,
+      displayColor: FitLightColors.textPrimary,
+    );
+    final lightInputBorder = OutlineInputBorder(
+      borderRadius: FitRadius.mediumBorder,
+      borderSide: const BorderSide(
+        color: FitLightColors.borderSubtle,
+        width: FitLayout.borderThin,
+      ),
+    );
+
+    return darkTheme.copyWith(
+      brightness: Brightness.light,
+      colorScheme: FitLightColors.colorScheme,
+      scaffoldBackgroundColor: FitLightColors.background,
+      textTheme: textTheme,
+      extensions: const [FitSemanticColors.light(), FitThemeGradients.light()],
+      iconTheme: const IconThemeData(
+        color: FitLightColors.textSecondary,
+        size: FitLayout.iconSize,
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: FitLightColors.background,
+        foregroundColor: FitLightColors.textPrimary,
+        surfaceTintColor: Colors.transparent,
+        elevation: FitElevation.materialBackground,
+        scrolledUnderElevation: FitElevation.materialBackground,
+        centerTitle: false,
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
+        iconTheme: IconThemeData(color: FitLightColors.textPrimary),
+      ),
+      cardTheme: const CardThemeData(
+        color: FitLightColors.surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: FitElevation.materialCard,
+        shape: RoundedRectangleBorder(borderRadius: FitRadius.largeBorder),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: FitLightColors.primary,
+          foregroundColor: FitLightColors.colorScheme.onPrimary,
+          disabledBackgroundColor: FitLightColors.borderSubtle,
+          disabledForegroundColor: FitLightColors.textDisabled,
+          minimumSize: const Size(0, FitLayout.minimumTouchTarget),
+          shape: const RoundedRectangleBorder(
+            borderRadius: FitRadius.mediumBorder,
+          ),
+          textStyle: FitTypography.button,
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: FitLightColors.primary,
+          foregroundColor: FitLightColors.colorScheme.onPrimary,
+          disabledBackgroundColor: FitLightColors.borderSubtle,
+          disabledForegroundColor: FitLightColors.textDisabled,
+          minimumSize: const Size(0, FitLayout.minimumTouchTarget),
+          elevation: FitElevation.materialBackground,
+          shape: const RoundedRectangleBorder(
+            borderRadius: FitRadius.mediumBorder,
+          ),
+          textStyle: FitTypography.button,
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: FitLightColors.textPrimary,
+          disabledForegroundColor: FitLightColors.textDisabled,
+          minimumSize: const Size(0, FitLayout.minimumTouchTarget),
+          side: const BorderSide(color: FitLightColors.borderStrong),
+          shape: const RoundedRectangleBorder(
+            borderRadius: FitRadius.mediumBorder,
+          ),
+          textStyle: FitTypography.button,
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: FitLightColors.primary,
+          disabledForegroundColor: FitLightColors.textDisabled,
+          minimumSize: const Size(
+            FitLayout.minimumTouchTarget,
+            FitLayout.minimumTouchTarget,
+          ),
+          shape: const RoundedRectangleBorder(
+            borderRadius: FitRadius.mediumBorder,
+          ),
+          textStyle: FitTypography.button,
+        ),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          foregroundColor: FitLightColors.textPrimary,
+          disabledForegroundColor: FitLightColors.textDisabled,
+          minimumSize: const Size(
+            FitLayout.compactTouchTarget,
+            FitLayout.compactTouchTarget,
+          ),
+          shape: const RoundedRectangleBorder(
+            borderRadius: FitRadius.mediumBorder,
+          ),
+        ),
+      ),
+      inputDecorationTheme: darkTheme.inputDecorationTheme.copyWith(
+        fillColor: FitLightColors.surfaceRaised,
+        border: lightInputBorder,
+        enabledBorder: lightInputBorder,
+        focusedBorder: lightInputBorder.copyWith(
+          borderSide: const BorderSide(
+            color: FitLightColors.primary,
+            width: FitLayout.borderFocused,
+          ),
+        ),
+        labelStyle: textTheme.labelMedium?.copyWith(
+          color: FitLightColors.textSecondary,
+        ),
+        hintStyle: textTheme.bodySmall?.copyWith(
+          color: FitLightColors.textTertiary,
+        ),
+        helperStyle: textTheme.bodySmall?.copyWith(
+          color: FitLightColors.textSecondary,
+        ),
+        errorStyle: textTheme.bodySmall?.copyWith(color: FitLightColors.error),
+        prefixIconColor: FitLightColors.textSecondary,
+        suffixIconColor: FitLightColors.textSecondary,
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: FitLightColors.card,
+        selectedColor: FitLightColors.primaryContainer,
+        disabledColor: FitLightColors.backgroundSubtle,
+        side: const BorderSide(color: FitLightColors.borderSubtle),
+        shape: const RoundedRectangleBorder(borderRadius: FitRadius.pillBorder),
+        labelStyle: textTheme.labelMedium,
+        padding: const EdgeInsets.symmetric(horizontal: FitSpacing.s8),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: FitLightColors.borderSubtle,
+        thickness: FitLayout.borderThin,
+        space: FitLayout.borderThin,
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: FitLightColors.surfaceRaised,
+        modalBackgroundColor: FitLightColors.surfaceRaised,
+        surfaceTintColor: Colors.transparent,
+        showDragHandle: true,
+        dragHandleColor: FitLightColors.textTertiary,
+        shape: RoundedRectangleBorder(
+          borderRadius: FitRadius.bottomSheetBorder,
+        ),
+      ),
+      dialogTheme: const DialogThemeData(
+        backgroundColor: FitLightColors.surfaceRaised,
+        surfaceTintColor: Colors.transparent,
+        elevation: FitElevation.materialDialog,
+        shape: RoundedRectangleBorder(borderRadius: FitRadius.xLargeBorder),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: FitLightColors.textPrimary,
+        contentTextStyle: textTheme.bodyMedium?.copyWith(
+          color: FitLightColors.surface,
+        ),
+        actionTextColor: FitLightColors.primaryContainer,
+        behavior: SnackBarBehavior.floating,
+        elevation: FitElevation.materialFloatingControl,
+        shape: const RoundedRectangleBorder(
+          borderRadius: FitRadius.mediumBorder,
+        ),
+      ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: FitLightColors.primary,
+        linearTrackColor: FitLightColors.borderSubtle,
+        circularTrackColor: FitLightColors.borderSubtle,
+        linearMinHeight: FitLayout.progressThickness,
+      ),
+      sliderTheme: const SliderThemeData(
+        activeTrackColor: FitLightColors.primary,
+        inactiveTrackColor: FitLightColors.borderSubtle,
+        thumbColor: FitLightColors.primary,
+        overlayColor: FitLightColors.primaryContainer,
+        valueIndicatorColor: FitLightColors.textPrimary,
+        trackHeight: FitLayout.sliderTrackHeight,
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return FitLightColors.textDisabled;
+          }
+          if (states.contains(WidgetState.selected)) {
+            return FitLightColors.primary;
+          }
+          return FitLightColors.textSecondary;
+        }),
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return FitLightColors.backgroundSubtle;
+          }
+          if (states.contains(WidgetState.selected)) {
+            return FitLightColors.primaryContainer;
+          }
+          return FitLightColors.cardInner;
+        }),
+        trackOutlineColor: const WidgetStatePropertyAll(
+          FitLightColors.borderStrong,
+        ),
+      ),
+      checkboxTheme: CheckboxThemeData(
+        fillColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return FitLightColors.primary;
+          }
+          return FitLightColors.surfaceRaised;
+        }),
+        checkColor: const WidgetStatePropertyAll(Colors.white),
+        side: const BorderSide(color: FitLightColors.borderStrong),
+        shape: const RoundedRectangleBorder(
+          borderRadius: FitRadius.smallBorder,
+        ),
+      ),
+      radioTheme: RadioThemeData(
+        fillColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return FitLightColors.textDisabled;
+          }
+          if (states.contains(WidgetState.selected)) {
+            return FitLightColors.primary;
+          }
+          return FitLightColors.textSecondary;
+        }),
+      ),
+      navigationBarTheme: darkTheme.navigationBarTheme.copyWith(
+        backgroundColor: FitLightColors.surface,
+        indicatorColor: Colors.transparent,
+        iconTheme: WidgetStateProperty.resolveWith(
+          (states) => IconThemeData(
+            color: states.contains(WidgetState.selected)
+                ? FitLightColors.primary
+                : FitLightColors.textTertiary,
+          ),
+        ),
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (states) => textTheme.labelSmall?.copyWith(
+            color: states.contains(WidgetState.selected)
+                ? FitLightColors.primary
+                : FitLightColors.textTertiary,
+          ),
+        ),
+      ),
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: FitLightColors.surface,
+        selectedItemColor: FitLightColors.primary,
+        unselectedItemColor: FitLightColors.textTertiary,
+        selectedLabelStyle: textTheme.labelSmall,
+        unselectedLabelStyle: textTheme.labelSmall,
+        type: BottomNavigationBarType.fixed,
+      ),
+      navigationRailTheme: NavigationRailThemeData(
+        backgroundColor: FitLightColors.surface,
+        selectedIconTheme: const IconThemeData(color: FitLightColors.primary),
+        unselectedIconTheme: const IconThemeData(
+          color: FitLightColors.textTertiary,
+        ),
+        selectedLabelTextStyle: textTheme.labelSmall?.copyWith(
+          color: FitLightColors.primary,
+        ),
+        unselectedLabelTextStyle: textTheme.labelSmall?.copyWith(
+          color: FitLightColors.textTertiary,
+        ),
+        indicatorColor: FitLightColors.primaryContainer,
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: FitLightColors.primary,
+        foregroundColor: Colors.white,
+        elevation: FitElevation.materialFloatingControl,
+        shape: RoundedRectangleBorder(borderRadius: FitRadius.largeBorder),
+      ),
+      listTileTheme: ListTileThemeData(
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: FitSpacing.s16,
+          vertical: FitSpacing.s4,
+        ),
+        minVerticalPadding: FitSpacing.s8,
+        iconColor: FitLightColors.textSecondary,
+        textColor: FitLightColors.textPrimary,
+        titleTextStyle: textTheme.titleMedium,
+        subtitleTextStyle: textTheme.bodyMedium,
+      ),
+      disabledColor: FitLightColors.textDisabled,
+      hoverColor: FitLightColors.primaryContainer,
+      focusColor: FitLightColors.primaryContainer,
+      highlightColor: FitLightColors.primaryContainer,
+      splashColor: FitLightColors.primaryContainer,
+    );
+  }
+
   static ThemeData dark() {
     final inputBorder = OutlineInputBorder(
       borderRadius: FitRadius.mediumBorder,
@@ -53,6 +352,7 @@ abstract final class FitTheme {
         elevation: FitElevation.materialBackground,
         scrolledUnderElevation: FitElevation.materialBackground,
         centerTitle: false,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
         iconTheme: IconThemeData(color: FitColors.textPrimary),
         titleTextStyle: FitTypography.title,
       ),
@@ -65,13 +365,7 @@ abstract final class FitTheme {
         color: FitColors.card,
         surfaceTintColor: Colors.transparent,
         elevation: FitElevation.materialCard,
-        shape: RoundedRectangleBorder(
-          borderRadius: FitRadius.largeBorder,
-          side: BorderSide(
-            color: FitColors.outlineSoft,
-            width: FitLayout.borderThin,
-          ),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: FitRadius.largeBorder),
         margin: EdgeInsets.symmetric(vertical: FitSpacing.legacyXs),
       ),
       filledButtonTheme: FilledButtonThemeData(

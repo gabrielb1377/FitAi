@@ -54,7 +54,7 @@ class HomeWeeklyChallengesPage extends StatelessWidget {
                       Text(
                         'Desafio ativo',
                         style: context.textTheme.labelMedium?.copyWith(
-                          color: FitColors.textSecondary,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                       const SizedBox(height: FitSpacing.s4),

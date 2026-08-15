@@ -81,7 +81,7 @@ class _FitIconButtonState extends State<FitIconButton> {
       _ => colors.onSurface,
     };
     final background = switch (widget.variant) {
-      FitIconButtonVariant.subtle => colors.primaryContainer,
+      FitIconButtonVariant.subtle => colors.surfaceContainerHighest,
       FitIconButtonVariant.danger => colors.error.withValues(
         alpha: FitOpacity.selected,
       ),

@@ -94,12 +94,14 @@ class _FitButtonState extends State<FitButton> {
     final foreground = switch (widget.variant) {
       FitButtonVariant.danger => colors.onError,
       FitButtonVariant.success || FitButtonVariant.primary => colors.onPrimary,
-      _ => colors.primary,
+      FitButtonVariant.secondary ||
+      FitButtonVariant.outlined => colors.onSurface,
+      FitButtonVariant.ghost => colors.primary,
     };
     final background = switch (widget.variant) {
       FitButtonVariant.danger => colors.error,
       FitButtonVariant.success || FitButtonVariant.primary => colors.primary,
-      FitButtonVariant.secondary => colors.secondaryContainer,
+      FitButtonVariant.secondary => colors.surfaceContainerHighest,
       _ => null,
     };
     final style = ButtonStyle(

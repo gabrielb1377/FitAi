@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../core/navigation/app_section.dart';
-import '../../../../design_system/fit_design_system.dart';
 import '../../../../models/fitai_notification_model.dart';
 import '../../../../models/historico_treino_model.dart';
 import '../../../../models/treino_model.dart';
@@ -117,7 +116,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: FitColors.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: ListenableBuilder(
         listenable: _controller,
         builder: (context, _) => HomeDashboardContent(

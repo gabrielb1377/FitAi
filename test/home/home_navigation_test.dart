@@ -19,7 +19,7 @@ void main() {
   testWidgets('abre o Coach a partir da Home', (tester) async {
     await _pumpHome(tester);
 
-    await _tapVisible(tester, find.text('Ainda sem insights'));
+    await _tapVisible(tester, find.byKey(const ValueKey('home-coach-card')));
 
     expect(find.byType(HomeCoachPage), findsOneWidget);
   });

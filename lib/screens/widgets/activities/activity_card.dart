@@ -32,35 +32,27 @@ class ActivityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FitCard(
-      variant: FitCardVariant.clickable,
-      elevation: 1,
+    return FitEditorialHero(
+      eyebrow: 'Atividade',
       title: title,
       subtitle: subtitle,
-      leading: Container(
-        width: 42,
-        height: 42,
-        decoration: BoxDecoration(
-          color: accent.withAlpha(26),
-          borderRadius: FitRadius.mediumBorder,
-        ),
-        child: Icon(icon, color: accent),
-      ),
-      trailing: const Icon(Icons.arrow_forward_rounded),
+      trailing: Icon(icon, color: accent),
+      accentColor: accent,
       onTap: onOpen,
       semanticLabel: actionLabel,
+      action: FitSecondaryButton(
+        label: actionLabel,
+        trailingIcon: Icons.arrow_forward_rounded,
+        onPressed: onOpen,
+        fullWidth: true,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: _Value(label: primaryLabel, value: primaryValue),
-              ),
-              const SizedBox(width: FitSpacing.s16),
-              Expanded(
-                child: _Value(label: secondaryLabel, value: secondaryValue),
-              ),
+          FitMetricRail(
+            items: [
+              FitMetricRailItem(label: primaryLabel, value: primaryValue),
+              FitMetricRailItem(label: secondaryLabel, value: secondaryValue),
             ],
           ),
           if (progress != null) ...[
@@ -71,40 +63,8 @@ class ActivityCard extends StatelessWidget {
               trailing: '${(progress! * 100).round()}%',
             ),
           ],
-          const SizedBox(height: FitSpacing.s20),
-          FitButton(
-            label: actionLabel,
-            icon: Icons.arrow_forward_rounded,
-            onPressed: onOpen,
-            variant: FitButtonVariant.outlined,
-            expand: true,
-          ),
         ],
       ),
-    );
-  }
-}
-
-class _Value extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _Value({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: Theme.of(context).textTheme.labelSmall),
-        const SizedBox(height: FitSpacing.s4),
-        Text(
-          value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-      ],
     );
   }
 }

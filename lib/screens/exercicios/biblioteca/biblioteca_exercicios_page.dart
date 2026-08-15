@@ -4,7 +4,6 @@ import '../../../core/exercises/exercise_library_intelligence.dart';
 import '../../../design_system/components/fit_empty_state.dart';
 import '../../../design_system/components/fit_error_state.dart';
 import '../../../design_system/components/fit_skeleton.dart';
-import '../../../design_system/tokens/fit_colors.dart';
 import '../../../design_system/tokens/fit_radius.dart';
 import '../../../design_system/tokens/fit_spacing.dart';
 import '../../../models/exercicio_model.dart';
@@ -100,7 +99,7 @@ class _BibliotecaExerciciosPageState extends State<BibliotecaExerciciosPage> {
             }
           },
           child: Scaffold(
-            backgroundColor: FitColors.background,
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             body: AnimatedSwitcher(
               duration: const Duration(milliseconds: 180),
               child: _contentForStatus(),

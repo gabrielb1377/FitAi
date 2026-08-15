@@ -295,89 +295,62 @@ class _PlanosActiveHero extends StatelessWidget {
         ? '1 treino concluido'
         : '${progress.completedWorkouts} treinos concluidos';
 
-    return FitCard(
-      variant: FitCardVariant.clickable,
+    return FitEditorialHero(
       onTap: onOpen,
-      padding: EdgeInsets.zero,
+      eyebrow:
+          'Plano ativo${currentWeek == null ? '' : ' / semana $currentWeek'}',
+      title: plan.nome,
+      subtitle: '${plan.objetivo} / ${plan.divisao}',
+      trailing: plan.criadoPorIA
+          ? Tooltip(
+              message: 'Plano criado com IA',
+              child: Icon(FitIcons.ai, color: context.fitColors.ai),
+            )
+          : null,
       semanticLabel: 'Abrir plano ativo ${plan.nome}',
-      child: ClipRRect(
-        borderRadius: FitRadius.largeBorder,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: plan.criadoPorIA
-                ? FitGradients.aiGlow
-                : FitGradients.surfaceDepth,
+      action: FitPrimaryButton(
+        label: 'Continuar plano',
+        icon: FitIcons.play,
+        fullWidth: true,
+        semanticLabel: 'Abrir detalhes do plano ${plan.nome}',
+        onPressed: onOpen,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Progresso semanal',
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+              ),
+              Text(
+                '$percentage%',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: context.colors.primary,
+                ),
+              ),
+            ],
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(FitSpacing.s16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: FitSpacing.s8,
-                  runSpacing: FitSpacing.s8,
-                  children: [
-                    const FitBadge.success(label: 'Ativo'),
-                    if (currentWeek != null)
-                      Text(
-                        'Semana $currentWeek',
-                        style: Theme.of(context).textTheme.labelMedium,
-                      ),
-                  ],
-                ),
-                const SizedBox(height: FitSpacing.s16),
-                Text(
-                  plan.nome,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: FitSpacing.s16),
-                Wrap(
-                  spacing: FitSpacing.s8,
-                  runSpacing: FitSpacing.s4,
-                  alignment: WrapAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Progresso semanal',
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                    Text(
-                      '$percentage% concluido',
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: FitSpacing.s8),
-                FitProgress(
-                  value: progress.weeklyProgress,
-                  animate: !MediaQuery.disableAnimationsOf(context),
-                ),
-                const SizedBox(height: FitSpacing.s16),
-                _NextWorkoutInfo(label: nextWorkout),
-                const SizedBox(height: FitSpacing.s12),
-                Text(
-                  '$workoutsLabel  |  ~${plan.tempoEstimado} min/sessao',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: FitSpacing.s16),
-                FitPrimaryButton(
-                  label: 'Continuar plano',
-                  icon: FitIcons.play,
-                  fullWidth: true,
-                  semanticLabel: 'Abrir detalhes do plano ${plan.nome}',
-                  onPressed: onOpen,
-                ),
-                if (plan.criadoPorIA) ...[
-                  const SizedBox(height: FitSpacing.s12),
-                  const _AiPlanSourceNote(),
-                ],
-              ],
-            ),
+          const SizedBox(height: FitSpacing.s8),
+          FitProgress(
+            value: progress.weeklyProgress,
+            animate: !MediaQuery.disableAnimationsOf(context),
           ),
-        ),
+          const SizedBox(height: FitSpacing.s16),
+          _NextWorkoutInfo(label: nextWorkout),
+          const SizedBox(height: FitSpacing.s12),
+          Text(
+            '$workoutsLabel  /  ~${plan.tempoEstimado} min por sessao',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          if (plan.criadoPorIA) ...[
+            const SizedBox(height: FitSpacing.s12),
+            const _AiPlanSourceNote(),
+          ],
+        ],
       ),
     );
   }
@@ -398,33 +371,35 @@ class _NextWorkoutInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: FitSpacing.s12),
       decoration: BoxDecoration(
-        color: FitColors.cardInner,
-        borderRadius: FitRadius.mediumBorder,
-        border: Border.all(color: FitColors.borderSubtle),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(FitSpacing.s12),
-        child: Row(
-          children: [
-            const Icon(FitIcons.time, size: FitLayout.iconSizeCompact),
-            const SizedBox(width: FitSpacing.s12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Proximo treino',
-                    style: Theme.of(context).textTheme.labelSmall,
-                  ),
-                  const SizedBox(height: FitSpacing.s2),
-                  Text(label, style: Theme.of(context).textTheme.bodyMedium),
-                ],
-              ),
-            ),
-          ],
+        border: Border.symmetric(
+          horizontal: BorderSide(color: context.colors.outlineVariant),
         ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            FitIcons.time,
+            size: FitLayout.iconSizeCompact,
+            color: context.colors.primary,
+          ),
+          const SizedBox(width: FitSpacing.s12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Proximo treino',
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+                const SizedBox(height: FitSpacing.s2),
+                Text(label, style: Theme.of(context).textTheme.bodyMedium),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -486,52 +461,20 @@ class _PlanosPreviewCollection extends StatelessWidget {
       );
     }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth >= FitBreakpoints.tablet) {
-          final columns = constraints.maxWidth >= FitBreakpoints.largeTablet
-              ? 4
-              : 3;
-          final gaps = (columns - 1) * FitSpacing.s12;
-          final width =
-              (constraints.maxWidth - (FitSpacing.s32 + gaps)) / columns;
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: FitSpacing.s16),
-            child: Wrap(
-              spacing: FitSpacing.s12,
-              runSpacing: FitSpacing.s12,
-              children: [
-                for (final plan in plans)
-                  SizedBox(
-                    width: width,
-                    child: _PlanPreviewCard(
-                      plan: plan,
-                      progress: progressFor(plan),
-                      onTap: () => onOpenPlan(plan),
-                    ),
-                  ),
-              ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: FitSpacing.s16),
+      child: Column(
+        children: [
+          for (var index = 0; index < plans.length; index++) ...[
+            _PlanPreviewCard(
+              plan: plans[index],
+              progress: progressFor(plans[index]),
+              onTap: () => onOpenPlan(plans[index]),
             ),
-          );
-        }
-
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: FitSpacing.s16),
-          child: Row(
-            children: [
-              for (final plan in plans) ...[
-                _PlanPreviewCard(
-                  plan: plan,
-                  progress: progressFor(plan),
-                  onTap: () => onOpenPlan(plan),
-                ),
-                if (plan != plans.last) const SizedBox(width: FitSpacing.s12),
-              ],
-            ],
-          ),
-        );
-      },
+            if (index < plans.length - 1) const Divider(),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -552,72 +495,56 @@ class _PlanPreviewCard extends StatelessWidget {
     final days = plan.planoDias.isEmpty
         ? plan.diasPorSemana
         : plan.planoDias.length;
-    return SizedBox(
-      width: FitLayout.domainPlanPreviewWidth,
-      child: FitCard(
-        variant: FitCardVariant.clickable,
-        onTap: onTap,
-        padding: const EdgeInsets.all(FitSpacing.s12),
-        semanticLabel: 'Abrir plano ${plan.nome}',
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _PlanPreviewVisual(isAi: plan.criadoPorIA),
-            const SizedBox(height: FitSpacing.s12),
-            Text(
-              plan.nome,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-            const SizedBox(height: FitSpacing.s4),
-            Text(
-              '${plan.objetivo} | $days dias',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: FitSpacing.s12),
-            FitProgress(
-              value: progress.weeklyProgress,
-              trailing: '${(progress.weeklyProgress * 100).round()}%',
-              animate: false,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PlanPreviewVisual extends StatelessWidget {
-  const _PlanPreviewVisual({required this.isAi});
-
-  final bool isAi;
-
-  @override
-  Widget build(BuildContext context) {
+    final percentage = (progress.weeklyProgress * 100).round();
     return Semantics(
-      image: true,
-      label: isAi ? 'Plano criado com IA' : 'Capa do plano',
-      child: SizedBox(
-        height: FitLayout.domainPlanPreviewMediaHeight,
-        width: double.infinity,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: isAi ? FitGradients.aiGlow : FitGradients.surfaceDepth,
-            borderRadius: FitRadius.mediumBorder,
-          ),
-          child: Align(
-            alignment: Alignment.bottomRight,
-            child: Padding(
-              padding: const EdgeInsets.all(FitSpacing.s8),
-              child: Icon(
-                isAi ? FitIcons.ai : FitIcons.plans,
-                color: isAi ? FitColors.ai : FitColors.primary,
-                size: FitLayout.iconSizeMedium,
+      button: true,
+      label: 'Abrir plano ${plan.nome}, $percentage por cento concluido',
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: FitSpacing.s12),
+          child: Row(
+            children: [
+              Container(
+                width: FitLayout.minimumTouchTarget,
+                height: FitLayout.minimumTouchTarget,
+                alignment: Alignment.center,
+                color: context.colors.surfaceContainerHighest,
+                child: Icon(
+                  plan.criadoPorIA ? FitIcons.ai : FitIcons.plans,
+                  color: plan.criadoPorIA
+                      ? context.fitColors.ai
+                      : context.colors.primary,
+                ),
               ),
-            ),
+              const SizedBox(width: FitSpacing.s12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      plan.nome,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: FitSpacing.s2),
+                    Text(
+                      '${plan.objetivo} / $days dias',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: FitSpacing.s8),
+                    FitProgress(value: progress.weeklyProgress, animate: false),
+                  ],
+                ),
+              ),
+              const SizedBox(width: FitSpacing.s12),
+              Text('$percentage%', style: context.textTheme.labelMedium),
+              const SizedBox(width: FitSpacing.s4),
+              const Icon(FitIcons.forward),
+            ],
           ),
         ),
       ),
@@ -632,43 +559,18 @@ class _ExplorePlansPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: FitSpacing.s16),
-      child: SizedBox(
-        width: FitLayout.domainExplorePlanPreviewWidth,
-        child: FitCard(
-          variant: FitCardVariant.clickable,
-          onTap: onTap,
-          padding: const EdgeInsets.all(FitSpacing.s12),
-          semanticLabel: 'Explorar biblioteca de planos prontos',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                height: FitLayout.domainExplorePlanPreviewMediaHeight,
-                width: double.infinity,
-                child: DecoratedBox(
-                  decoration: const BoxDecoration(
-                    gradient: FitGradients.surfaceDepth,
-                    borderRadius: FitRadius.mediumBorder,
-                  ),
-                  child: const Center(
-                    child: Icon(FitIcons.library, color: FitColors.primary),
-                  ),
-                ),
-              ),
-              const SizedBox(height: FitSpacing.s12),
-              Text(
-                'Encontre sua rotina',
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-              const SizedBox(height: FitSpacing.s4),
-              Text(
-                'Objetivos e niveis diferentes.',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
+      child: DecoratedBox(
+        decoration: BoxDecoration(color: context.colors.surface),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: FitSpacing.s16),
+          child: FitActionRow(
+            icon: FitIcons.library,
+            iconColor: context.colors.primary,
+            title: 'Encontre sua proxima rotina',
+            subtitle: 'Explore planos por objetivo, nivel e frequencia.',
+            onTap: onTap,
           ),
         ),
       ),
@@ -708,7 +610,7 @@ class _PlanosPartialError extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: FitSpacing.s16),
       child: FitCard(
-        color: FitColors.surfaceRaised,
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
         semanticLabel: 'Alguns dados dos planos podem estar desatualizados',
         child: Row(
           children: [

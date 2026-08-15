@@ -5,12 +5,12 @@ import 'package:flutter/widgets.dart';
 /// A escala existente foi preservada como valor provisório no DS3. Os aliases
 /// semânticos evitam que componentes escolham raios apenas pela aparência.
 abstract final class FitRadius {
-  static const double small = 8;
-  static const double medium = 12;
-  static const double large = 16;
-  static const double highlighted = 20;
-  static const double xLarge = 24;
-  static const double bottomSheet = 28;
+  static const double small = 4;
+  static const double medium = 8;
+  static const double large = 8;
+  static const double highlighted = 12;
+  static const double xLarge = 12;
+  static const double bottomSheet = 16;
   static const double pill = 999;
   static const double circular = pill;
 

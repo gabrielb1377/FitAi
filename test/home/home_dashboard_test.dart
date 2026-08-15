@@ -21,7 +21,10 @@ void main() {
 
     expect(find.text('Nenhum treino criado ainda'), findsOneWidget);
     expect(find.text('Criar plano'), findsOneWidget);
-    expect(find.text('Ainda sem insights'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(RegExp(r'Abrir Coach FitIA.*Ainda sem insights')),
+      findsOneWidget,
+    );
     expect(find.text('Suas conquistas'), findsOneWidget);
   });
 
@@ -88,22 +91,27 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byKey(const ValueKey('home-coach-card')));
-    expect(openedCoach, isTrue);
-
+    await tester.ensureVisible(find.text('Iniciar treino'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Iniciar treino'));
     expect(openedWorkout, isTrue);
 
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -300));
+    await tester.ensureVisible(find.text('Passos'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Passos'));
     expect(openedSteps, isTrue);
 
     final timeline = find.byKey(const ValueKey('home-week-timeline-card'));
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -300));
+    await tester.ensureVisible(timeline);
     await tester.pumpAndSettle();
     await tester.tap(timeline);
     expect(openedHistory, isTrue);
+
+    final coach = find.byKey(const ValueKey('home-coach-card'));
+    await tester.ensureVisible(coach);
+    await tester.pumpAndSettle();
+    await tester.tap(coach);
+    expect(openedCoach, isTrue);
   });
 
   testWidgets('mantem a criacao de plano no estado sem treino', (tester) async {

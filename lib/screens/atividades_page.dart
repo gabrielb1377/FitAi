@@ -74,7 +74,11 @@ class _AtividadesPageState extends State<AtividadesPage> {
 
   Future<void> _reload() async {
     final next = _loadData();
-    if (mounted) setState(() => _dataFuture = next);
+    if (mounted) {
+      setState(() {
+        _dataFuture = next;
+      });
+    }
     await next;
   }
 

@@ -32,8 +32,9 @@ class ProfileIdentityCard extends StatelessWidget {
         final showsAlternateUnits =
             units.weight != WeightUnit.kilogram ||
             units.height != HeightUnit.centimeter;
-        return FitCard(
-          semanticLabel: 'Resumo do perfil de $name',
+        return Semantics(
+          container: true,
+          label: 'Resumo do perfil de $name',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -57,7 +58,7 @@ class ProfileIdentityCard extends StatelessWidget {
                   onPressed: onEdit,
                 ),
               ),
-              const FitDivider(verticalSpacing: FitSpacing.s12),
+              const SizedBox(height: FitSpacing.s20),
               if (showsAlternateUnits &&
                   (snapshot.profile.weightKg != null ||
                       snapshot.profile.heightCm != null))
@@ -78,14 +79,31 @@ class ProfileIdentityCard extends StatelessWidget {
                     ],
                   ),
                 ),
-              Text(
-                'Experiencia',
-                style: Theme.of(context).textTheme.labelLarge,
-              ),
-              const SizedBox(height: FitSpacing.s4),
-              Text(
-                '${xp.xpIntoCurrentLevel}/${xp.xpForNextLevel} XP',
-                style: Theme.of(context).textTheme.titleMedium,
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: FitSpacing.s12),
+                decoration: BoxDecoration(
+                  border: Border.symmetric(
+                    horizontal: BorderSide(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                  ),
+                ),
+                child: Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: FitSpacing.s12,
+                  runSpacing: FitSpacing.s4,
+                  children: [
+                    Text(
+                      'Experiencia',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                    Text(
+                      '${xp.xpIntoCurrentLevel}/${xp.xpForNextLevel} XP',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: FitSpacing.s8),
               FitProgress(
