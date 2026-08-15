@@ -116,11 +116,20 @@ class _Destination extends StatelessWidget {
       child: InkWell(
         onTap: enabled ? onTap : null,
         borderRadius: FitRadius.mediumBorder,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            minHeight: FitLayout.navigationContentHeight,
-          ),
-          child: Padding(
+        child: Padding(
+          padding: const EdgeInsets.all(FitSpacing.s4),
+          child: AnimatedContainer(
+            duration: FitDuration.fast,
+            curve: FitDuration.curve,
+            constraints: const BoxConstraints(
+              minHeight: FitLayout.minimumTouchTarget,
+            ),
+            decoration: BoxDecoration(
+              color: selected
+                  ? colors.primary.withValues(alpha: FitOpacity.selected)
+                  : Colors.transparent,
+              borderRadius: FitRadius.mediumBorder,
+            ),
             padding: const EdgeInsets.symmetric(horizontal: FitSpacing.s4),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,

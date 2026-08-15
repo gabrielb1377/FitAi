@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../design_system/components/fit_button.dart';
+import '../../../../design_system/tokens/fit_colors.dart';
+import '../../../../design_system/tokens/fit_icons.dart';
 import '../../../../design_system/tokens/fit_layout.dart';
 import '../../../../design_system/tokens/fit_spacing.dart';
 import '../../data/auth_service.dart';
@@ -241,13 +243,38 @@ class _ChoiceStep extends StatelessWidget {
           onTap: () => onSelected(option),
           child: SizedBox(
             width: double.infinity,
-            height: 52,
+            height: FitLayout.buttonHeightLarge,
             child: ExcludeSemantics(
               child: OutlinedButton(
-                onPressed: () => onSelected(option),
-                child: Align(
+                style: OutlinedButton.styleFrom(
                   alignment: Alignment.centerLeft,
-                  child: Text(option),
+                  backgroundColor: selected == option
+                      ? FitColors.primaryContainer
+                      : FitColors.surface,
+                  foregroundColor: selected == option
+                      ? FitColors.primary
+                      : FitColors.textPrimary,
+                  side: BorderSide(
+                    color: selected == option
+                        ? FitColors.primary
+                        : FitColors.borderSubtle,
+                  ),
+                ),
+                onPressed: () => onSelected(option),
+                child: Row(
+                  children: [
+                    Icon(
+                      _iconForOption(option),
+                      size: FitLayout.iconSizeButton,
+                    ),
+                    const SizedBox(width: FitSpacing.s12),
+                    Expanded(child: Text(option)),
+                    if (selected == option)
+                      const Icon(
+                        FitIcons.check,
+                        size: FitLayout.iconSizeButton,
+                      ),
+                  ],
                 ),
               ),
             ),
@@ -257,6 +284,16 @@ class _ChoiceStep extends StatelessWidget {
       ],
     ],
   );
+
+  IconData _iconForOption(String option) => switch (option) {
+    'Hipertrofia' || 'Forca' => FitIcons.workout,
+    'Emagrecimento' => FitIcons.progress,
+    'Saude' => FitIcons.heart,
+    'Academia' => FitIcons.equipment,
+    'Casa' => FitIcons.homeOutlined,
+    'Ar livre' => FitIcons.activitiesOutlined,
+    _ => FitIcons.goal,
+  };
 }
 
 class _ChipChoices extends StatelessWidget {

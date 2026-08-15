@@ -49,7 +49,12 @@ void main() {
     expect(session, isNotNull);
     expect(controller.setsFor(session!.id), hasLength(1));
 
+    ScaffoldMessenger.of(
+      tester.element(find.text('Finalizar treino')),
+    ).hideCurrentSnackBar();
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Finalizar treino'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Finalizar treino'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Finalizar'));

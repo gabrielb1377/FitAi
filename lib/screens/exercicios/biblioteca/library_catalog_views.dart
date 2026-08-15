@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../design_system/components/fit_empty_state.dart';
+import '../../../design_system/tokens/fit_layout.dart';
 import '../../../design_system/tokens/fit_spacing.dart';
 import '../../../models/exercicio_model.dart';
 import 'library_catalog_controller.dart';
@@ -26,6 +27,10 @@ class LibraryHomeView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final usesLargeText = MediaQuery.textScalerOf(context).scale(1) >= 1.5;
+    final featuredDetailsHeight = usesLargeText
+        ? FitLayout.skeletonListItemHeight + FitSpacing.s24
+        : FitLayout.skeletonListItemHeight;
     return SafeArea(
       bottom: false,
       child: LibraryContentFrame(
@@ -34,11 +39,14 @@ class LibraryHomeView extends StatelessWidget {
           physics: const BouncingScrollPhysics(),
           slivers: [
             const SliverToBoxAdapter(
-              child: LibraryCenteredHeader(title: 'Biblioteca'),
+              child: LibraryCenteredHeader(
+                title: 'Biblioteca',
+                subtitle: 'Encontre o exercicio certo para o seu treino.',
+              ),
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.only(top: FitSpacing.s12),
                 child: LibrarySearchRow(
                   key: const ValueKey('library-home-search'),
                   controller: searchController,
@@ -50,7 +58,18 @@ class LibraryHomeView extends StatelessWidget {
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.only(top: 14),
+                padding: const EdgeInsets.only(top: FitSpacing.s12),
+                child: LibraryQuickAccessRow(
+                  favoriteCount: controller.favoriteIds.length,
+                  recentCount: controller.recentExercises.length,
+                  onFavorites: controller.showFavorites,
+                  onRecent: controller.showRecent,
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: FitSpacing.s20),
                 child: LibrarySectionHeader(
                   title: 'Grupos musculares',
                   actionLabel: 'Ver todos',
@@ -59,36 +78,33 @@ class LibraryHomeView extends StatelessWidget {
                 ),
               ),
             ),
-            SliverLayoutBuilder(
-              builder: (context, constraints) {
-                final columns = constraints.crossAxisExtent >= 620
-                    ? 8
-                    : constraints.crossAxisExtent >= 500
-                    ? 6
-                    : 4;
-                return SliverGrid.builder(
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: FitLayout.domainLibraryMuscleStripHeight,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
                   itemCount: LibraryCatalogController.muscleGroups.length,
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: columns,
-                    mainAxisSpacing: 8,
-                    crossAxisSpacing: 8,
-                    childAspectRatio: .92,
-                  ),
+                  separatorBuilder: (_, _) =>
+                      const SizedBox(width: FitSpacing.s8),
                   itemBuilder: (context, index) {
                     final group = LibraryCatalogController.muscleGroups[index];
-                    return LibraryMuscleTile(
-                      group: group,
-                      count: controller.countForMuscleGroup(group.label),
-                      onTap: () =>
-                          controller.showExplore(muscleGroup: group.label),
+                    return SizedBox(
+                      width: FitLayout.domainLibraryMuscleTileWidth,
+                      child: LibraryMuscleTile(
+                        group: group,
+                        count: controller.countForMuscleGroup(group.label),
+                        onTap: () =>
+                            controller.showExplore(muscleGroup: group.label),
+                      ),
                     );
                   },
-                );
-              },
+                ),
+              ),
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.only(top: 12),
+                padding: const EdgeInsets.only(top: FitSpacing.s20),
                 child: LibrarySectionHeader(
                   title: 'Exercícios em destaque',
                   actionLabel: 'Ver todos',
@@ -97,19 +113,31 @@ class LibraryHomeView extends StatelessWidget {
                 ),
               ),
             ),
-            SliverList.separated(
-              itemCount: controller.featuredExercises.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                final exercise = controller.featuredExercises[index];
-                return LibraryExerciseTile(
-                  exercise: exercise,
-                  favorite: controller.isFavorite(exercise),
-                  compact: true,
-                  onTap: () => onOpenExercise(exercise),
-                  onFavorite: () => onToggleFavorite(exercise),
-                );
-              },
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height:
+                    FitLayout.domainLibraryFeaturedMediaHeight +
+                    featuredDetailsHeight,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: controller.featuredExercises.length,
+                  separatorBuilder: (_, _) =>
+                      const SizedBox(width: FitSpacing.s12),
+                  itemBuilder: (context, index) {
+                    final exercise = controller.featuredExercises[index];
+                    return SizedBox(
+                      width: FitLayout.domainLibraryFeaturedCardWidth,
+                      child: LibraryFeaturedExerciseCard(
+                        exercise: exercise,
+                        favorite: controller.isFavorite(exercise),
+                        onTap: () => onOpenExercise(exercise),
+                        onFavorite: () => onToggleFavorite(exercise),
+                      ),
+                    );
+                  },
+                ),
+              ),
             ),
             if (controller.mostUsedExercises.isNotEmpty)
               SliverToBoxAdapter(
@@ -164,7 +192,7 @@ class LibraryHomeView extends StatelessWidget {
                   );
                 },
               ),
-            const SliverToBoxAdapter(child: SizedBox(height: 8)),
+            const SliverToBoxAdapter(child: SizedBox(height: FitSpacing.s8)),
           ],
         ),
       ),

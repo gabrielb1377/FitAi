@@ -81,4 +81,9 @@ abstract final class FitLayout {
   static const domainExplorePlanPreviewMediaHeight = 88.0;
   static const domainCoachInsightMaxLines = 4;
   static const domainExerciseTagLimit = 3;
+  static const domainAuthMaxContentWidth = 440.0;
+  static const domainLibraryMuscleTileWidth = 104.0;
+  static const domainLibraryMuscleStripHeight = 124.0;
+  static const domainLibraryFeaturedCardWidth = 248.0;
+  static const domainLibraryFeaturedMediaHeight = 132.0;
 }

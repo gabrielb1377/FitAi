@@ -2,15 +2,19 @@ import 'package:flutter/material.dart';
 
 import '../../../design_system/components/fit_search_field.dart';
 import '../../../design_system/tokens/fit_colors.dart';
+import '../../../design_system/tokens/fit_duration.dart';
+import '../../../design_system/tokens/fit_layout.dart';
+import '../../../design_system/tokens/fit_opacity.dart';
 import '../../../design_system/tokens/fit_radius.dart';
 import '../../../design_system/tokens/fit_spacing.dart';
 import '../../../models/exercicio_model.dart';
 import '../../../widgets/exercicio_gif_viewer.dart';
 import 'library_catalog_controller.dart';
 
-const librarySurface = Color(0xFF101619);
-const librarySurfaceMuted = Color(0xFF0D1215);
-const libraryBorder = Color(0xFF202A2E);
+// Aliases de compatibilidade para telas do modulo que ainda estao migrando.
+const librarySurface = FitColors.surface;
+const librarySurfaceMuted = FitColors.backgroundSubtle;
+const libraryBorder = FitColors.borderSubtle;
 
 class LibraryContentFrame extends StatelessWidget {
   const LibraryContentFrame({
@@ -38,32 +42,56 @@ class LibraryCenteredHeader extends StatelessWidget {
   const LibraryCenteredHeader({
     super.key,
     required this.title,
+    this.subtitle,
     this.leading,
     this.trailing,
   });
 
   final String title;
+  final String? subtitle;
   final Widget? leading;
   final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 48,
-      child: Stack(
-        alignment: Alignment.center,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: FitLayout.topBarHeight),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Align(alignment: Alignment.centerLeft, child: leading),
-          Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: FitColors.textPrimary,
-              fontWeight: FontWeight.w700,
+          if (leading != null) ...[
+            leading!,
+            const SizedBox(width: FitSpacing.s8),
+          ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Semantics(
+                  header: true,
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: FitSpacing.s4),
+                  Text(
+                    subtitle!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
+              ],
             ),
           ),
-          Align(alignment: Alignment.centerRight, child: trailing),
+          if (trailing != null) ...[
+            const SizedBox(width: FitSpacing.s8),
+            trailing!,
+          ],
         ],
       ),
     );
@@ -93,7 +121,7 @@ class LibrarySearchRow extends StatelessWidget {
         children: [
           Expanded(
             child: SizedBox(
-              height: 44,
+              height: FitLayout.minimumTouchTarget,
               child: FitSearchField(
                 controller: controller,
                 onChanged: onChanged,
@@ -113,11 +141,11 @@ class LibrarySearchRow extends StatelessWidget {
               ),
               if (filterCount > 0)
                 Positioned(
-                  right: -2,
-                  top: -2,
+                  right: -FitSpacing.s2,
+                  top: -FitSpacing.s2,
                   child: Container(
-                    width: 17,
-                    height: 17,
+                    width: FitLayout.iconSizeCompact,
+                    height: FitLayout.iconSizeCompact,
                     alignment: Alignment.center,
                     decoration: const BoxDecoration(
                       color: FitColors.primary,
@@ -125,9 +153,8 @@ class LibrarySearchRow extends StatelessWidget {
                     ),
                     child: Text(
                       '$filterCount',
-                      style: const TextStyle(
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: FitColors.onPrimary,
-                        fontSize: 9,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -164,23 +191,127 @@ class LibraryIconButton extends StatelessWidget {
       child: Tooltip(
         message: tooltip,
         child: Material(
-          color: selected ? FitColors.primaryContainer : librarySurface,
+          color: selected
+              ? FitColors.primaryContainer
+              : Theme.of(context).colorScheme.surface,
           shape: RoundedRectangleBorder(
             borderRadius: FitRadius.mediumBorder,
             side: BorderSide(
-              color: selected ? FitColors.primary : libraryBorder,
+              color: selected
+                  ? FitColors.primary
+                  : Theme.of(context).colorScheme.outlineVariant,
             ),
           ),
           child: InkWell(
             onTap: onPressed,
             borderRadius: FitRadius.mediumBorder,
             child: SizedBox(
-              width: 44,
-              height: 44,
+              width: FitLayout.minimumTouchTarget,
+              height: FitLayout.minimumTouchTarget,
               child: Icon(
                 icon,
                 color: selected ? FitColors.primary : FitColors.textSecondary,
-                size: 20,
+                size: FitLayout.iconSizeButton,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class LibraryQuickAccessRow extends StatelessWidget {
+  const LibraryQuickAccessRow({
+    super.key,
+    required this.favoriteCount,
+    required this.recentCount,
+    required this.onFavorites,
+    required this.onRecent,
+  });
+
+  final int favoriteCount;
+  final int recentCount;
+  final VoidCallback onFavorites;
+  final VoidCallback onRecent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _LibraryQuickAccess(
+            icon: Icons.star_outline_rounded,
+            label: 'Favoritos',
+            count: favoriteCount,
+            onTap: onFavorites,
+          ),
+        ),
+        const SizedBox(width: FitSpacing.s8),
+        Expanded(
+          child: _LibraryQuickAccess(
+            icon: Icons.history_rounded,
+            label: 'Recentes',
+            count: recentCount,
+            onTap: onRecent,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LibraryQuickAccess extends StatelessWidget {
+  const _LibraryQuickAccess({
+    required this.icon,
+    required this.label,
+    required this.count,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Semantics(
+      button: true,
+      label: '$label, $count itens',
+      child: Material(
+        color: colors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: FitRadius.mediumBorder,
+          side: BorderSide(color: colors.outlineVariant),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: FitRadius.mediumBorder,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              minHeight: FitLayout.minimumTouchTarget,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: FitSpacing.s12,
+                vertical: FitSpacing.s8,
+              ),
+              child: Row(
+                children: [
+                  Icon(icon, size: FitLayout.iconSizeCompact),
+                  const SizedBox(width: FitSpacing.s8),
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelMedium,
+                    ),
+                  ),
+                  Text('$count', style: Theme.of(context).textTheme.labelSmall),
+                ],
               ),
             ),
           ),
@@ -225,10 +356,7 @@ class LibrarySectionHeader extends StatelessWidget {
               minimumSize: const Size(48, 44),
               padding: const EdgeInsets.symmetric(horizontal: FitSpacing.s4),
               foregroundColor: FitColors.primary,
-              textStyle: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
+              textStyle: const TextStyle(fontWeight: FontWeight.w700),
             ),
             child: Text(actionLabel!),
           ),
@@ -251,34 +379,34 @@ class LibraryMuscleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Semantics(
       button: true,
       label: 'Abrir exercícios de ${group.label}',
       child: Material(
-        color: librarySurface,
-        shape: const RoundedRectangleBorder(
+        color: colors.surface,
+        shape: RoundedRectangleBorder(
           borderRadius: FitRadius.smallBorder,
-          side: BorderSide(color: libraryBorder),
+          side: BorderSide(color: colors.outlineVariant),
         ),
         child: InkWell(
           onTap: onTap,
           borderRadius: FitRadius.smallBorder,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(4, 7, 4, 6),
+            padding: const EdgeInsets.all(FitSpacing.s8),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Expanded(child: LibraryMuscleGlyph(group: group)),
-                const SizedBox(height: 3),
+                const SizedBox(height: FitSpacing.s4),
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Text(
                     group.label,
                     maxLines: 1,
-                    style: const TextStyle(
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
                       color: FitColors.textPrimary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -286,10 +414,7 @@ class LibraryMuscleTile extends StatelessWidget {
                   Text(
                     '$count',
                     maxLines: 1,
-                    style: const TextStyle(
-                      color: FitColors.textHint,
-                      fontSize: 9,
-                    ),
+                    style: Theme.of(context).textTheme.labelSmall,
                   ),
               ],
             ),
@@ -312,8 +437,12 @@ class LibraryMuscleGlyph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconSize = large ? 116.0 : 42.0;
-    final markerSize = large ? 25.0 : 10.0;
+    final iconSize = large
+        ? FitLayout.domainProgressRingLarge
+        : FitLayout.iconSizeState;
+    final markerSize = large
+        ? FitLayout.iconSizeMedium
+        : FitLayout.iconSizeBadge;
     return ExcludeSemantics(
       child: AspectRatio(
         aspectRatio: .72,
@@ -323,7 +452,7 @@ class LibraryMuscleGlyph extends StatelessWidget {
             Icon(
               Icons.accessibility_new_rounded,
               size: iconSize,
-              color: const Color(0xFF738087),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
             Align(
               alignment: group.highlight,
@@ -331,18 +460,113 @@ class LibraryMuscleGlyph extends StatelessWidget {
                 width: markerSize,
                 height: markerSize,
                 decoration: BoxDecoration(
-                  color: FitColors.primary.withAlpha(210),
+                  color: FitColors.primary,
                   borderRadius: BorderRadius.circular(markerSize),
-                  boxShadow: [
-                    BoxShadow(
-                      color: FitColors.primary.withAlpha(80),
-                      blurRadius: large ? 12 : 5,
-                    ),
-                  ],
                 ),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class LibraryFeaturedExerciseCard extends StatelessWidget {
+  const LibraryFeaturedExerciseCard({
+    super.key,
+    required this.exercise,
+    required this.favorite,
+    required this.onTap,
+    required this.onFavorite,
+  });
+
+  final ExercicioModel exercise;
+  final bool favorite;
+  final VoidCallback onTap;
+  final VoidCallback onFavorite;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final muscle = exercise.categoria.trim().isEmpty
+        ? exercise.musculos.firstOrNull ?? 'Geral'
+        : exercise.categoria;
+    final equipment = exercise.equipamentos.firstOrNull;
+    return Semantics(
+      button: true,
+      label: '${exercise.nome}, $muscle',
+      child: Material(
+        color: colors.surface,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: FitRadius.largeBorder,
+          side: BorderSide(color: colors.outlineVariant),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: FitLayout.domainLibraryFeaturedMediaHeight,
+                width: double.infinity,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    LibraryExerciseMedia(exercise: exercise),
+                    Align(
+                      alignment: Alignment.topRight,
+                      child: Padding(
+                        padding: const EdgeInsets.all(FitSpacing.s8),
+                        child: Material(
+                          color: colors.surface.withValues(
+                            alpha: FitOpacity.scrim,
+                          ),
+                          shape: const CircleBorder(),
+                          child: IconButton(
+                            tooltip: favorite
+                                ? 'Remover dos favoritos'
+                                : 'Favoritar',
+                            onPressed: onFavorite,
+                            icon: Icon(
+                              favorite
+                                  ? Icons.star_rounded
+                                  : Icons.star_border_rounded,
+                              color: favorite
+                                  ? FitColors.warning
+                                  : colors.onSurface,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(FitSpacing.s12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      exercise.nome,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: FitSpacing.s4),
+                    Text(
+                      equipment == null ? muscle : '$muscle  •  $equipment',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -367,6 +591,7 @@ class LibraryExerciseTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     final difficulty = exercise.dificuldade.trim().isEmpty
         ? 'Iniciante'
         : exercise.dificuldade;
@@ -375,16 +600,20 @@ class LibraryExerciseTile extends StatelessWidget {
         : exercise.categoria;
     final expandedForText = MediaQuery.textScalerOf(context).scale(1) > 1.3;
     final height = expandedForText
-        ? (compact ? 88.0 : 96.0)
-        : (compact ? 62.0 : 68.0);
+        ? (compact
+              ? FitLayout.skeletonListItemHeight + FitSpacing.s16
+              : FitLayout.skeletonListItemHeight + FitSpacing.s24)
+        : (compact
+              ? FitLayout.skeletonListItemHeight
+              : FitLayout.skeletonListItemHeight + FitSpacing.s8);
     return Semantics(
       button: true,
       label: '${exercise.nome}, $muscle, $difficulty',
       child: Material(
-        color: librarySurface,
-        shape: const RoundedRectangleBorder(
+        color: colors.surface,
+        shape: RoundedRectangleBorder(
           borderRadius: FitRadius.smallBorder,
-          side: BorderSide(color: libraryBorder),
+          side: BorderSide(color: colors.outlineVariant),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -393,9 +622,9 @@ class LibraryExerciseTile extends StatelessWidget {
             height: height,
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final mediaWidth = (constraints.maxWidth * .23).clamp(
-                  64.0,
-                  96.0,
+                final mediaWidth = (constraints.maxWidth * .24).clamp(
+                  FitLayout.avatarLarge,
+                  FitLayout.domainMetricMinWidth,
                 );
                 return Row(
                   children: [
@@ -414,30 +643,22 @@ class LibraryExerciseTile extends StatelessWidget {
                             exercise.nome,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: FitColors.textPrimary,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: Theme.of(context).textTheme.titleSmall,
                           ),
-                          const SizedBox(height: 3),
+                          const SizedBox(height: FitSpacing.s4),
                           Text(
                             muscle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: FitColors.textSecondary,
-                              fontSize: 11,
-                            ),
+                            style: Theme.of(context).textTheme.bodySmall,
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: FitSpacing.s2),
                           Text(
                             difficulty,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: libraryDifficultyColor(difficulty),
-                              fontSize: 10,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -454,7 +675,7 @@ class LibraryExerciseTile extends StatelessWidget {
                         color: favorite
                             ? FitColors.warning
                             : FitColors.textSecondary,
-                        size: 21,
+                        size: FitLayout.iconSize,
                       ),
                     ),
                   ],
@@ -481,24 +702,18 @@ class LibraryExerciseMedia extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: const Color(0xFF080B0D),
-      child: ColorFiltered(
-        colorFilter: const ColorFilter.mode(
-          Color(0xFF566064),
-          BlendMode.multiply,
-        ),
-        child: ExercicioGifImage(
-          imagem: exercise.imagem,
-          gifPath: exercise.gifPath,
-          titulo: exercise.nome,
-          fit: fit,
-          cacheHeight: 420,
-          placeholder: const Center(
-            child: Icon(
-              Icons.fitness_center_rounded,
-              color: FitColors.primary,
-              size: 26,
-            ),
+      color: FitColors.backgroundSubtle,
+      child: ExercicioGifImage(
+        imagem: exercise.imagem,
+        gifPath: exercise.gifPath,
+        titulo: exercise.nome,
+        fit: fit,
+        cacheHeight: 420,
+        placeholder: const Center(
+          child: Icon(
+            Icons.fitness_center_rounded,
+            color: FitColors.primary,
+            size: FitLayout.iconSizeMedium,
           ),
         ),
       ),
@@ -534,7 +749,7 @@ class LibrarySegmentTabs<T> extends StatelessWidget {
                 child: Column(
                   children: [
                     SizedBox(
-                      height: 40,
+                      height: FitLayout.minimumTouchTarget,
                       child: Center(
                         child: FittedBox(
                           fit: BoxFit.scaleDown,
@@ -545,7 +760,6 @@ class LibrarySegmentTabs<T> extends StatelessWidget {
                               color: value == selected
                                   ? FitColors.primary
                                   : FitColors.textSecondary,
-                              fontSize: 11,
                               fontWeight: value == selected
                                   ? FontWeight.w700
                                   : FontWeight.w500,
@@ -555,8 +769,8 @@ class LibrarySegmentTabs<T> extends StatelessWidget {
                       ),
                     ),
                     AnimatedContainer(
-                      duration: const Duration(milliseconds: 160),
-                      height: 2,
+                      duration: FitDuration.fast,
+                      height: FitLayout.borderFocused,
                       color: value == selected
                           ? FitColors.primary
                           : Colors.transparent,
@@ -590,18 +804,20 @@ class LibraryOfflineBanner extends StatelessWidget {
           borderRadius: FitRadius.smallBorder,
           border: Border.all(color: FitColors.info.withAlpha(55)),
         ),
-        child: const Row(
+        child: Row(
           children: [
-            Icon(Icons.cloud_done_outlined, color: FitColors.info, size: 17),
-            SizedBox(width: FitSpacing.s8),
+            const Icon(
+              Icons.cloud_done_outlined,
+              color: FitColors.info,
+              size: FitLayout.iconSizeCompact,
+            ),
+            const SizedBox(width: FitSpacing.s8),
             Expanded(
               child: Text(
                 'Exercícios salvos no dispositivo.',
-                style: TextStyle(
-                  color: FitColors.textSecondary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
             ),
           ],
@@ -615,7 +831,7 @@ Color libraryDifficultyColor(String value) {
   final normalized = normalizeLibraryText(value);
   if (normalized.contains('avanc')) return FitColors.danger;
   if (normalized.contains('inter')) return FitColors.primary;
-  return const Color(0xFF52D273);
+  return FitColors.success;
 }
 
 extension<T> on List<T> {

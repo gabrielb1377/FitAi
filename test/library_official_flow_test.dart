@@ -103,6 +103,8 @@ void main() {
     await tester.pumpWidget(_app(_library()));
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('Supino Reto com Barra'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Supino Reto com Barra'));
     await tester.pumpAndSettle();
 
@@ -147,6 +149,8 @@ void main() {
     await tester.pumpWidget(_app(_library()));
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('Supino Reto com Barra'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Supino Reto com Barra'));
     await tester.pumpAndSettle();
     final compareButton = find

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../data/auth_service.dart';
+import '../../../../design_system/tokens/fit_duration.dart';
+import '../../../../design_system/tokens/fit_layout.dart';
+import '../../../../design_system/tokens/fit_spacing.dart';
 import '../auth_navigation.dart';
 import '../widgets/auth_logo.dart';
 import '../widgets/auth_page_scaffold.dart';
@@ -62,8 +65,8 @@ class _AuthSplashPageState extends State<AuthSplashPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             TweenAnimationBuilder<double>(
-              duration: const Duration(milliseconds: 420),
-              curve: Curves.easeOutCubic,
+              duration: FitDuration.reveal,
+              curve: FitDuration.enterCurve,
               tween: Tween(begin: .92, end: 1),
               builder: (context, value, child) => Opacity(
                 opacity: value,
@@ -72,7 +75,7 @@ class _AuthSplashPageState extends State<AuthSplashPage> {
               child: Column(
                 children: [
                   const AuthLogo(),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: FitSpacing.s20),
                   Text(
                     'Treine com inteligencia.',
                     textAlign: TextAlign.center,
@@ -81,10 +84,12 @@ class _AuthSplashPageState extends State<AuthSplashPage> {
                 ],
               ),
             ),
-            const SizedBox(height: 48),
+            const SizedBox(height: FitSpacing.s48),
             const SizedBox(
-              width: 108,
-              child: LinearProgressIndicator(minHeight: 3),
+              width: FitLayout.domainMetricMinWidth,
+              child: LinearProgressIndicator(
+                minHeight: FitLayout.loadingStroke,
+              ),
             ),
             const Spacer(),
             Text('FitIA 1.0.0', style: Theme.of(context).textTheme.labelSmall),

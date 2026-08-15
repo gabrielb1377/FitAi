@@ -3,9 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../core/config/dev_data.dart';
-import '../core/config/dev_config.dart';
 import '../core/config/dev_fixtures.dart';
-import '../design_system/design_system.dart';
 import '../core/widgets/dev_mode_banner.dart';
 import '../features/core_journey/presentation/core_journey_controller.dart';
 import '../features/core_journey/presentation/core_journey_scope.dart';
@@ -218,30 +216,9 @@ class _AppShellState extends State<AppShell> {
             },
             child: shell,
           );
-    return DevModeBanner(
-      child: DevConfig.enabled
-          ? Stack(
-              children: [
-                scopedShell,
-                Positioned(
-                  right: FitSpacing.s16,
-                  bottom: FitSpacing.s64 + FitSpacing.s24,
-                  child: SafeArea(
-                    child: FitIconButton(
-                      icon: FitIcons.storage,
-                      tooltip: 'Offline Workout Vertical Slice',
-                      variant: FitIconButtonVariant.subtle,
-                      onPressed: () => Navigator.of(
-                        context,
-                        rootNavigator: true,
-                      ).pushNamed(AppRoutes.debugWorkoutVerticalSlice),
-                    ),
-                  ),
-                ),
-              ],
-            )
-          : scopedShell,
-    );
+    // Ferramentas de desenvolvimento ficam em Configuracoes > Developer Mode.
+    // A shell oficial nunca recebe controles que alterem sua composicao visual.
+    return DevModeBanner(child: scopedShell);
   }
 }
 

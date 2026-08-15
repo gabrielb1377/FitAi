@@ -41,17 +41,30 @@ class ProfileStatsGrid extends StatelessWidget {
             ? 3
             : 2;
         final gap = FitSpacing.s12;
-        final width = (constraints.maxWidth - (gap * (count - 1))) / count;
-        return Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: [
-            for (final metric in metrics)
-              SizedBox(
-                width: width,
-                child: useAccessibleList
-                    ? FitCard(
-                        child: FitHorizontalMetric(
+        final contentWidth =
+            constraints.maxWidth - (FitSpacing.cardPadding * 2);
+        final width = (contentWidth - (gap * (count - 1))) / count;
+        return FitCard(
+          variant: FitCardVariant.outlined,
+          child: Wrap(
+            spacing: gap,
+            runSpacing: FitSpacing.s20,
+            children: [
+              for (final metric in metrics)
+                SizedBox(
+                  width: width,
+                  child: useAccessibleList
+                      ? FitHorizontalMetric(
+                          label: metric.label,
+                          value: metric.value,
+                          icon: metric.icon,
+                          detail: metric.detail,
+                          unavailable: metric.unavailable,
+                          color: metric.unavailable
+                              ? Theme.of(context).colorScheme.onSurfaceVariant
+                              : null,
+                        )
+                      : FitMetric(
                           label: metric.label,
                           value: metric.value,
                           icon: metric.icon,
@@ -61,18 +74,9 @@ class ProfileStatsGrid extends StatelessWidget {
                               ? Theme.of(context).colorScheme.onSurfaceVariant
                               : null,
                         ),
-                      )
-                    : FitMetricCard(
-                        label: metric.label,
-                        value: metric.value,
-                        icon: metric.icon,
-                        detail: metric.detail,
-                        color: metric.unavailable
-                            ? Theme.of(context).colorScheme.onSurfaceVariant
-                            : null,
-                      ),
-              ),
-          ],
+                ),
+            ],
+          ),
         );
       },
     );

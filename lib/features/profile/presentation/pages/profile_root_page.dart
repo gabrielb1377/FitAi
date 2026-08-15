@@ -10,6 +10,7 @@ import '../../domain/profile_models.dart';
 import '../controllers/profile_controller.dart';
 import '../routes/profile_routes.dart';
 import '../widgets/profile_dashboard.dart';
+import '../widgets/profile_empty_dashboard.dart';
 import '../widgets/profile_goal_editor_sheet.dart';
 import '../widgets/profile_loading_view.dart';
 import 'profile_xp_history_page.dart';
@@ -109,7 +110,12 @@ class _ProfileRootPageState extends State<ProfileRootPage> {
 
   Widget _buildContent(ProfileSnapshot snapshot) {
     if (_isEmpty(snapshot)) {
-      return _EmptyView(onConfigure: _openEdit);
+      return ProfileEmptyDashboard(
+        displayName: widget.name,
+        onEdit: _openEdit,
+        onSettings: () => _openRoute(ProfileRoutes.settings),
+        onPrivacy: () => _openRoute(ProfileRoutes.privacy),
+      );
     }
     return ProfileDashboard(
       snapshot: snapshot,
@@ -223,31 +229,6 @@ class _ErrorView extends StatelessWidget {
           child: FitErrorState(
             error: 'Nao foi possivel carregar os dados locais do Perfil.',
             onRetry: onRetry,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _EmptyView extends StatelessWidget {
-  const _EmptyView({required this.onConfigure});
-
-  final VoidCallback onConfigure;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const FitHeader(title: 'Perfil'),
-        Expanded(
-          child: FitEmptyState(
-            icon: FitIcons.profile,
-            title: 'Seu Perfil esta pronto para comecar',
-            description:
-                'Adicione seus dados e objetivos quando quiser acompanhar sua evolucao.',
-            actionLabel: 'Editar perfil',
-            onAction: onConfigure,
           ),
         ),
       ],
