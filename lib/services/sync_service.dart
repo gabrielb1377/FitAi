@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../features/auth/data/auth_service.dart';
 import 'network_service.dart';
 
 /// Resultado imediato do envio local. Uma entrega em fila continua persistida
@@ -16,15 +17,25 @@ enum RunningSyncDispatchResult { delivered, queued }
 enum StepsSyncDispatchResult { delivered, queued }
 
 class SyncService {
-  SyncService._({NetworkService? networkService})
-    : _networkService = networkService ?? NetworkService();
+  SyncService._({NetworkService? networkService, AuthService? authService})
+    : _networkService = networkService ?? NetworkService(),
+      _authService = authService ?? AuthService();
 
   static final SyncService instance = SyncService._();
+
+  /// Instancia isolada para validar o contrato de transporte sem compartilhar
+  /// fila, sessao ou cliente de rede com a aplicacao em execucao.
+  @visibleForTesting
+  factory SyncService.forTesting({
+    required NetworkService networkService,
+    required AuthService authService,
+  }) => SyncService._(networkService: networkService, authService: authService);
 
   static const _queueKey = 'fitaiSyncQueue';
   static const _clientIdKey = 'fitaiSyncClientId';
 
   final NetworkService _networkService;
+  final AuthService _authService;
   Timer? _timer;
   bool _flushing = false;
 
@@ -184,17 +195,25 @@ class SyncService {
     String? queueId,
   }) async {
     final clientId = await _clientId();
+    final session = await _authService.restoreSession();
     final enrichedPayload = {...payload, 'clientId': clientId};
+    final queueItemId = queueId ?? _queueId(type);
     final queueItem = {
-      'id': queueId ?? _queueId(type),
+      'id': '${session?.userId ?? 'unowned'}_$queueItemId',
       'type': type,
       'path': path,
       'payload': enrichedPayload,
+      'ownerUserId': session?.userId,
       'attempts': 0,
       'createdAt': DateTime.now().toIso8601String(),
     };
 
-    final sent = await _trySend(path, enrichedPayload, clientId: clientId);
+    final sent = await _trySend(
+      path,
+      enrichedPayload,
+      clientId: clientId,
+      session: session,
+    );
 
     if (!sent) {
       await _enqueue(queueItem);
@@ -214,19 +233,42 @@ class SyncService {
       return true;
     }
 
-    return _trySend(path, payload, clientId: clientId);
+    final ownerUserId = item['ownerUserId']?.toString().trim();
+    final session = await _authService.restoreSession();
+
+    // Itens legados sem proprietario ou de outra conta ficam preservados na
+    // fila ate que uma migracao explicita os associe a um usuario autenticado.
+    if (ownerUserId == null || ownerUserId.isEmpty || session == null) {
+      _debugLog('Sync pendente: sessao autenticada indisponivel para $path.');
+      return false;
+    }
+    if (ownerUserId != session.userId) {
+      _debugLog('Sync pendente pertence a outra conta e foi preservado.');
+      return false;
+    }
+
+    return _trySend(path, payload, clientId: clientId, session: session);
   }
 
   Future<bool> _trySend(
     String path,
     Map<String, dynamic> payload, {
     required String clientId,
+    required AuthSession? session,
   }) async {
+    if (session == null) {
+      _debugLog('Sync pendente: nenhuma sessao autenticada para $path.');
+      return false;
+    }
+
     try {
       await _networkService.postJson(
         path,
         payload,
-        headers: {'X-FitIA-Client-Id': clientId},
+        headers: {
+          'Authorization': 'Bearer ${session.token}',
+          'X-FitIA-Client-Id': clientId,
+        },
         timeout: const Duration(seconds: 8),
       );
 
