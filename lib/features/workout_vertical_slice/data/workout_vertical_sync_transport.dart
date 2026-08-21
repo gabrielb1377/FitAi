@@ -111,7 +111,14 @@ class HttpWorkoutSyncTransport
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw WorkoutSyncTransportException(
         _message(body, 'Falha ao sincronizar treino.'),
-        retryable: response.statusCode == 429 || response.statusCode >= 500,
+        // Uma sessao expirada ou revogada exige nova autenticacao, mas nunca
+        // pode descartar uma serie local. A outbox permanece pendente para
+        // ser reenviada depois que a sessao for restaurada.
+        retryable:
+            response.statusCode == 401 ||
+            response.statusCode == 403 ||
+            response.statusCode == 429 ||
+            response.statusCode >= 500,
       );
     }
 

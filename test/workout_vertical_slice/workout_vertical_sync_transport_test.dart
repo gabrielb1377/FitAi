@@ -84,22 +84,25 @@ void main() {
     expect(requests.first['deviceId'], isNotEmpty);
   });
 
-  test('classifica respostas HTTP nao retryable e retryable', () async {
-    final event = _event();
-    final client = MockClient((request) async => http.Response('{}', 401));
-    final transport = HttpWorkoutSyncTransport(client: client);
+  test(
+    'mantem 401 recuperavel para preservar a outbox apos nova autenticacao',
+    () async {
+      final event = _event();
+      final client = MockClient((request) async => http.Response('{}', 401));
+      final transport = HttpWorkoutSyncTransport(client: client);
 
-    await expectLater(
-      transport.dispatchWithToken(event, 'token'),
-      throwsA(
-        isA<WorkoutSyncTransportException>().having(
-          (error) => error.retryable,
-          'retryable',
-          isFalse,
+      await expectLater(
+        transport.dispatchWithToken(event, 'token'),
+        throwsA(
+          isA<WorkoutSyncTransportException>().having(
+            (error) => error.retryable,
+            'retryable',
+            isTrue,
+          ),
         ),
-      ),
-    );
-  });
+      );
+    },
+  );
 
   test('marca indisponibilidade quando o transporte HTTP falha', () async {
     final transport = HttpWorkoutSyncTransport(
