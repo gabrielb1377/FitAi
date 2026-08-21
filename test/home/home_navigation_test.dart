@@ -13,6 +13,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/core_journey_test_harness.dart';
+
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
@@ -74,16 +76,23 @@ Future<void> _pumpHome(WidgetTester tester, {bool withWorkout = false}) async {
     devDataLoader: () async => const DevRuntimeData.disabled(),
   );
   addTearDown(controller.dispose);
+  final coreJourney = await createCoreJourneyTestController(
+    withWorkout ? DevFixtures.workouts : const [],
+  );
+  addTearDown(coreJourney.dispose);
   await tester.pumpWidget(
     MaterialApp(
       theme: AppTheme.dark,
-      home: HomePage(
-        nome: 'Atleta',
-        distancia: 0,
-        passos: 0,
-        xp: 0,
-        nivel: 1,
-        controller: controller,
+      home: coreJourneyTestScope(
+        coreJourney,
+        child: HomePage(
+          nome: 'Atleta',
+          distancia: 0,
+          passos: 0,
+          xp: 0,
+          nivel: 1,
+          controller: controller,
+        ),
       ),
     ),
   );

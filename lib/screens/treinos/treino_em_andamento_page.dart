@@ -6,9 +6,11 @@ import '../../features/settings/settings.dart';
 
 import '../../core/exercises/exercise_identity.dart';
 import '../../design_system/fit_design_system.dart';
+import '../../features/core_journey/presentation/core_journey_controller.dart';
 import '../../features/plans/workout_execution/widgets/workout_history_panel.dart';
 import '../../features/plans/workout_execution/widgets/workout_execution_stages.dart';
 import '../../features/progression/progression.dart';
+import '../../features/workout_vertical_slice/domain/workout_vertical_models.dart';
 import '../../models/coach_insight_model.dart';
 import '../../models/exercicio_model.dart';
 import '../../models/exercise_progression_model.dart';
@@ -35,6 +37,8 @@ class TreinoEmAndamentoPage extends StatefulWidget {
   final String? nomeDia;
   final String? grupoDia;
   final Future<void> Function()? onXpAtualizado;
+  final CoreJourneyController? sessionController;
+  final String? sessionId;
 
   const TreinoEmAndamentoPage({
     super.key,
@@ -42,7 +46,12 @@ class TreinoEmAndamentoPage extends StatefulWidget {
     this.nomeDia,
     this.grupoDia,
     this.onXpAtualizado,
-  });
+    this.sessionController,
+    this.sessionId,
+  }) : assert(
+         (sessionController == null) == (sessionId == null),
+         'Controller e sessionId devem ser informados juntos.',
+       );
 
   @override
   State<TreinoEmAndamentoPage> createState() => _TreinoEmAndamentoPageState();
@@ -63,8 +72,11 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   final Set<int> _sugestoesProgressaoIgnoradas = {};
   final Set<int> _sugestoesProgressaoAplicadas = {};
   final List<_XpVisualHistoryEntry> _xpVisualHistorico = [];
-  final String _sessaoTreinoId =
-      'sessao_${DateTime.now().microsecondsSinceEpoch}';
+  String get _sessaoTreinoId => widget.sessionId ?? 'widget-test-session';
+  bool get _usesCanonicalSession =>
+      widget.sessionController != null && widget.sessionId != null;
+  WorkoutSessionLocal? get _canonicalSession =>
+      widget.sessionController?.sessionById(_sessaoTreinoId);
 
   final _pesoController = TextEditingController(text: '0');
   final _repeticoesController = TextEditingController(text: '12');
@@ -140,8 +152,11 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     debugPrint('Qtd exercícios: ${_exercicios.length}');
     debugPrint(_exercicios.map((e) => e.nome).toList().toString());
 
-    _restaurarInputsDoExercicio(0);
+    if (_usesCanonicalSession) _restoreCanonicalSession();
+    _restaurarInputsDoExercicio(_exercicioAtual);
     _carregarProximaProgressaoAtual();
+
+    widget.sessionController?.addListener(_onCanonicalSessionChanged);
 
     _iniciarCronometro();
   }
@@ -153,13 +168,89 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     _pesoController.dispose();
     _repeticoesController.dispose();
     _comentarioController.dispose();
+    widget.sessionController?.removeListener(_onCanonicalSessionChanged);
     super.dispose();
   }
+
+  void _onCanonicalSessionChanged() {
+    if (!mounted || !_usesCanonicalSession) return;
+    setState(() => _restoreCanonicalSession(restorePosition: false));
+  }
+
+  void _restoreCanonicalSession({bool restorePosition = true}) {
+    final controller = widget.sessionController;
+    final session = _canonicalSession;
+    if (controller == null || session == null) return;
+    if (restorePosition && _exercicios.isNotEmpty) {
+      _exercicioAtual = session.currentExerciseIndex.clamp(
+        0,
+        _exercicios.length - 1,
+      );
+    }
+    _seriesConcluidas.clear();
+    _historico.clear();
+    for (final set in controller.setsFor(session.id)) {
+      final index = _exercicios.indexWhere(
+        (exercise) => _exercicioKey(exercise) == set.exerciseId,
+      );
+      if (index < 0) continue;
+      _seriesConcluidas.putIfAbsent(index, () => <int>{}).add(set.setIndex);
+      (_historico[index] ??= <_HistoricoSerieLocal>[]).add(
+        _HistoricoSerieLocal(
+          numero: set.setIndex + 1,
+          peso: _formatInputWeight(set.weight),
+          repeticoes: set.reps,
+          data: set.completedAt,
+          exercicio: _exercicios[index],
+        ),
+      );
+    }
+    for (final history in _historico.values) {
+      history.sort((a, b) => b.numero.compareTo(a.numero));
+    }
+    _segundosTreino = controller.durationFor(session).inSeconds;
+    _syncCanonicalRest(session);
+    if (session.status == WorkoutSessionStatus.paused) {
+      _executionStage = WorkoutExecutionStage.paused;
+    }
+  }
+
+  void _syncCanonicalRest(WorkoutSessionLocal session) {
+    final remaining = remainingRest(
+      session.restEndsAt,
+      DateTime.now(),
+    ).inSeconds;
+    _descansoRestante = remaining;
+    if (remaining > 0) {
+      _descansoTotal =
+          (_descansoPadrao > remaining ? _descansoPadrao : remaining).clamp(
+            1,
+            999,
+          );
+      _descansoFinalizado = false;
+    } else if (session.restEndsAt != null) {
+      _descansoFinalizado = true;
+    }
+  }
+
+  String _formatInputWeight(double value) => value == value.roundToDouble()
+      ? value.round().toString()
+      : value.toStringAsFixed(1).replaceAll('.', ',');
 
   void _iniciarCronometro() {
     _treinoTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted && _executionStage != WorkoutExecutionStage.paused) {
-        setState(() => _segundosTreino++);
+        setState(() {
+          final session = _canonicalSession;
+          if (session == null) {
+            _segundosTreino++;
+          } else {
+            _segundosTreino = widget.sessionController!
+                .durationFor(session)
+                .inSeconds;
+            _syncCanonicalRest(session);
+          }
+        });
       }
     });
   }
@@ -169,7 +260,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
 
     setState(() => _registroSerieEmAndamento = true);
     try {
-      _registrarSerieSemBloqueio();
+      await _registrarSerieSemBloqueio();
       await Future<void>.delayed(FitDuration.medium);
     } finally {
       if (mounted) {
@@ -180,7 +271,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     }
   }
 
-  void _registrarSerieSemBloqueio() {
+  Future<void> _registrarSerieSemBloqueio() async {
     final exercicio = _exercicio;
     if (exercicio == null) return;
 
@@ -198,30 +289,59 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
 
     final serieIndex = concluidas.length;
     final peso = _texto(_pesoController);
+    final pesoNumerico = double.tryParse(peso.replaceAll(',', '.'));
     final repeticoes = int.tryParse(_texto(_repeticoesController)) ?? 0;
     final comentario = _comentarioController.text.trim();
 
-    setState(() {
-      _descansoFinalizado = false;
-      _exerciciosPulados.remove(_exercicioAtual);
-      _seriesConcluidas[_exercicioAtual] = {...concluidas, serieIndex};
-      _comentarios[_exercicioAtual] = comentario;
-      (_historico[_exercicioAtual] ??= []).insert(
-        0,
-        _HistoricoSerieLocal(
-          numero: serieIndex + 1,
-          peso: peso,
-          repeticoes: repeticoes,
-          data: DateTime.now(),
-          exercicio: exercicio,
-        ),
+    if (pesoNumerico == null || pesoNumerico < 0 || repeticoes <= 0) {
+      _mostrarMensagem('Informe carga e repetições válidas.');
+      return;
+    }
+
+    if (_usesCanonicalSession) {
+      final result = await widget.sessionController!.completeSet(
+        sessionId: _sessaoTreinoId,
+        exercise: exercicio,
+        weight: pesoNumerico,
+        reps: repeticoes,
+        notes: comentario.isEmpty ? null : comentario,
       );
-    });
+      if (!mounted) return;
+      if (result == null) {
+        _mostrarMensagem(
+          widget.sessionController!.errorMessage ??
+              'Não foi possível salvar a série no dispositivo.',
+        );
+        return;
+      }
+      setState(() {
+        _comentarios[_exercicioAtual] = comentario;
+        _exerciciosPulados.remove(_exercicioAtual);
+        _restoreCanonicalSession(restorePosition: false);
+      });
+    } else {
+      setState(() {
+        _descansoFinalizado = false;
+        _exerciciosPulados.remove(_exercicioAtual);
+        _seriesConcluidas[_exercicioAtual] = {...concluidas, serieIndex};
+        _comentarios[_exercicioAtual] = comentario;
+        (_historico[_exercicioAtual] ??= []).insert(
+          0,
+          _HistoricoSerieLocal(
+            numero: serieIndex + 1,
+            peso: peso,
+            repeticoes: repeticoes,
+            data: DateTime.now(),
+            exercicio: exercicio,
+          ),
+        );
+      });
+    }
     final totalConcluido =
         _seriesConcluidas[_exercicioAtual]?.length ?? serieIndex + 1;
 
     if (totalConcluido < _seriesPorExercicio) {
-      _iniciarDescanso();
+      await _iniciarDescanso();
       _mostrarMensagem('Série registrada.');
       return;
     }
@@ -241,18 +361,39 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     });
   }
 
-  void _iniciarDescanso({bool entreExercicios = false}) {
+  Future<void> _iniciarDescanso({bool entreExercicios = false}) async {
     _descansoTimer?.cancel();
-    setState(() {
-      _descansoTotal = _descansoPadrao;
-      _descansoRestante = _descansoPadrao;
-      _descansoFinalizado = false;
-      _descansoPausado = false;
-      _descansoEntreExercicios = entreExercicios;
-      if (entreExercicios) {
-        _executionStage = WorkoutExecutionStage.interExerciseRest;
+    if (_usesCanonicalSession) {
+      var session = _canonicalSession;
+      if (session == null) return;
+      if (remainingRest(session.restEndsAt, DateTime.now()) == Duration.zero) {
+        session = await widget.sessionController!.startRest(
+          _sessaoTreinoId,
+          Duration(seconds: _descansoPadrao),
+        );
       }
-    });
+      if (!mounted || session == null) return;
+      setState(() {
+        _syncCanonicalRest(session!);
+        _descansoFinalizado = false;
+        _descansoPausado = false;
+        _descansoEntreExercicios = entreExercicios;
+        if (entreExercicios) {
+          _executionStage = WorkoutExecutionStage.interExerciseRest;
+        }
+      });
+    } else {
+      setState(() {
+        _descansoTotal = _descansoPadrao;
+        _descansoRestante = _descansoPadrao;
+        _descansoFinalizado = false;
+        _descansoPausado = false;
+        _descansoEntreExercicios = entreExercicios;
+        if (entreExercicios) {
+          _executionStage = WorkoutExecutionStage.interExerciseRest;
+        }
+      });
+    }
 
     _descansoTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) {
@@ -264,7 +405,14 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
         return;
       }
 
-      if (_descansoRestante <= 1) {
+      final canonicalSession = _canonicalSession;
+      final remaining = canonicalSession == null
+          ? _descansoRestante
+          : remainingRest(
+              canonicalSession.restEndsAt,
+              DateTime.now(),
+            ).inSeconds;
+      if (remaining <= 1) {
         timer.cancel();
         setState(() {
           _descansoRestante = 0;
@@ -280,12 +428,20 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
               : 'Hora da próxima série!',
         );
       } else {
-        setState(() => _descansoRestante--);
+        setState(() {
+          _descansoRestante = canonicalSession == null
+              ? _descansoRestante - 1
+              : remaining;
+        });
       }
     });
   }
 
-  void _pularDescanso() {
+  Future<void> _pularDescanso() async {
+    if (_usesCanonicalSession) {
+      final session = await widget.sessionController!.skipRest(_sessaoTreinoId);
+      if (!mounted || session == null) return;
+    }
     _descansoTimer?.cancel();
     setState(() {
       _descansoRestante = 0;
@@ -302,8 +458,18 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     );
   }
 
-  void _ajustarDescanso(int seconds) {
+  Future<void> _ajustarDescanso(int seconds) async {
     if (!_emDescanso) return;
+    if (_usesCanonicalSession) {
+      final session = await widget.sessionController!.adjustRest(
+        _sessaoTreinoId,
+        Duration(seconds: seconds),
+      );
+      if (!mounted || session == null) return;
+      setState(() => _syncCanonicalRest(session));
+      if (_descansoRestante == 0) await _pularDescanso();
+      return;
+    }
     final novoTempo = (_descansoRestante + seconds).clamp(0, 999).toInt();
     setState(() {
       _descansoRestante = novoTempo;
@@ -334,20 +500,25 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     setState(() => _descansoPausado = !_descansoPausado);
   }
 
-  void _iniciarDescansoEntreExercicios() {
-    _iniciarDescanso(entreExercicios: true);
-  }
+  Future<void> _iniciarDescansoEntreExercicios() =>
+      _iniciarDescanso(entreExercicios: true);
 
-  void _iniciarProximoExercicio() {
+  Future<void> _iniciarProximoExercicio() async {
     if (_exercicioAtual >= _totalExercicios - 1) {
-      _finalizarTreino();
+      await _finalizarTreino();
       return;
     }
-    _mudarExercicio(_exercicioAtual + 1);
+    await _mudarExercicio(_exercicioAtual + 1);
   }
 
-  void _pausarTreino() {
+  Future<void> _pausarTreino() async {
     if (_executionStage == WorkoutExecutionStage.paused) return;
+    if (_usesCanonicalSession) {
+      final session = await widget.sessionController!.pauseWorkout(
+        _sessaoTreinoId,
+      );
+      if (!mounted || session == null) return;
+    }
     setState(() {
       _stageAntesDaPausa = _executionStage;
       _descansoEstavaPausadoAntesDaPausa = _descansoPausado;
@@ -356,7 +527,13 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     });
   }
 
-  void _retomarTreino() {
+  Future<void> _retomarTreino() async {
+    if (_usesCanonicalSession) {
+      final session = await widget.sessionController!.resumeWorkout(
+        _sessaoTreinoId,
+      );
+      if (!mounted || session == null) return;
+    }
     setState(() {
       _executionStage = _stageAntesDaPausa == WorkoutExecutionStage.paused
           ? WorkoutExecutionStage.active
@@ -365,18 +542,25 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     });
   }
 
-  void _proximoExercicioManual() {
+  Future<void> _proximoExercicioManual() async {
     if (_exercicioAtual < _totalExercicios - 1) {
-      _mudarExercicio(_exercicioAtual + 1);
+      await _mudarExercicio(_exercicioAtual + 1);
     }
   }
 
-  void _exercicioAnterior() {
-    if (_exercicioAtual > 0) _mudarExercicio(_exercicioAtual - 1);
+  Future<void> _exercicioAnterior() async {
+    if (_exercicioAtual > 0) await _mudarExercicio(_exercicioAtual - 1);
   }
 
-  void _mudarExercicio(int index) {
+  Future<void> _mudarExercicio(int index) async {
     _salvarInputsDoExercicioAtual();
+    if (_usesCanonicalSession) {
+      final session = await widget.sessionController!.moveToExercise(
+        _sessaoTreinoId,
+        index,
+      );
+      if (!mounted || session == null) return;
+    }
     _descansoTimer?.cancel();
     setState(() {
       _descansoRestante = 0;
@@ -561,17 +745,51 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     _descansoFinalizado = false;
   }
 
+  Future<bool> _persistExerciseSequence(
+    List<ExercicioModel> exercises, {
+    required String change,
+    String? previousExerciseId,
+    String? exerciseId,
+  }) async {
+    if (!_usesCanonicalSession) return true;
+    final updated = await widget.sessionController!.updateWorkoutExercises(
+      sessionId: _sessaoTreinoId,
+      exercises: exercises,
+      change: change,
+      previousExerciseId: previousExerciseId,
+      exerciseId: exerciseId,
+    );
+    if (!mounted) return false;
+    if (updated == null) {
+      _mostrarMensagem(
+        widget.sessionController!.errorMessage ??
+            'Não foi possível atualizar o treino no dispositivo.',
+      );
+      return false;
+    }
+    return true;
+  }
+
   Future<void> _adicionarExercicioDepoisAtual() async {
     final selecionado = await _selecionarExercicioDaBiblioteca(
       purpose: LibrarySelectionPurpose.activeWorkoutAdd,
     );
     if (!mounted || selecionado == null) return;
 
+    final slots = _snapshotSlots();
+    final insertIndex = _totalExercicios == 0 ? 0 : _exercicioAtual + 1;
+    slots.insert(insertIndex, _ExerciseSessionSlot(exercicio: selecionado));
+    final persisted = await _persistExerciseSequence(
+      slots.map((slot) => slot.exercicio).toList(growable: false),
+      change: 'add',
+      exerciseId: _exercicioKey(selecionado),
+    );
+    if (!mounted || !persisted) return;
     setState(() {
-      final slots = _snapshotSlots();
-      final insertIndex = _totalExercicios == 0 ? 0 : _exercicioAtual + 1;
-      slots.insert(insertIndex, _ExerciseSessionSlot(exercicio: selecionado));
       _restoreSlots(slots);
+      if (_usesCanonicalSession) {
+        _restoreCanonicalSession(restorePosition: false);
+      }
     });
 
     _mostrarMensagem('Exercício adicionado.');
@@ -589,12 +807,25 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
 
     if (_mesmoExercicio(exercicioAtual, selecionado)) return;
 
+    final updatedExercises = List<ExercicioModel>.of(_exercicios)
+      ..[_exercicioAtual] = selecionado;
+    final persisted = await _persistExerciseSequence(
+      updatedExercises,
+      change: 'replace',
+      previousExerciseId: _exercicioKey(exercicioAtual),
+      exerciseId: _exercicioKey(selecionado),
+    );
+    if (!mounted || !persisted) return;
     setState(() {
-      // Completed entries keep their original exercise identity. New sets begin
-      // at set one for the replacement and cannot rewrite historical records.
+      // As series persistidas mantem a identidade do exercicio original.
+      _exercicios
+        ..clear()
+        ..addAll(updatedExercises);
       _seriesConcluidas.remove(_exercicioAtual);
-      _exercicios[_exercicioAtual] = selecionado;
       _exerciciosPulados.remove(_exercicioAtual);
+      if (_usesCanonicalSession) {
+        _restoreCanonicalSession(restorePosition: false);
+      }
       _restaurarInputsDoExercicio(_exercicioAtual);
     });
 
@@ -643,9 +874,15 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
 
     if (!mounted || confirmar != true) return;
 
+    final slots = _snapshotSlots()..removeAt(_exercicioAtual);
+    final persisted = await _persistExerciseSequence(
+      slots.map((slot) => slot.exercicio).toList(growable: false),
+      change: 'remove',
+      previousExerciseId: _exercicioKey(_exercicios[_exercicioAtual]),
+    );
+    if (!mounted || !persisted) return;
     setState(() {
       _descansoTimer?.cancel();
-      final slots = _snapshotSlots()..removeAt(_exercicioAtual);
       _restoreSlots(slots);
       if (_exercicioAtual >= _totalExercicios) {
         _exercicioAtual = _totalExercicios - 1;
@@ -653,22 +890,35 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
       _descansoRestante = 0;
       _descansoFinalizado = false;
       _sincronizarComentario();
+      if (_usesCanonicalSession) {
+        _restoreCanonicalSession(restorePosition: false);
+      }
       _restaurarInputsDoExercicio(_exercicioAtual);
     });
 
     _mostrarMensagem('Exercício removido.');
   }
 
-  void _reordenarExercicios(int oldIndex, int newIndex) {
+  Future<void> _reordenarExercicios(int oldIndex, int newIndex) async {
     final slots = _snapshotSlots();
     final currentSlot = slots[_exercicioAtual];
 
     final moved = slots.removeAt(oldIndex);
     slots.insert(newIndex, moved);
-    _restoreSlots(slots);
-    _exercicioAtual = slots.indexOf(currentSlot);
-    _sincronizarComentario();
-    _restaurarInputsDoExercicio(_exercicioAtual);
+    final persisted = await _persistExerciseSequence(
+      slots.map((slot) => slot.exercicio).toList(growable: false),
+      change: 'reorder',
+    );
+    if (!mounted || !persisted) return;
+    setState(() {
+      _restoreSlots(slots);
+      _exercicioAtual = slots.indexOf(currentSlot);
+      _sincronizarComentario();
+      if (_usesCanonicalSession) {
+        _restoreCanonicalSession(restorePosition: false);
+      }
+      _restaurarInputsDoExercicio(_exercicioAtual);
+    });
   }
 
   Future<void> _abrirReordenarExercicios() async {
@@ -685,8 +935,11 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
               pulados: _exerciciosPulados,
               seriesConcluidas: _seriesConcluidas,
               onReorder: (oldIndex, newIndex) {
-                setState(() => _reordenarExercicios(oldIndex, newIndex));
-                modalSetState(() {});
+                unawaited(
+                  _reordenarExercicios(oldIndex, newIndex).whenComplete(() {
+                    if (context.mounted) modalSetState(() {});
+                  }),
+                );
               },
             );
           },
@@ -695,18 +948,27 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     );
   }
 
-  void _pularExercicioAtual() {
+  Future<void> _pularExercicioAtual() async {
     if (_exercicioAtual >= _totalExercicios - 1) {
       _mostrarMensagem('Não há próximo exercício.');
       return;
     }
 
-    setState(() => _exerciciosPulados.add(_exercicioAtual));
-    _mudarExercicio(_exercicioAtual + 1);
+    final current = _exercicioAtual;
+    await _mudarExercicio(current + 1);
+    if (!mounted) return;
+    setState(() => _exerciciosPulados.add(current));
     _mostrarMensagem('Exercício pulado.');
   }
 
   void _reiniciarExercicioAtual() {
+    if (_usesCanonicalSession &&
+        (_seriesConcluidas[_exercicioAtual]?.isNotEmpty ?? false)) {
+      _mostrarMensagem(
+        'Séries já salvas não podem ser apagadas. Troque o exercício para continuar.',
+      );
+      return;
+    }
     setState(() => _resetarEstadoDoExercicioAtual());
     _mostrarMensagem('Exercício reiniciado.');
   }
@@ -1146,6 +1408,20 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     if (_finalizacaoEmAndamento) return;
 
     _finalizacaoEmAndamento = true;
+    if (_usesCanonicalSession) {
+      final completed = await widget.sessionController!.finishWorkout(
+        _sessaoTreinoId,
+      );
+      if (!mounted) return;
+      if (completed?.status != WorkoutSessionStatus.completed) {
+        _finalizacaoEmAndamento = false;
+        _mostrarMensagem(
+          widget.sessionController!.errorMessage ??
+              'Não foi possível finalizar o treino no dispositivo.',
+        );
+        return;
+      }
+    }
     _treinoTimer?.cancel();
     _descansoTimer?.cancel();
 
@@ -1185,34 +1461,45 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
 
     var recordesBatidos = 0;
 
-    try {
-      await const RecordeService().sincronizarRecordesHistoricos();
-      await _salvarHistoricoIndividualExercicios();
+    if (_usesCanonicalSession) {
+      try {
+        await widget.onXpAtualizado?.call();
+      } on Object {
+        // A finalização canônica já está persistida; efeitos derivados podem
+        // ser reconciliados posteriormente sem reabrir a sessão.
+      }
+    } else {
+      try {
+        await const RecordeService().sincronizarRecordesHistoricos();
+        await _salvarHistoricoIndividualExercicios();
 
-      final seriesSalvas = await StorageService.carregarHistoricoSeriesTreino();
-      final seriesSessao = seriesSalvas.where((serie) {
-        return serie.sessaoTreinoId == historicoBase.id;
-      }).toList();
-      final novosRecordes = await const RecordeService().detectarRecordesTreino(
-        historico: historicoBase,
-        seriesSessao: seriesSessao,
-      );
-      recordesBatidos = novosRecordes.length;
+        final seriesSalvas =
+            await StorageService.carregarHistoricoSeriesTreino();
+        final seriesSessao = seriesSalvas.where((serie) {
+          return serie.sessaoTreinoId == historicoBase.id;
+        }).toList();
+        final novosRecordes = await const RecordeService()
+            .detectarRecordesTreino(
+              historico: historicoBase,
+              seriesSessao: seriesSessao,
+            );
+        recordesBatidos = novosRecordes.length;
 
-      final historico = HistoricoTreinoModel.fromJson({
-        ...historicoBase.toJson(),
-        'recordesBatidos': recordesBatidos,
-      });
+        final historico = HistoricoTreinoModel.fromJson({
+          ...historicoBase.toJson(),
+          'recordesBatidos': recordesBatidos,
+        });
 
-      await StorageService.salvarHistoricoTreino(historico);
-      await _registrarProgressaoSemBloquearResumo();
-      await widget.onXpAtualizado?.call();
-    } catch (erro) {
-      _finalizacaoEmAndamento = false;
-      if (!mounted) return;
+        await StorageService.salvarHistoricoTreino(historico);
+        await _registrarProgressaoSemBloquearResumo();
+        await widget.onXpAtualizado?.call();
+      } catch (erro) {
+        _finalizacaoEmAndamento = false;
+        if (!mounted) return;
 
-      _mostrarMensagem('Não foi possível salvar o treino. Tente novamente.');
-      return;
+        _mostrarMensagem('Não foi possível salvar o treino. Tente novamente.');
+        return;
+      }
     }
 
     if (!mounted) return;
@@ -1277,6 +1564,13 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
       return;
     }
 
+    if (_usesCanonicalSession) {
+      final discarded = await widget.sessionController!.cancelWorkout(
+        _sessaoTreinoId,
+      );
+      if (!mounted || discarded == null) return;
+    }
+
     setState(() => _permitirSair = true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) TreinoNavigation.popOrHome(context);
@@ -1295,6 +1589,13 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
       isDestructive: true,
     );
     if (!mounted || confirmed != true) return;
+
+    if (_usesCanonicalSession) {
+      final discarded = await widget.sessionController!.cancelWorkout(
+        _sessaoTreinoId,
+      );
+      if (!mounted || discarded == null) return;
+    }
 
     _treinoTimer?.cancel();
     _descansoTimer?.cancel();

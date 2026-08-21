@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../../core/navigation/deep_link.dart';
 import '../../../design_system/design_system.dart';
+import '../../../screens/treinos/treino_em_andamento_page.dart';
 import 'core_journey_plans_page.dart';
 import 'core_journey_scope.dart';
 import 'core_journey_summary_page.dart';
 import 'core_journey_ui.dart';
-import 'core_journey_workout_page.dart';
 
 /// Resolve os IDs das rotas publicas do Core V1 para as paginas que usam o
 /// controller compartilhado pelo App Shell. Nenhuma pagina cria repositorio ou
@@ -65,18 +65,18 @@ class CoreJourneyWorkoutRoutePage extends StatelessWidget {
       builder: (context, _) {
         if (controller.isLoading) return const _CoreJourneyRouteLoading();
         final session = controller.sessionById(sessionId);
-        final plan = session == null
+        final workout = session == null
             ? null
-            : controller.planById(session.planId);
-        if (session == null || plan == null) {
+            : controller.workoutForSession(session);
+        if (session == null || workout == null) {
           return const _UnavailableCoreJourneyRoutePage(
             title: 'Sessao nao encontrada',
             description: 'Esta sessao nao esta disponivel neste dispositivo.',
           );
         }
-        return CoreJourneyWorkoutPage(
-          controller: controller,
-          plan: plan,
+        return TreinoEmAndamentoPage(
+          treino: workout,
+          sessionController: controller,
           sessionId: session.id,
         );
       },

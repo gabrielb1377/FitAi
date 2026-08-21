@@ -7,7 +7,7 @@ import '../../workout_vertical_slice/domain/workout_vertical_models.dart';
 import 'core_journey_controller.dart';
 import 'core_journey_scope.dart';
 import 'core_journey_ui.dart';
-import 'core_journey_workout_page.dart';
+import '../../../screens/treinos/treino_em_andamento_page.dart';
 
 class CoreJourneyPlansPage extends StatelessWidget {
   const CoreJourneyPlansPage({super.key, required this.controller});
@@ -203,27 +203,33 @@ class CoreJourneyPlanDetailPage extends StatelessWidget {
       if (!context.mounted) return;
       final existingPlan = controller.planById(active.planId);
       if (existingPlan == null) return;
-      _openWorkout(context, existingPlan, active.id);
+      _openWorkout(context, active.id);
       return;
     }
 
     final session = active ?? await controller.startPlan(plan);
     if (!context.mounted || session == null) return;
-    _openWorkout(context, plan, session.id);
+    _openWorkout(context, session.id);
   }
 
-  void _openWorkout(BuildContext context, TreinoModel plan, String sessionId) {
+  void _openWorkout(BuildContext context, String sessionId) {
     if (CoreJourneyScope.maybeOf(context) != null) {
       Navigator.of(
         context,
       ).pushNamed<void>(AppRoutes.coreWorkout, arguments: sessionId);
       return;
     }
+    final session = controller.sessionById(sessionId);
+    final workout = session == null
+        ? null
+        : controller.workoutForSession(session);
+    if (workout == null) return;
     Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder: (_) => CoreJourneyWorkoutPage(
-          controller: controller,
-          plan: plan,
+        settings: const RouteSettings(name: AppRoutes.coreWorkout),
+        builder: (_) => TreinoEmAndamentoPage(
+          treino: workout,
+          sessionController: controller,
           sessionId: sessionId,
         ),
       ),

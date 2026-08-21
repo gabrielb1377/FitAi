@@ -12,7 +12,7 @@ import '../../../../screens/perfil/agenda_treinos_page.dart';
 import '../../../../screens/perfil/evolucao_page.dart';
 import '../../../../screens/treinos/criar_treino_page.dart';
 import '../../../../screens/treinos/treino_detalhes_page.dart';
-import '../../../../screens/treinos/treino_em_andamento_page.dart';
+import '../../../core_journey/presentation/unified_workout_navigation.dart';
 import '../../../../services/achievement_service.dart';
 import '../../../../services/coach_insight_service.dart';
 import '../../../../services/metas_service.dart';

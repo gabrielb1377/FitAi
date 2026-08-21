@@ -51,6 +51,7 @@ class WorkoutVerticalRepository {
     String? planName,
     String? workoutName,
     double? calories,
+    Map<String, dynamic>? workoutSnapshot,
   }) => _serial(() async {
     final snapshot = await load();
     for (final session in snapshot.sessions.reversed) {
@@ -74,6 +75,7 @@ class WorkoutVerticalRepository {
       planName: planName,
       workoutName: workoutName,
       calories: calories,
+      workoutSnapshot: workoutSnapshot,
     );
     await _persist(
       snapshot.copyWith(
@@ -172,6 +174,87 @@ class WorkoutVerticalRepository {
     WorkoutSessionStatus.active,
     'workout_session_resumed',
   );
+
+  /// Persiste a posicao e o descanso da sessao antes de refletir a mudanca na
+  /// interface. O evento versionado permite replay sem colisao entre avancos.
+  Future<WorkoutSessionLocal> updateProgress({
+    required String sessionId,
+    int? currentExerciseIndex,
+    int? currentSetIndex,
+    DateTime? restEndsAt,
+    bool clearRestEndsAt = false,
+  }) => _serial(() async {
+    final snapshot = await load();
+    final index = snapshot.sessions.indexWhere((item) => item.id == sessionId);
+    if (index < 0) throw StateError('Sessao local nao encontrada.');
+    final current = snapshot.sessions[index];
+    if (!current.isOpen) throw StateError('A sessao nao aceita alteracoes.');
+    final now = _clock();
+    final updated = current.copyWith(
+      currentExerciseIndex: currentExerciseIndex,
+      currentSetIndex: currentSetIndex,
+      restEndsAt: restEndsAt,
+      clearRestEndsAt: clearRestEndsAt,
+      updatedAt: now,
+      syncStatus: WorkoutSyncStatus.pending,
+      version: current.version + 1,
+    );
+    final sessions = [...snapshot.sessions]..[index] = updated;
+    await _persist(
+      snapshot.copyWith(
+        sessions: sessions,
+        outbox: [
+          ...snapshot.outbox,
+          _sessionEvent(updated, 'workout_session_progressed', now),
+        ],
+      ),
+    );
+    return updated;
+  });
+
+  /// Atualiza a prescricao da sessao ativa sem reescrever series concluidas.
+  /// O payload completo permite recuperar adicoes e substituicoes offline.
+  Future<WorkoutSessionLocal> updateWorkoutSnapshot({
+    required String sessionId,
+    required Map<String, dynamic> workoutSnapshot,
+    required String change,
+    String? previousExerciseId,
+    String? exerciseId,
+  }) => _serial(() async {
+    final snapshot = await load();
+    final index = snapshot.sessions.indexWhere((item) => item.id == sessionId);
+    if (index < 0) throw StateError('Sessao local nao encontrada.');
+    final current = snapshot.sessions[index];
+    if (!current.isOpen) throw StateError('A sessao nao aceita alteracoes.');
+    final now = _clock();
+    final updated = current.copyWith(
+      workoutSnapshot: Map<String, dynamic>.from(workoutSnapshot),
+      updatedAt: now,
+      syncStatus: WorkoutSyncStatus.pending,
+      version: current.version + 1,
+    );
+    final changePayload = <String, dynamic>{'change': change};
+    if (previousExerciseId != null) {
+      changePayload['previousExerciseId'] = previousExerciseId;
+    }
+    if (exerciseId != null) changePayload['exerciseId'] = exerciseId;
+    final sessions = [...snapshot.sessions]..[index] = updated;
+    await _persist(
+      snapshot.copyWith(
+        sessions: sessions,
+        outbox: [
+          ...snapshot.outbox,
+          _sessionEvent(
+            updated,
+            'workout_exercise_changed',
+            now,
+            extraPayload: changePayload,
+          ),
+        ],
+      ),
+    );
+    return updated;
+  });
 
   Future<void> finish(String sessionId) => _serial(() async {
     final snapshot = await load();
@@ -391,20 +474,30 @@ class WorkoutVerticalRepository {
   OutboxEventLocal _sessionEvent(
     WorkoutSessionLocal session,
     String type,
-    DateTime now,
-  ) => OutboxEventLocal(
+    DateTime now, {
+    Map<String, dynamic> extraPayload = const {},
+  }) => OutboxEventLocal(
     id: _uuid.v4(),
     aggregateId: session.id,
     sessionId: session.id,
     eventType: type,
-    payload: {'session': session.toJson()},
+    payload: {'session': session.toJson(), ...extraPayload},
     createdAt: now,
     attempts: 0,
     nextAttemptAt: now,
     status: OutboxEventStatus.pending,
-    idempotencyKey: '$type:${session.id}',
+    idempotencyKey: _sessionIdempotencyKey(type, session),
     version: session.version,
   );
+
+  String _sessionIdempotencyKey(String type, WorkoutSessionLocal session) {
+    if (type == 'workout_session_started' ||
+        type == 'workout_session_finished' ||
+        type == 'workout_session_discarded') {
+      return '$type:${session.id}';
+    }
+    return '$type:${session.id}:${session.version}';
+  }
 
   OutboxEventLocal _setEvent(
     String sessionId,

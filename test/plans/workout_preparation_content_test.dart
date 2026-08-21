@@ -1,4 +1,5 @@
 import 'package:fitai/features/plans/workout_execution/pages/workout_preview_page.dart';
+import 'package:fitai/core/navigation/app_routes.dart';
 import 'package:fitai/features/plans/workout_execution/widgets/workout_preparation_content.dart';
 import 'package:fitai/models/exercicio_model.dart';
 import 'package:fitai/models/treino_model.dart';
@@ -9,6 +10,8 @@ import 'package:fitai/screens/treinos/workout_day_page.dart';
 import 'package:fitai/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/core_journey_test_harness.dart';
 
 void main() {
   testWidgets('pre-treino mostra somente dados confiaveis do plano', (
@@ -95,11 +98,16 @@ void main() {
 
     final observer = _RouteObserver();
     final plan = _plan();
+    final coreJourney = await createCoreJourneyTestController([plan]);
+    addTearDown(coreJourney.dispose);
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.dark,
         navigatorObservers: [observer],
-        home: WorkoutPreviewPage(plan: plan, day: buildPlanDays(plan).first),
+        home: coreJourneyTestScope(
+          coreJourney,
+          child: WorkoutPreviewPage(plan: plan, day: buildPlanDays(plan).first),
+        ),
       ),
     );
     await tester.pump();
@@ -259,7 +267,7 @@ class _RouteObserver extends NavigatorObserver {
 
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    if (route.settings.name == null) pushCount += 1;
+    if (route.settings.name == AppRoutes.coreWorkout) pushCount += 1;
     super.didPush(route, previousRoute);
   }
 }

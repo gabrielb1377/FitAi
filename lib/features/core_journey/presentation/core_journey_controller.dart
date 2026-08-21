@@ -123,6 +123,29 @@ class CoreJourneyController extends ChangeNotifier {
     return null;
   }
 
+  /// Resolve a prescricao imutavel gravada com a sessao. O fallback mantem
+  /// compatibilidade com snapshots anteriores ao R1.2.
+  TreinoModel? workoutForSession(WorkoutSessionLocal session) {
+    final persisted = session.workoutSnapshot;
+    if (persisted != null) {
+      try {
+        return TreinoModel.fromJson(persisted);
+      } on Object {
+        // Snapshots antigos ou parcialmente corrompidos usam o plano local.
+      }
+    }
+    final plan = planById(session.planId);
+    if (plan == null) return null;
+    if (plan.id == session.workoutId || plan.planoDias.isEmpty) return plan;
+    for (final day in plan.planoDias) {
+      final workout = plan.somenteDia(day);
+      if (day.codigo == session.workoutId || workout.id == session.workoutId) {
+        return workout;
+      }
+    }
+    return plan;
+  }
+
   List<WorkoutSetLocal> setsFor(String sessionId) => snapshot.sets
       .where((item) => item.sessionId == sessionId)
       .toList(growable: false);
@@ -211,22 +234,140 @@ class CoreJourneyController extends ChangeNotifier {
     }
   }
 
+  Future<WorkoutSessionLocal?> startWorkout({
+    required TreinoModel plan,
+    TreinoModel? workout,
+  }) => _perform(() async {
+    final existing = activeSession;
+    if (existing != null) return existing;
+    final selectedWorkout = workout ?? _firstWorkoutFor(plan);
+    final session = await _requiredRepository.startOrRecover(
+      planId: plan.id,
+      workoutId: selectedWorkout.id,
+      planName: plan.nome,
+      workoutName: selectedWorkout.nome,
+      workoutSnapshot: selectedWorkout.toJson(),
+    );
+    await _reload();
+    unawaited(_flushOutbox());
+    return session;
+  });
+
   Future<WorkoutSessionLocal?> startPlan(TreinoModel plan) =>
+      startWorkout(plan: plan);
+
+  Future<WorkoutSessionLocal?> recoverWorkout([String? sessionId]) async {
+    if (!isReady) await initialize();
+    final recovered = sessionId == null
+        ? activeSession
+        : sessionById(sessionId);
+    return recovered?.isOpen == true ? recovered : null;
+  }
+
+  Future<WorkoutSessionLocal?> pauseWorkout(String sessionId) =>
       _perform(() async {
-        final existing = activeSession;
-        if (existing != null) return existing;
-        final session = await _requiredRepository.startOrRecover(
-          planId: plan.id,
-          workoutId: _workoutIdFor(plan),
-          planName: plan.nome,
-          workoutName: plan.nome,
+        await _requiredRepository.pause(sessionId);
+        await _reload();
+        unawaited(_flushOutbox());
+        return sessionById(sessionId)!;
+      });
+
+  Future<WorkoutSessionLocal?> resumeWorkout(String sessionId) =>
+      _perform(() async {
+        final session = sessionById(sessionId);
+        if (session == null) throw StateError('Treino local nao encontrado.');
+        if (session.status == WorkoutSessionStatus.paused) {
+          await _requiredRepository.resume(sessionId);
+          await _reload();
+          unawaited(_flushOutbox());
+        }
+        return sessionById(sessionId)!;
+      });
+
+  Future<WorkoutSessionLocal?> moveToExercise(
+    String sessionId,
+    int exerciseIndex,
+  ) => _perform(() async {
+    if (exerciseIndex < 0) throw ArgumentError('Exercicio invalido.');
+    await _requiredRepository.updateProgress(
+      sessionId: sessionId,
+      currentExerciseIndex: exerciseIndex,
+      currentSetIndex: 0,
+      clearRestEndsAt: true,
+    );
+    await _reload();
+    unawaited(_flushOutbox());
+    return sessionById(sessionId)!;
+  });
+
+  Future<WorkoutSessionLocal?> startRest(String sessionId, Duration duration) =>
+      _perform(() async {
+        await _requiredRepository.updateProgress(
+          sessionId: sessionId,
+          restEndsAt: DateTime.now().add(duration),
         );
         await _reload();
         unawaited(_flushOutbox());
-        return session;
+        return sessionById(sessionId)!;
       });
 
-  Future<RegisterSetResult?> registerSet({
+  Future<WorkoutSessionLocal?> skipRest(String sessionId) => _perform(() async {
+    await _requiredRepository.updateProgress(
+      sessionId: sessionId,
+      clearRestEndsAt: true,
+    );
+    await _reload();
+    unawaited(_flushOutbox());
+    return sessionById(sessionId)!;
+  });
+
+  Future<WorkoutSessionLocal?> adjustRest(
+    String sessionId,
+    Duration adjustment,
+  ) => _perform(() async {
+    final session = sessionById(sessionId);
+    if (session == null) throw StateError('Treino local nao encontrado.');
+    final now = DateTime.now();
+    final currentEnd = session.restEndsAt ?? now;
+    final adjusted = currentEnd.add(adjustment);
+    await _requiredRepository.updateProgress(
+      sessionId: sessionId,
+      restEndsAt: adjusted.isAfter(now) ? adjusted : null,
+      clearRestEndsAt: !adjusted.isAfter(now),
+    );
+    await _reload();
+    unawaited(_flushOutbox());
+    return sessionById(sessionId)!;
+  });
+
+  Future<TreinoModel?> updateWorkoutExercises({
+    required String sessionId,
+    required List<ExercicioModel> exercises,
+    required String change,
+    String? previousExerciseId,
+    String? exerciseId,
+  }) => _perform(() async {
+    final session = sessionById(sessionId);
+    if (session == null) throw StateError('Treino local nao encontrado.');
+    final workout = workoutForSession(session);
+    if (workout == null) throw StateError('Treino local nao encontrado.');
+    final updated = TreinoModel.fromJson({
+      ...workout.toJson(),
+      'exercicios': exercises.map((item) => item.toJson()).toList(),
+    });
+    await _requiredRepository.updateWorkoutSnapshot(
+      sessionId: sessionId,
+      workoutSnapshot: updated.toJson(),
+      change: change,
+      previousExerciseId: previousExerciseId,
+      exerciseId: exerciseId,
+    );
+    await _reload();
+    unawaited(_flushOutbox());
+    return updated;
+  });
+
+  Future<RegisterSetResult?> completeSet({
     required String sessionId,
     required ExercicioModel exercise,
     required double weight,
@@ -238,27 +379,38 @@ class CoreJourneyController extends ChangeNotifier {
     if (session == null || !session.isOpen) {
       throw StateError('Este treino nao esta disponivel para novas series.');
     }
-    final plan = planById(session.planId);
+    final workout = workoutForSession(session);
     final completedForExercise = setsFor(
       sessionId,
     ).where((item) => item.exerciseId == exercise.id).length;
-    if (completedForExercise >= exercise.series) {
+    final targetSets = exercise.series <= 0 ? 3 : exercise.series;
+    if (completedForExercise >= targetSets) {
       throw StateError('Todas as series deste exercicio ja foram registradas.');
     }
-    final isLastSet = completedForExercise + 1 >= exercise.series;
+    final exerciseIndex = workout?.exercicios.indexWhere(
+      (item) => item.id == exercise.id,
+    );
+    final resolvedExerciseIndex = exerciseIndex == null || exerciseIndex < 0
+        ? session.currentExerciseIndex
+        : exerciseIndex;
+    final isLastSet = completedForExercise + 1 >= targetSets;
     final hasNextExercise =
-        plan != null &&
-        session.currentExerciseIndex + 1 < plan.exercicios.length;
+        workout != null &&
+        resolvedExerciseIndex + 1 < workout.exercicios.length;
     final result = await _requiredRepository.registerSet(
       sessionId: sessionId,
       exerciseId: exercise.id,
-      setIndex: session.currentSetIndex,
+      setIndex: completedForExercise,
       weight: weight,
       reps: reps,
-      restDuration: Duration(seconds: exercise.descansoSegundos),
+      restDuration: Duration(
+        seconds: exercise.descansoSegundos <= 0
+            ? 60
+            : exercise.descansoSegundos,
+      ),
       nextExerciseIndex: isLastSet && hasNextExercise
-          ? session.currentExerciseIndex + 1
-          : session.currentExerciseIndex,
+          ? resolvedExerciseIndex + 1
+          : resolvedExerciseIndex,
       nextSetIndex: isLastSet && hasNextExercise
           ? 0
           : session.currentSetIndex + 1,
@@ -271,6 +423,22 @@ class CoreJourneyController extends ChangeNotifier {
     return result;
   });
 
+  Future<RegisterSetResult?> registerSet({
+    required String sessionId,
+    required ExercicioModel exercise,
+    required double weight,
+    required int reps,
+    double? rpe,
+    String? notes,
+  }) => completeSet(
+    sessionId: sessionId,
+    exercise: exercise,
+    weight: weight,
+    reps: reps,
+    rpe: rpe,
+    notes: notes,
+  );
+
   Future<WorkoutSessionLocal?> finishWorkout(String sessionId) =>
       _perform(() async {
         final session = sessionById(sessionId);
@@ -279,6 +447,18 @@ class CoreJourneyController extends ChangeNotifier {
         await _requiredRepository.finish(sessionId);
         await _reload();
         unawaited(_flushOutbox());
+        return sessionById(sessionId)!;
+      });
+
+  Future<WorkoutSessionLocal?> cancelWorkout(String sessionId) =>
+      _perform(() async {
+        final session = sessionById(sessionId);
+        if (session == null) throw StateError('Treino local nao encontrado.');
+        if (session.status != WorkoutSessionStatus.discarded) {
+          await _requiredRepository.discard(sessionId);
+          await _reload();
+          unawaited(_flushOutbox());
+        }
         return sessionById(sessionId)!;
       });
 
@@ -451,10 +631,13 @@ class CoreJourneyController extends ChangeNotifier {
     return runtime.useFakeWorkout ? DevFixtures.workouts : const [];
   }
 
-  String _workoutIdFor(TreinoModel plan) {
-    final day = plan.planoDias.isEmpty ? null : plan.planoDias.first;
-    return day == null || day.codigo.trim().isEmpty ? plan.id : day.codigo;
-  }
+  TreinoModel _firstWorkoutFor(TreinoModel plan) => plan.planoDias.isEmpty
+      ? plan
+      : plan.somenteDia(
+          ([
+            ...plan.planoDias,
+          ]..sort((a, b) => a.ordem.compareTo(b.ordem))).first,
+        );
 
   WorkoutExerciseMetadata? _exerciseMetadataForId(String exerciseId) {
     for (final plan in plans) {

@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../../../design_system/fit_design_system.dart';
 import '../../../../features/settings/application/settings_runtime.dart';
+import '../../../../features/core_journey/presentation/unified_workout_navigation.dart';
 import '../../../../models/exercicio_model.dart';
 import '../../../../models/treino_model.dart';
 import '../../../../screens/treinos/controllers/plan_day_data.dart';
 import '../../../../screens/treinos/exercicio_detalhe_page.dart';
-import '../../../../screens/treinos/treino_em_andamento_page.dart';
 import '../../../../screens/treinos/workout_day_page.dart';
 import '../widgets/workout_preparation_content.dart';
 
@@ -59,15 +59,15 @@ class _WorkoutPreviewPageState extends State<WorkoutPreviewPage> {
   int _minutes(TreinoModel plan) =>
       plan.tempoEstimado <= 0 ? 45 : plan.tempoEstimado;
 
-  Future<void> _startWorkout() => Navigator.of(context).push<void>(
-    MaterialPageRoute(
-      builder: (_) => TreinoEmAndamentoPage(
-        treino: widget.day.workout,
-        nomeDia: widget.day.label,
-        grupoDia: widget.day.title,
-      ),
-    ),
-  );
+  Future<void> _startWorkout() async {
+    await UnifiedWorkoutNavigation.startAndOpen(
+      context,
+      plan: widget.plan,
+      workout: widget.day.workout,
+      dayName: widget.day.label,
+      muscleGroup: widget.day.title,
+    );
+  }
 
   void _openExercise(ExercicioModel exercise) {
     Navigator.of(context).push<void>(

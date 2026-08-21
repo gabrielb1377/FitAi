@@ -7,7 +7,7 @@ import 'core_journey_controller.dart';
 import 'core_journey_summary_page.dart';
 import 'core_journey_scope.dart';
 import 'core_journey_ui.dart';
-import 'core_journey_workout_page.dart';
+import '../../../screens/treinos/treino_em_andamento_page.dart';
 
 class CoreJourneyHomePage extends StatelessWidget {
   const CoreJourneyHomePage({
@@ -81,13 +81,14 @@ class CoreJourneyHomePage extends StatelessWidget {
       ).pushNamed<void>(AppRoutes.coreWorkout, arguments: session.id);
       return;
     }
-    final plan = controller.planById(session.planId);
-    if (plan == null) return;
+    final workout = controller.workoutForSession(session);
+    if (workout == null) return;
     Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder: (_) => CoreJourneyWorkoutPage(
-          controller: controller,
-          plan: plan,
+        settings: const RouteSettings(name: AppRoutes.coreWorkout),
+        builder: (_) => TreinoEmAndamentoPage(
+          treino: workout,
+          sessionController: controller,
           sessionId: session.id,
         ),
       ),

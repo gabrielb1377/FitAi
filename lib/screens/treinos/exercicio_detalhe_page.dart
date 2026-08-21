@@ -10,7 +10,7 @@ import '../../services/exercise_progression_service.dart';
 import '../../services/progressao_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/treino_service.dart';
-import 'treino_em_andamento_page.dart';
+import '../../features/core_journey/presentation/unified_workout_navigation.dart';
 import 'treino_navigation.dart';
 import 'widgets/exercise_coach_insights_card.dart';
 import 'widgets/exercise_next_progression_card.dart';
@@ -431,9 +431,10 @@ class _ExercicioDetalhePageState extends State<ExercicioDetalhePage> {
       dataCriacao: DateTime.now().toIso8601String(),
     );
     TreinoService.instance.adicionarTreino(workout);
-    await Navigator.push<void>(
+    await UnifiedWorkoutNavigation.startAndOpen(
       context,
-      MaterialPageRoute(builder: (_) => TreinoEmAndamentoPage(treino: workout)),
+      plan: workout,
+      workout: workout,
     );
     if (mounted) _reload();
   }

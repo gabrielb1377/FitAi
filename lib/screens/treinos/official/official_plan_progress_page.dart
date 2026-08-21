@@ -4,6 +4,7 @@ import '../../../models/treino_model.dart';
 import '../controllers/plan_day_data.dart';
 import '../controllers/plan_progress_snapshot.dart';
 import '../workout_day_page.dart';
+import 'official_plan_options_page.dart';
 import 'official_plan_ui.dart';
 
 class OfficialPlanProgressPage extends StatelessWidget {
@@ -42,7 +43,12 @@ class OfficialPlanProgressPage extends StatelessWidget {
                 trailing: OfficialPlanIconButton(
                   icon: Icons.more_vert_rounded,
                   tooltip: 'Mais opções',
-                  onPressed: () {},
+                  onPressed: () => Navigator.push<void>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => OfficialPlanOptionsPage(plan: plan),
+                    ),
+                  ),
                 ),
               ),
               OfficialPlanTabs(

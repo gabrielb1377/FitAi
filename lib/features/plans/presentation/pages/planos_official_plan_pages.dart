@@ -5,6 +5,7 @@ import '../../../../models/exercicio_model.dart';
 import '../../../../models/treino_model.dart';
 import '../../../../screens/treinos/controllers/plan_day_data.dart';
 import '../../../../screens/treinos/controllers/plan_progress_snapshot.dart';
+import '../../../../screens/treinos/exercicio_detalhe_page.dart';
 import '../../../../services/treino_service.dart';
 import '../../../core_journey/presentation/core_journey_scope.dart';
 import '../../domain/workout_history_models.dart';
@@ -366,7 +367,11 @@ class PlanosWorkoutDetailPage extends StatelessWidget {
   ) {
     return FitCard(
       variant: FitCardVariant.clickable,
-      onTap: () {},
+      onTap: () => Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => ExercicioDetalhePage(exercicio: exercise),
+        ),
+      ),
       padding: const EdgeInsets.all(FitSpacing.s12),
       child: Row(
         children: [
@@ -823,7 +828,9 @@ class _PlanosCalendarPageState extends State<PlanosCalendarPage> {
                 FitOutlinedButton(
                   label: 'Iniciar',
                   size: FitButtonSize.small,
-                  onPressed: () {},
+                  onPressed: widget.plan == null
+                      ? null
+                      : () => _openNextWorkout(context),
                 ),
               ],
             ),
@@ -839,6 +846,18 @@ class _PlanosCalendarPageState extends State<PlanosCalendarPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _openNextWorkout(BuildContext context) {
+    final plan = widget.plan;
+    if (plan == null) return;
+    final days = buildPlanDays(plan);
+    if (days.isEmpty) return;
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => WorkoutPreviewPage(plan: plan, day: days.first),
       ),
     );
   }

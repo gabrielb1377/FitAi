@@ -4,13 +4,11 @@ extension _HomePageNavigation on _HomePageState {
   Future<void> _openSelectedWorkout() async {
     final workout = _controller.state.selection.treino;
     if (workout == null) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => TreinoEmAndamentoPage(
-          treino: workout,
-          onXpAtualizado: widget.onXpAtualizado,
-        ),
-      ),
+    await UnifiedWorkoutNavigation.startAndOpen(
+      context,
+      plan: workout,
+      workout: workout,
+      onXpUpdated: widget.onXpAtualizado,
     );
     await widget.onXpAtualizado?.call();
     await _refresh();
@@ -109,10 +107,10 @@ extension _HomePageNavigation on _HomePageState {
     if (item.acao.startsWith('treino:')) {
       final workout = await _findWorkout(item.acao.substring(7));
       if (!mounted || workout == null) return;
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => TreinoEmAndamentoPage(treino: workout),
-        ),
+      await UnifiedWorkoutNavigation.startAndOpen(
+        context,
+        plan: workout,
+        workout: workout,
       );
       return;
     }

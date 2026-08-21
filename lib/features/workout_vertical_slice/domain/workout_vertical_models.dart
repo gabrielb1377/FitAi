@@ -34,6 +34,7 @@ class WorkoutSessionLocal {
     this.planName,
     this.workoutName,
     this.calories,
+    this.workoutSnapshot,
   });
 
   final String id;
@@ -51,6 +52,7 @@ class WorkoutSessionLocal {
   final String? planName;
   final String? workoutName;
   final double? calories;
+  final Map<String, dynamic>? workoutSnapshot;
 
   bool get isOpen =>
       status == WorkoutSessionStatus.active ||
@@ -69,6 +71,7 @@ class WorkoutSessionLocal {
     String? planName,
     String? workoutName,
     double? calories,
+    Map<String, dynamic>? workoutSnapshot,
   }) {
     return WorkoutSessionLocal(
       id: id,
@@ -86,6 +89,7 @@ class WorkoutSessionLocal {
       planName: planName ?? this.planName,
       workoutName: workoutName ?? this.workoutName,
       calories: calories ?? this.calories,
+      workoutSnapshot: workoutSnapshot ?? this.workoutSnapshot,
     );
   }
 
@@ -105,6 +109,7 @@ class WorkoutSessionLocal {
     'planName': planName,
     'workoutName': workoutName,
     'calories': calories,
+    'workoutSnapshot': workoutSnapshot,
   };
 
   factory WorkoutSessionLocal.fromJson(Map<String, dynamic> json) {
@@ -124,6 +129,7 @@ class WorkoutSessionLocal {
       planName: _nullableString(json['planName']),
       workoutName: _nullableString(json['workoutName']),
       calories: _nullableDouble(json['calories']),
+      workoutSnapshot: _nullableMap(json['workoutSnapshot']),
     );
   }
 }
@@ -429,3 +435,6 @@ String? _nullableString(Object? value) {
 
 double? _nullableDouble(Object? value) =>
     value is num ? value.toDouble() : double.tryParse(value?.toString() ?? '');
+
+Map<String, dynamic>? _nullableMap(Object? value) =>
+    value is Map ? Map<String, dynamic>.from(value) : null;

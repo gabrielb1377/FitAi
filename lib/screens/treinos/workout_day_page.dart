@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../design_system/fit_design_system.dart';
+import '../../features/core_journey/presentation/unified_workout_navigation.dart';
 import '../../models/exercicio_model.dart';
 import '../../models/treino_model.dart';
 import 'controllers/plan_day_data.dart';
 import 'exercicio_detalhe_page.dart';
-import 'treino_em_andamento_page.dart';
 import 'treino_navigation.dart';
 import 'widgets/plans/plan_media.dart';
 
@@ -134,15 +134,12 @@ class WorkoutDayPage extends StatelessWidget {
           child: FitButton(
             label: 'Iniciar treino',
             icon: Icons.play_arrow_rounded,
-            onPressed: () => Navigator.push<void>(
+            onPressed: () => UnifiedWorkoutNavigation.startAndOpen(
               context,
-              MaterialPageRoute(
-                builder: (_) => TreinoEmAndamentoPage(
-                  treino: day.workout,
-                  nomeDia: day.label,
-                  grupoDia: day.title,
-                ),
-              ),
+              plan: plan,
+              workout: day.workout,
+              dayName: day.label,
+              muscleGroup: day.title,
             ),
             expand: true,
           ),

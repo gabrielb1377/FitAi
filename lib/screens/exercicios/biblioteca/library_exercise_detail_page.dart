@@ -16,7 +16,7 @@ import '../../../services/exercise_history_service.dart';
 import '../../../services/exercise_progression_service.dart';
 import '../../../services/storage_service.dart';
 import '../../../widgets/exercicio_gif_viewer.dart';
-import '../../treinos/treino_em_andamento_page.dart';
+import '../../../features/core_journey/presentation/unified_workout_navigation.dart';
 import '../../treinos/widgets/exercise_next_progression_card.dart';
 import 'library_catalog_controller.dart';
 import 'library_comparison_sheet.dart';
@@ -1009,22 +1009,21 @@ class _BibliotecaExercicioDetalhePageState
     final now = DateTime.now();
     await widget.onQuickWorkoutStarted?.call();
     if (!mounted) return;
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute(
-        builder: (_) => TreinoEmAndamentoPage(
-          treino: TreinoModel(
-            id: 'execucao_${exercise.id}_${now.microsecondsSinceEpoch}',
-            nome: 'Treino rápido - ${exercise.nome}',
-            descricao: 'Execução rápida iniciada pela Biblioteca.',
-            objetivo: exercise.objetivo,
-            nivel: exercise.dificuldade,
-            tempoEstimado: 8,
-            criadoPorIA: false,
-            exercicios: [exercise],
-            dataCriacao: now.toIso8601String(),
-          ),
-        ),
-      ),
+    final workout = TreinoModel(
+      id: 'execucao_${exercise.id}_${now.microsecondsSinceEpoch}',
+      nome: 'Treino rápido - ${exercise.nome}',
+      descricao: 'Execução rápida iniciada pela Biblioteca.',
+      objetivo: exercise.objetivo,
+      nivel: exercise.dificuldade,
+      tempoEstimado: 8,
+      criadoPorIA: false,
+      exercicios: [exercise],
+      dataCriacao: now.toIso8601String(),
+    );
+    await UnifiedWorkoutNavigation.startAndOpen(
+      context,
+      plan: workout,
+      workout: workout,
     );
   }
 

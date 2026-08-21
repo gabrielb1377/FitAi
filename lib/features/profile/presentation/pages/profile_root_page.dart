@@ -142,7 +142,12 @@ class _ProfileRootPageState extends State<ProfileRootPage> {
         snapshot.progression.events.isEmpty;
   }
 
-  void _openEdit() => _openRoute(ProfileRoutes.edit);
+  void _openEdit() => unawaited(_openEditAndRefresh());
+
+  Future<void> _openEditAndRefresh() async {
+    await Navigator.of(context).pushNamed(ProfileRoutes.edit);
+    if (mounted) await _controller.refresh();
+  }
 
   void _openRoute(String route) => Navigator.of(context).pushNamed(route);
 
