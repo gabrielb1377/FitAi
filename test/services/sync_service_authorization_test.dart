@@ -54,6 +54,53 @@ void main() {
         jsonDecode(client.requests.single.body) as Map<String, dynamic>;
     expect(payload['clientId'], isNotEmpty);
   });
+
+  test(
+    'fila legada de A permanece pendente quando B entra na mesma instalacao',
+    () async {
+      final storeA = InMemoryAuthSessionStore();
+      await storeA.write(
+        jsonEncode(
+          AuthSession(
+            userId: 'user-a',
+            name: 'Conta A',
+            email: 'a@fitia.test',
+            token: _validToken(),
+          ).toJson(),
+        ),
+      );
+      final offline = SyncService.forTesting(
+        networkService: NetworkService(client: _OfflineClient()),
+        authService: AuthService(bypassLogin: false, sessionStore: storeA),
+      );
+      await offline.syncGoals([
+        {'id': 'goal-a', 'title': 'Meta da conta A'},
+      ]);
+      expect(await offline.pendingCount(), 1);
+
+      final storeB = InMemoryAuthSessionStore();
+      await storeB.write(
+        jsonEncode(
+          AuthSession(
+            userId: 'user-b',
+            name: 'Conta B',
+            email: 'b@fitia.test',
+            token: _validToken(),
+          ).toJson(),
+        ),
+      );
+      final onlineClient = _HealthAndCaptureClient();
+      final accountB = SyncService.forTesting(
+        networkService: NetworkService(client: onlineClient),
+        authService: AuthService(bypassLogin: false, sessionStore: storeB),
+      );
+
+      await accountB.flushPending();
+
+      expect(await accountB.pendingCount(), 1);
+      expect(onlineClient.postRequests, isEmpty);
+    },
+  );
 }
 
 String _validToken() {
@@ -97,6 +144,29 @@ class _CapturingClient extends http.BaseClient {
     requests.add(
       _CapturedRequest(Map<String, String>.from(request.headers), body),
     );
+    return http.StreamedResponse(
+      Stream<List<int>>.value(utf8.encode('{}')),
+      200,
+      headers: const {'content-type': 'application/json'},
+    );
+  }
+}
+
+class _OfflineClient extends http.BaseClient {
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    throw http.ClientException('offline');
+  }
+}
+
+class _HealthAndCaptureClient extends http.BaseClient {
+  final List<http.Request> postRequests = [];
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    if (request.method == 'POST' && request is http.Request) {
+      postRequests.add(request);
+    }
     return http.StreamedResponse(
       Stream<List<int>>.value(utf8.encode('{}')),
       200,

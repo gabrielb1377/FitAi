@@ -37,18 +37,22 @@ class AuthSession {
     required this.name,
     required this.email,
     required this.token,
+    this.refreshToken,
   });
 
   final String userId;
   final String name;
   final String email;
   final String token;
+  final String? refreshToken;
 
   Map<String, String> toJson() => {
     'userId': userId,
     'name': name,
     'email': email,
     'token': token,
+    if (refreshToken != null && refreshToken!.isNotEmpty)
+      'refreshToken': refreshToken!,
   };
 
   factory AuthSession.fromJson(Map<String, dynamic> json) {
@@ -64,10 +68,20 @@ class AuthSession {
       );
     }
 
-    return AuthSession(userId: userId, name: name, email: email, token: token);
+    return AuthSession(
+      userId: userId,
+      name: name,
+      email: email,
+      token: token,
+      refreshToken: _optionalText(json['refreshToken']),
+    );
   }
 
   static String _text(Object? value) => value?.toString().trim() ?? '';
+  static String? _optionalText(Object? value) {
+    final text = _text(value);
+    return text.isEmpty ? null : text;
+  }
 }
 
 /// Respostas essenciais do onboarding curto. Dados clinicos, integracoes e
@@ -140,6 +154,7 @@ class AuthService {
   final http.Client _client;
   final bool _bypassLogin;
   final AuthSessionStore _sessionStore;
+  Future<AuthSession?>? _refreshInFlight;
 
   Future<AuthLaunchDestination> resolveLaunchDestination() async {
     if (_bypassLogin) return AuthLaunchDestination.appShell;
@@ -198,8 +213,7 @@ class AuthService {
 
       final session = AuthSession.fromJson(Map<String, dynamic>.from(decoded));
       if (_isTokenExpired(session.token)) {
-        await clearSession();
-        return null;
+        return refreshSession(session: session);
       }
 
       await LocalAccountDataBoundary().activate(
@@ -239,6 +253,99 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     await Future.wait([_sessionStore.delete(), prefs.remove(_sessionKey)]);
     AccountSessionLifecycle.setActiveUser(null);
+  }
+
+  /// Revoga as credenciais renováveis no backend quando houver conexão e
+  /// sempre encerra a sessão local. A outbox e os dados por conta permanecem.
+  Future<void> logout() async {
+    final session = await restoreSession();
+    if (session != null) {
+      try {
+        await _client
+            .post(
+              ApiConfig.endpoint('/auth/logout'),
+              headers: {
+                'Accept': 'application/json',
+                'Authorization': 'Bearer ${session.token}',
+              },
+            )
+            .timeout(ApiConfig.timeout);
+      } on Object catch (error) {
+        _debugLog(
+          'Logout remoto indisponivel; sessao local sera encerrada: $error',
+        );
+      }
+    }
+    await clearSession();
+  }
+
+  /// Renova uma sessão expirada uma única vez para chamadas concorrentes.
+  /// Falhas definitivas removem apenas a credencial; falhas de rede mantêm os
+  /// dados locais e a outbox para nova autenticação ou retry posterior.
+  Future<AuthSession?> refreshSession({AuthSession? session}) {
+    final pending = _refreshInFlight;
+    if (pending != null) return pending;
+    final refresh = _refreshSession(session);
+    _refreshInFlight = refresh;
+    return refresh.whenComplete(() {
+      if (identical(_refreshInFlight, refresh)) _refreshInFlight = null;
+    });
+  }
+
+  Future<AuthSession?> _refreshSession(AuthSession? current) async {
+    AuthSession? session = current;
+    if (session == null) {
+      final raw = await _readPersistedSession();
+      if (raw == null || raw.isEmpty) return null;
+      try {
+        session = AuthSession.fromJson(
+          Map<String, dynamic>.from(jsonDecode(raw) as Map),
+        );
+      } on Object {
+        await clearSession();
+        return null;
+      }
+    }
+
+    final refreshToken = session.refreshToken;
+    if (refreshToken == null || refreshToken.isEmpty) {
+      await clearSession();
+      return null;
+    }
+
+    try {
+      final response = await _client
+          .post(
+            ApiConfig.endpoint('/auth/refresh'),
+            headers: const {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode({'refreshToken': refreshToken}),
+          )
+          .timeout(ApiConfig.timeout);
+      final body = _decodeObject(response.body);
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        await clearSession();
+        return null;
+      }
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw _mapResponseError(response.statusCode, body);
+      }
+      final refreshed = _sessionFromResponse(body);
+      await _persistSession(refreshed);
+      return refreshed;
+    } on TimeoutException {
+      throw const AuthException(
+        'Nao foi possivel renovar a sessao sem conexao.',
+        AuthFailureKind.offline,
+      );
+    } on http.ClientException {
+      throw const AuthException(
+        'Nao foi possivel renovar a sessao sem conexao.',
+        AuthFailureKind.offline,
+      );
+    }
   }
 
   Future<AuthSession> _authenticate(
@@ -338,6 +445,7 @@ class AuthService {
   AuthSession _sessionFromResponse(Map<String, dynamic> response) {
     final user = response['user'];
     final token = _text(response['token']);
+    final refreshToken = _text(response['refreshToken']);
     if (user is! Map || token.isEmpty) {
       throw const AuthException(
         'Resposta de autenticacao invalida.',
@@ -350,6 +458,7 @@ class AuthService {
       'name': user['name'],
       'email': user['email'],
       'token': token,
+      if (refreshToken.isNotEmpty) 'refreshToken': refreshToken,
     });
   }
 

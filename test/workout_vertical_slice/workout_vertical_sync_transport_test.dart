@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:fitai/core/api/api_config.dart';
+import 'package:fitai/features/auth/data/auth_service.dart';
+import 'package:fitai/features/auth/data/auth_session_store.dart';
 import 'package:fitai/features/workout_vertical_slice/data/workout_vertical_sync_transport.dart';
 import 'package:fitai/features/workout_vertical_slice/domain/workout_vertical_models.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -104,6 +106,70 @@ void main() {
     },
   );
 
+  test('renova a sessao uma vez e repete o evento apos 401', () async {
+    final authStore = InMemoryAuthSessionStore();
+    await authStore.write(
+      jsonEncode(
+        AuthSession(
+          userId: 'user-1',
+          name: 'Gabriel',
+          email: 'gabriel@fitia.test',
+          token: _token(expiry: DateTime.now().add(const Duration(hours: 1))),
+          refreshToken: 'refresh-1',
+        ).toJson(),
+      ),
+    );
+    var refreshCalls = 0;
+    final auth = AuthService(
+      bypassLogin: false,
+      sessionStore: authStore,
+      client: MockClient((request) async {
+        expect(request.url.path, '/auth/refresh');
+        refreshCalls += 1;
+        return http.Response(
+          jsonEncode({
+            'token': _token(
+              expiry: DateTime.now().add(const Duration(hours: 1)),
+            ),
+            'refreshToken': 'refresh-2',
+            'user': {
+              'id': 'user-1',
+              'name': 'Gabriel',
+              'email': 'gabriel@fitia.test',
+            },
+          }),
+          200,
+        );
+      }),
+    );
+    var attempts = 0;
+    final transport = HttpWorkoutSyncTransport(
+      authService: auth,
+      client: MockClient((_) async {
+        attempts += 1;
+        if (attempts == 1) return http.Response('{}', 401);
+        return http.Response(
+          jsonEncode({
+            'accepted': [
+              {'eventId': _event().id},
+            ],
+            'alreadyProcessed': const [],
+            'conflicts': const [],
+            'rejected': const [],
+          }),
+          200,
+        );
+      }),
+    );
+
+    expect(
+      (await transport.dispatch(_event())).status,
+      SyncDispatchStatus.confirmed,
+    );
+    expect(attempts, 2);
+    expect(refreshCalls, 1);
+  });
+
   test('marca indisponibilidade quando o transporte HTTP falha', () async {
     final transport = HttpWorkoutSyncTransport(
       client: MockClient((_) async => throw http.ClientException('offline')),
@@ -160,3 +226,9 @@ OutboxEventLocal _event() => OutboxEventLocal(
   idempotencyKey: 'workout_session_started:session-1',
   version: 1,
 );
+
+String _token({required DateTime expiry}) {
+  String encode(Object value) =>
+      base64Url.encode(utf8.encode(jsonEncode(value))).replaceAll('=', '');
+  return '${encode({'alg': 'none'})}.${encode({'exp': expiry.millisecondsSinceEpoch ~/ 1000})}.signature';
+}

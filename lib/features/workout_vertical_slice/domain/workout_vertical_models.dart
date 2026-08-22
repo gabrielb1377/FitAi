@@ -402,10 +402,15 @@ class SyncDispatchResult {
 }
 
 class WorkoutSyncTransportException implements Exception {
-  const WorkoutSyncTransportException(this.message, {required this.retryable});
+  const WorkoutSyncTransportException(
+    this.message, {
+    required this.retryable,
+    this.statusCode,
+  });
 
   final String message;
   final bool retryable;
+  final int? statusCode;
 
   @override
   String toString() => 'WorkoutSyncTransportException: $message';

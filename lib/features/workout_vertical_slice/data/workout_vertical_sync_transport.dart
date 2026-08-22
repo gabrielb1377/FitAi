@@ -95,10 +95,17 @@ class HttpWorkoutSyncTransport
     if (session == null) {
       throw const WorkoutSyncTransportException(
         'Sessao autenticada necessaria para sincronizar.',
-        retryable: false,
+        retryable: true,
       );
     }
-    return dispatchWithToken(event, session.token);
+    try {
+      return await dispatchWithToken(event, session.token);
+    } on WorkoutSyncTransportException catch (error) {
+      if (error.statusCode != 401 && error.statusCode != 403) rethrow;
+      final refreshed = await _authService.refreshSession();
+      if (refreshed == null) rethrow;
+      return dispatchWithToken(event, refreshed.token);
+    }
   }
 
   Future<SyncDispatchResult> dispatchWithToken(
@@ -119,6 +126,7 @@ class HttpWorkoutSyncTransport
             response.statusCode == 403 ||
             response.statusCode == 429 ||
             response.statusCode >= 500,
+        statusCode: response.statusCode,
       );
     }
 

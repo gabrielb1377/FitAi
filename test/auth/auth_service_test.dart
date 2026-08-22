@@ -202,6 +202,96 @@ void main() {
     );
   });
 
+  test(
+    'refresh renova sessao expirada uma unica vez para chamadas concorrentes',
+    () async {
+      final store = InMemoryAuthSessionStore();
+      var refreshCalls = 0;
+      await store.write(
+        jsonEncode(
+          AuthSession(
+            userId: 'user-1',
+            name: 'Gabriel',
+            email: 'gabriel@fitia.app',
+            token: _token(expiry: DateTime(2020)),
+            refreshToken: 'refresh-1',
+          ).toJson(),
+        ),
+      );
+      final service = AuthService(
+        client: MockClient((request) async {
+          if (request.url.path == '/auth/refresh') {
+            refreshCalls += 1;
+            return _ok(refreshToken: 'refresh-2');
+          }
+          return _ok();
+        }),
+        bypassLogin: false,
+        sessionStore: store,
+      );
+
+      final sessions = await Future.wait([
+        service.restoreSession(),
+        service.restoreSession(),
+      ]);
+
+      expect(refreshCalls, 1);
+      expect(
+        sessions.every((session) => session?.refreshToken == 'refresh-2'),
+        isTrue,
+      );
+    },
+  );
+
+  test('refresh revogado encerra somente a sessao local', () async {
+    final store = InMemoryAuthSessionStore();
+    await store.write(
+      jsonEncode(
+        AuthSession(
+          userId: 'user-1',
+          name: 'Gabriel',
+          email: 'gabriel@fitia.app',
+          token: _token(expiry: DateTime(2020)),
+          refreshToken: 'revogado',
+        ).toJson(),
+      ),
+    );
+    final service = AuthService(
+      client: MockClient((_) async => http.Response('{}', 401)),
+      bypassLogin: false,
+      sessionStore: store,
+    );
+
+    expect(await service.restoreSession(), isNull);
+    expect(await store.read(), isNull);
+  });
+
+  test('logout remoto limpa a sessao mesmo quando a rede falha', () async {
+    final store = InMemoryAuthSessionStore();
+    await store.write(
+      jsonEncode(
+        AuthSession(
+          userId: 'user-1',
+          name: 'Gabriel',
+          email: 'gabriel@fitia.app',
+          token: _token(),
+          refreshToken: 'refresh-1',
+        ).toJson(),
+      ),
+    );
+    final service = AuthService(
+      client: MockClient((request) async {
+        expect(request.url.path, '/auth/logout');
+        return http.Response('', 204);
+      }),
+      bypassLogin: false,
+      sessionStore: store,
+    );
+
+    await service.logout();
+    expect(await store.read(), isNull);
+  });
+
   test('debug pode pular login sem persistir sessao falsa', () async {
     final service = AuthService(
       client: MockClient((_) async => _ok()),
@@ -226,9 +316,11 @@ http.Response _ok({
   int statusCode = 200,
   String userId = 'user-1',
   String name = 'Gabriel',
+  String? refreshToken,
 }) => http.Response(
   jsonEncode({
     'token': _token(),
+    'refreshToken': ?refreshToken,
     'user': {'id': userId, 'name': name, 'email': 'gabriel@fitia.app'},
   }),
   statusCode,

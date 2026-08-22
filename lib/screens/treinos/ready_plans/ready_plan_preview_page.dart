@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../models/ready_plan_model.dart';
+import '../../../features/auth/data/auth_service.dart';
 import '../../../services/ready_plan_favorites_service.dart';
 import '../../../services/ready_plan_mapper.dart';
 import '../../../services/ready_plans_service.dart';
@@ -77,8 +78,19 @@ class _ReadyPlanPreviewPageState extends State<ReadyPlanPreviewPage> {
     if (plan == null || !_canAdd) return;
     setState(() => _adding = true);
     try {
+      final session = await AuthService().restoreSession();
+      if (session == null) {
+        throw const ReadyPlansException(
+          'Autenticacao necessaria para adicionar este plano.',
+          statusCode: 401,
+        );
+      }
       final clientId = await SyncService.instance.getClientId();
-      final copied = await _service.copyReadyPlan(plan.id, clientId: clientId);
+      final copied = await _service.copyReadyPlan(
+        plan.id,
+        bearerToken: session.token,
+        clientId: clientId,
+      );
       await TreinoService.instance.adicionarTreinoComPersistencia(
         ReadyPlanMapper.toTreino(
           plan,

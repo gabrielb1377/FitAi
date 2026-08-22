@@ -35,7 +35,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage> {
       isDestructive: true,
     );
     if (confirmed != true) return;
-    await _authService.clearSession();
+    await _authService.logout();
     if (!mounted) return;
     Navigator.of(
       context,
