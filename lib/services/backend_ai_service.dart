@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../core/api/api_config.dart';
+import '../features/auth/data/auth_service.dart';
 import '../models/exercicio_model.dart';
 import '../models/treino_model.dart';
 
@@ -18,9 +20,12 @@ class BackendAIException implements Exception {
 }
 
 class BackendAIService {
-  BackendAIService({http.Client? client}) : _client = client ?? http.Client();
+  BackendAIService({http.Client? client, AuthService? authService})
+    : _client = client ?? http.Client(),
+      _authService = authService ?? AuthService();
 
   final http.Client _client;
+  final AuthService _authService;
 
   Future<TreinoModel> generateWorkout({
     required String objetivo,
@@ -34,8 +39,13 @@ class BackendAIService {
     required List<String> restricoes,
     required List<String> prioridades,
     String observacoes = '',
-    String? bearerToken,
   }) async {
+    final session = await _authService.restoreSession();
+    if (session == null) {
+      throw const BackendAIException(
+        'Entre na sua conta para usar a geracao de treino por IA.',
+      );
+    }
     final payload = {
       'objetivo': objetivo,
       'divisao': divisao,
@@ -58,7 +68,7 @@ class BackendAIService {
       final response = await _client
           .post(
             ApiConfig.endpoint('/ai/generate-workout'),
-            headers: _headers(bearerToken),
+            headers: _headers(session.token, _newIdempotencyKey()),
             body: jsonEncode(payload),
           )
           .timeout(ApiConfig.timeout);
@@ -92,14 +102,17 @@ class BackendAIService {
     }
   }
 
-  Map<String, String> _headers(String? bearerToken) {
+  Map<String, String> _headers(String bearerToken, String idempotencyKey) {
     return {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      if (bearerToken != null && bearerToken.trim().isNotEmpty)
-        'Authorization': 'Bearer ${bearerToken.trim()}',
+      'Authorization': 'Bearer ${bearerToken.trim()}',
+      'Idempotency-Key': idempotencyKey,
     };
   }
+
+  String _newIdempotencyKey() =>
+      'ai-${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 32)}';
 
   Map<String, dynamic> _decodeResponse(String body) {
     try {

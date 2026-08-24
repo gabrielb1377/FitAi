@@ -1,11 +1,11 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
 import '../models/coach_insight_model.dart';
-import 'metas_service.dart';
+import '../features/auth/data/auth_service.dart';
 import 'network_service.dart';
-import 'storage_service.dart';
 
 class BackendCoachException implements Exception {
   final String message;
@@ -17,31 +17,36 @@ class BackendCoachException implements Exception {
 }
 
 class BackendCoachService {
-  BackendCoachService({NetworkService? network})
-    : _network = network ?? NetworkService();
+  BackendCoachService({NetworkService? network, AuthService? authService})
+    : _network = network ?? NetworkService(),
+      _authService = authService ?? AuthService();
 
   final NetworkService _network;
+  final AuthService _authService;
 
   Future<List<CoachInsightModel>> gerarInsights({
     String tipo = 'geral',
     String? exercicioId,
     int periodoDias = 30,
     bool forceRefresh = false,
-    String? bearerToken,
   }) async {
     try {
+      final session = await _authService.restoreSession();
+      if (session == null) {
+        throw const BackendCoachException(
+          'Entre na sua conta para usar o Coach FitIA online.',
+        );
+      }
       final payload = {
         'tipo': tipo,
         'exercicioId': exercicioId,
         'periodoDias': periodoDias,
         'forceRefresh': forceRefresh,
-        'contextoLocal': await _montarContextoLocal(),
       };
-      final headers = <String, String>{};
-
-      if (bearerToken != null && bearerToken.trim().isNotEmpty) {
-        headers['Authorization'] = 'Bearer ${bearerToken.trim()}';
-      }
+      final headers = <String, String>{
+        'Authorization': 'Bearer ${session.token}',
+        'Idempotency-Key': _newIdempotencyKey(),
+      };
 
       final response = await _network.postJson(
         '/coach/insights',
@@ -65,33 +70,6 @@ class BackendCoachService {
       _debugLog('Backend indisponivel para Coach: $error');
       throw const BackendCoachException('Falha ao chamar o backend.');
     }
-  }
-
-  Future<Map<String, dynamic>> _montarContextoLocal() async {
-    final perfil = await StorageService.carregarPerfilUsuario();
-    final treinos = await StorageService.carregarTreinos();
-    final historicoTreinos = await StorageService.carregarHistoricoTreinos();
-    final historicoSeries =
-        await StorageService.carregarHistoricoSeriesTreino();
-    final recordes = await StorageService.carregarRecordes();
-    final metas = await const MetasService().carregarMetas();
-    final corridas = await StorageService.carregarCorridas();
-    final passos = await StorageService.carregarDailyStepsHistory();
-
-    return {
-      'perfil': perfil,
-      'planos': treinos.map((treino) => treino.toJson()).toList(),
-      'historicoTreinos': historicoTreinos
-          .map((treino) => treino.toJson())
-          .toList(),
-      'historicoExercicios': historicoSeries
-          .map((serie) => serie.toJson())
-          .toList(),
-      'recordes': recordes.map((recorde) => recorde.toJson()).toList(),
-      'metas': metas.metas.map((meta) => meta.toJson()).toList(),
-      'corridas': corridas.map((corrida) => corrida.toJson()).toList(),
-      'passos': passos.map((registro) => registro.toJson()).toList(),
-    };
   }
 
   List<CoachInsightModel> _parseInsights(Map<String, dynamic> json) {
@@ -123,4 +101,7 @@ class BackendCoachService {
       debugPrint('[BackendCoachService] $message');
     }
   }
+
+  String _newIdempotencyKey() =>
+      'coach-${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 32)}';
 }
