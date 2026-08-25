@@ -16,6 +16,7 @@ import '../../../features/workout_vertical_slice/data/workout_vertical_sync_tran
 import '../../../features/workout_vertical_slice/domain/workout_vertical_models.dart';
 import '../../../models/exercicio_model.dart';
 import '../../../models/treino_model.dart';
+import '../../../services/storage_service.dart';
 import '../../../services/treino_service.dart';
 
 /// Identidade minima usada apenas para escolher o namespace local do treino.
@@ -161,6 +162,8 @@ class CoreJourneyController extends ChangeNotifier {
     return WorkoutHistoryRepository(
       localStore: _requiredRepository.localStore,
       exerciseMetadataResolver: _exerciseMetadataForId,
+      legacyHistoryLoader: StorageService.carregarHistoricoTreinos,
+      legacyExerciseHistoryLoader: StorageService.carregarHistoricoSeriesTreino,
     ).load();
   }
 

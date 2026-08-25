@@ -1074,6 +1074,9 @@ class StorageService {
     return corridas;
   }
 
+  @Deprecated(
+    'Historico de musculacao novo deve ser finalizado pelo journal canonico.',
+  )
   static Future<void> salvarHistoricoTreino(
     HistoricoTreinoModel historico,
   ) async {
@@ -1095,34 +1098,6 @@ class StorageService {
     atualizados.add(jsonEncode(historico.toJson()));
 
     await prefs.setStringList("historicoTreinos", atualizados);
-
-    unawaited(SyncService.instance.syncWorkoutHistory([historico.toJson()]));
-    unawaited(_sincronizarSeriesDoHistorico(historico));
-  }
-
-  static Future<void> _sincronizarSeriesDoHistorico(
-    HistoricoTreinoModel historico,
-  ) async {
-    try {
-      final series = await carregarHistoricoSeriesTreino();
-      final itens = series
-          .where((serie) => serie.sessaoTreinoId == historico.id)
-          .map(
-            (serie) => {
-              ...serie.toJson(),
-              'workoutHistoryId': historico.id,
-              'workoutSessionId': historico.id,
-              'performedAt': serie.dataHora.toIso8601String(),
-            },
-          )
-          .toList(growable: false);
-      if (itens.isEmpty) return;
-      await SyncService.instance.syncExerciseHistory(itens);
-    } catch (erro) {
-      if (kDebugMode) {
-        debugPrint('[ExerciseHistory] Sincronizacao pendente: $erro');
-      }
-    }
   }
 
   static Future<List<HistoricoTreinoModel>> carregarHistoricoTreinos() async {
@@ -1239,6 +1214,9 @@ class StorageService {
     return conquistas;
   }
 
+  @Deprecated(
+    'Series novas devem ser registradas pelo journal canonico de treino.',
+  )
   static Future<void> salvarHistoricoSerieTreino(
     HistoricoSerieTreinoModel historico,
   ) async {

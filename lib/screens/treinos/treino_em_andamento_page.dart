@@ -39,6 +39,7 @@ class TreinoEmAndamentoPage extends StatefulWidget {
   final Future<void> Function()? onXpAtualizado;
   final CoreJourneyController? sessionController;
   final String? sessionId;
+  final ExerciseHistoryService exerciseHistoryService;
 
   const TreinoEmAndamentoPage({
     super.key,
@@ -48,6 +49,7 @@ class TreinoEmAndamentoPage extends StatefulWidget {
     this.onXpAtualizado,
     this.sessionController,
     this.sessionId,
+    this.exerciseHistoryService = const ExerciseHistoryService(),
   }) : assert(
          (sessionController == null) == (sessionId == null),
          'Controller e sessionId devem ser informados juntos.',
@@ -1128,7 +1130,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
       icon: Icons.history_rounded,
       child: WorkoutExerciseHistoryPanel(
         exercise: exercicio,
-        history: const ExerciseHistoryService().loadExerciseHistory(exercicio),
+        history: widget.exerciseHistoryService.loadExerciseHistory(exercicio),
         sessionSeries: sessionSeries,
       ),
     );

@@ -1,11 +1,11 @@
-import 'dart:convert';
-
+import 'package:fitai/features/plans/domain/workout_history_models.dart';
+import 'package:fitai/features/workout_vertical_slice/domain/workout_vertical_models.dart';
 import 'package:fitai/features/plans/workout_execution/pages/workout_preview_page.dart';
 import 'package:fitai/models/exercicio_model.dart';
-import 'package:fitai/models/historico_serie_treino_model.dart';
 import 'package:fitai/models/treino_model.dart';
 import 'package:fitai/screens/treinos/controllers/plan_day_data.dart';
 import 'package:fitai/screens/treinos/treino_em_andamento_page.dart';
+import 'package:fitai/services/exercise_history_service.dart';
 import 'package:fitai/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -142,24 +142,58 @@ void main() {
   testWidgets('WORK-009 combina histórico persistido e sessão atual', (
     tester,
   ) async {
-    final saved = HistoricoSerieTreinoModel(
-      id: 'history-set-1',
-      treinoId: 'old-workout',
-      sessaoTreinoId: 'old-session',
-      nomeTreino: 'Upper anterior',
-      exercicioId: 'supino-reto',
-      nomeExercicio: 'Supino reto',
-      serieNumero: 1,
-      peso: 80,
-      repeticoes: 10,
-      descansoSegundos: 60,
-      dataHora: DateTime(2026, 7, 11, 10),
+    final completedAt = DateTime(2026, 7, 11, 10);
+    final historyService = ExerciseHistoryService(
+      historyLoader: () async => PlanWorkoutHistorySnapshot(
+        workouts: [
+          WorkoutHistory(
+            id: 'old-session',
+            planId: 'old-plan',
+            workoutId: 'old-workout',
+            workoutName: 'Upper anterior',
+            startedAt: completedAt.subtract(const Duration(minutes: 45)),
+            finishedAt: completedAt,
+            metrics: const WorkoutMetrics.empty(),
+            syncStatus: WorkoutSyncStatus.synced,
+            exercises: [
+              ExerciseHistory(
+                exerciseId: 'supino-reto',
+                name: 'Supino reto',
+                completedAt: completedAt,
+                volume: 800,
+                totalRepetitions: 10,
+                sets: [
+                  CompletedSet(
+                    id: 'history-set-1',
+                    index: 0,
+                    weight: 80,
+                    repetitions: 10,
+                    restSeconds: 60,
+                    completedAt: completedAt,
+                    syncStatus: WorkoutSyncStatus.synced,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+        summaries: const [],
+        exercisePrs: const [],
+        personalRecords: const [],
+        timeline: const [],
+        calendar: const [],
+        streak: const WorkoutStreak(currentDays: 0, longestDays: 0),
+      ),
     );
-    SharedPreferences.setMockInitialValues({
-      'historicoSeriesTreino': [jsonEncode(saved.toJson())],
-    });
 
-    await tester.pumpWidget(_app(TreinoEmAndamentoPage(treino: _plan())));
+    await tester.pumpWidget(
+      _app(
+        TreinoEmAndamentoPage(
+          treino: _plan(),
+          exerciseHistoryService: historyService,
+        ),
+      ),
+    );
     await tester.pump();
     await _tapCompleteSet(tester);
     await _ensureAndTap(tester, find.text('Pular').last);

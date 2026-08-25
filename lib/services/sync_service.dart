@@ -84,6 +84,7 @@ class SyncService {
     );
   }
 
+  @Deprecated('Historico de musculacao usa workout-sync. Mantido sem callers.')
   Future<void> syncWorkoutHistory(List<Map<String, dynamic>> history) {
     return _sendOrQueue(
       type: 'workout-history',
@@ -92,6 +93,7 @@ class SyncService {
     );
   }
 
+  @Deprecated('Historico de musculacao usa workout-sync. Mantido sem callers.')
   Future<void> syncExerciseHistory(List<Map<String, dynamic>> history) {
     return _sendOrQueue(
       type: 'exercise-history',

@@ -57,7 +57,10 @@ void main() {
     );
 
     await tester.tap(find.text('Supino reto'));
-    await tester.pumpAndSettle();
+    // A tela de exercicio pode manter carregamentos indeterminados visiveis;
+    // aguardar a transicao e verificar o destino e mais deterministico.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.byType(ExercicioDetalhePage), findsOneWidget);
   });

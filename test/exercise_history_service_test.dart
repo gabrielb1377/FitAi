@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:fitai/core/exercises/exercise_identity.dart';
+import 'package:fitai/features/plans/domain/workout_history_models.dart';
+import 'package:fitai/features/workout_vertical_slice/domain/workout_vertical_models.dart';
 import 'package:fitai/models/exercicio_model.dart';
 import 'package:fitai/models/historico_serie_treino_model.dart';
 import 'package:fitai/models/progresso_exercicio_model.dart';
@@ -10,7 +12,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  const service = ExerciseHistoryService();
+  final service = ExerciseHistoryService(
+    historyLoader: () async => const PlanWorkoutHistorySnapshot.empty(),
+  );
 
   test('normaliza acentos, hifens, underscores e espacos', () {
     expect(
@@ -61,6 +65,68 @@ void main() {
     expect(history.executions.last.sets, hasLength(2));
     expect(history.stats.totalSessions, 2);
     expect(history.stats.bestLoadSet?.peso, 30);
+  });
+
+  test('prioriza a projecao canonica sobre a estrutura legada', () async {
+    SharedPreferences.setMockInitialValues({
+      'historicoSeriesTreino': [
+        jsonEncode(
+          _series(
+            id: 'legacy-set',
+            sessionId: 'legacy-session',
+            setNumber: 1,
+            date: DateTime(2026, 7, 9, 10),
+          ).toJson(),
+        ),
+      ],
+    });
+    final service = ExerciseHistoryService(
+      historyLoader: () async => PlanWorkoutHistorySnapshot(
+        workouts: [
+          WorkoutHistory(
+            id: 'canonical-session',
+            planId: 'plan-1',
+            workoutId: 'workout-1',
+            workoutName: 'Peito A',
+            startedAt: DateTime(2026, 7, 10, 9),
+            finishedAt: DateTime(2026, 7, 10, 10),
+            metrics: const WorkoutMetrics.empty(),
+            syncStatus: WorkoutSyncStatus.synced,
+            exercises: [
+              ExerciseHistory(
+                exerciseId: 'supino-reto',
+                name: 'Supino Reto',
+                sets: [
+                  CompletedSet(
+                    id: 'canonical-set',
+                    index: 0,
+                    weight: 60,
+                    repetitions: 8,
+                    completedAt: DateTime(2026, 7, 10, 10),
+                    syncStatus: WorkoutSyncStatus.synced,
+                  ),
+                ],
+                volume: 480,
+                totalRepetitions: 8,
+                completedAt: DateTime(2026, 7, 10, 10),
+              ),
+            ],
+          ),
+        ],
+        summaries: const [],
+        exercisePrs: const [],
+        personalRecords: const [],
+        timeline: const [],
+        calendar: const [],
+        streak: const WorkoutStreak(currentDays: 0, longestDays: 0),
+      ),
+    );
+
+    final history = await service.loadExerciseHistory(_exercise());
+
+    expect(history.executions, hasLength(1));
+    expect(history.executions.single.id, 'canonical-session');
+    expect(history.executions.single.sets.single.id, 'canonical-set');
   });
 
   test(

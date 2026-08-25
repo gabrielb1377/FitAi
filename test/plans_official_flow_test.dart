@@ -1,5 +1,6 @@
 import 'package:fitai/models/exercicio_model.dart';
 import 'package:fitai/models/treino_model.dart';
+import 'package:fitai/features/plans/domain/workout_history_models.dart';
 import 'package:fitai/screens/treinos/create_plan_page.dart';
 import 'package:fitai/screens/treinos/exercicio_detalhe_page.dart';
 import 'package:fitai/screens/treinos/treino_detalhes_page.dart';
@@ -117,10 +118,13 @@ void main() {
       ),
     );
     await tester.tap(find.text('Abrir exercicio'));
-    await tester.pumpAndSettle();
+    // O detalhe preserva loaders indeterminados enquanto dados locais chegam.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
     await tester.tap(find.byTooltip('Voltar'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Abrir exercicio'), findsOneWidget);
   });
@@ -268,12 +272,15 @@ void main() {
     await tester.tap(completeSet);
     await tester.tap(completeSet);
     await tester.pump(const Duration(milliseconds: 900));
-    await tester.pumpAndSettle();
+    // A finalizacao preserva um loader indeterminado para os dados derivados;
+    // validar a transicao de rota sem esperar por animacoes permanentes.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.byType(TreinoFinalizadoPage), findsOneWidget);
-    final history = await const ExerciseHistoryService().loadExerciseHistory(
-      _exercise(sets: 1),
-    );
+    final history = await ExerciseHistoryService(
+      historyLoader: () async => const PlanWorkoutHistorySnapshot.empty(),
+    ).loadExerciseHistory(_exercise(sets: 1));
     expect(history.executions, hasLength(1));
     expect(history.executions.single.sets, hasLength(1));
   });

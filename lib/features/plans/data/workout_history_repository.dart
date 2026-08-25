@@ -1,8 +1,14 @@
 import '../domain/workout_history_models.dart';
 import '../../workout_vertical_slice/data/workout_vertical_local_store.dart';
 import '../../workout_vertical_slice/domain/workout_vertical_models.dart';
+import '../../../models/historico_serie_treino_model.dart';
+import '../../../models/historico_treino_model.dart';
 
 typedef WorkoutExerciseNameResolver = String? Function(String exerciseId);
+typedef LegacyWorkoutHistoryLoader =
+    Future<List<HistoricoTreinoModel>> Function();
+typedef LegacyExerciseHistoryLoader =
+    Future<List<HistoricoSerieTreinoModel>> Function();
 
 /// Metadados de catalogo projetados para o historico sem criar uma segunda
 /// representacao persistida do exercicio. Os valores continuam pertencendo ao
@@ -29,19 +35,37 @@ class WorkoutHistoryRepository {
     required this.localStore,
     this.exerciseNameResolver,
     this.exerciseMetadataResolver,
+    this.legacyHistoryLoader,
+    this.legacyExerciseHistoryLoader,
     DateTime Function()? clock,
   }) : _clock = clock ?? DateTime.now;
 
   final WorkoutVerticalLocalStore localStore;
   final WorkoutExerciseNameResolver? exerciseNameResolver;
   final WorkoutExerciseMetadataResolver? exerciseMetadataResolver;
+  final LegacyWorkoutHistoryLoader? legacyHistoryLoader;
+  final LegacyExerciseHistoryLoader? legacyExerciseHistoryLoader;
   final DateTime Function() _clock;
 
   Future<PlanWorkoutHistorySnapshot> load() async {
-    return project(await localStore.read());
+    final source = await localStore.read();
+    final legacyHistory = await _loadLegacyHistory();
+    final legacySets = await _loadLegacySets();
+    return _buildSnapshot(
+      _mergeWorkouts(
+        canonical: _projectCanonicalWorkouts(source),
+        legacy: _projectLegacyWorkouts(legacyHistory, legacySets),
+      ),
+    );
   }
 
-  PlanWorkoutHistorySnapshot project(WorkoutSliceSnapshot source) {
+  /// Projecao sincrona do journal canonico, utilizada por testes e por
+  /// consumidores que ja possuem o snapshot local. A compatibilidade legada
+  /// e aplicada somente em [load], sem gravar uma segunda representacao.
+  PlanWorkoutHistorySnapshot project(WorkoutSliceSnapshot source) =>
+      _buildSnapshot(_projectCanonicalWorkouts(source));
+
+  List<WorkoutHistory> _projectCanonicalWorkouts(WorkoutSliceSnapshot source) {
     final sessions =
         source.sessions
             .where(
@@ -53,7 +77,7 @@ class WorkoutHistoryRepository {
           ..sort(
             (left, right) => left.finishedAt!.compareTo(right.finishedAt!),
           );
-    if (sessions.isEmpty) return const PlanWorkoutHistorySnapshot.empty();
+    if (sessions.isEmpty) return const <WorkoutHistory>[];
 
     final setsBySession = <String, List<WorkoutSetLocal>>{};
     final logicalSetKeys = <String>{};
@@ -77,12 +101,19 @@ class WorkoutHistoryRepository {
       workouts.add(_buildWorkout(session, sets));
     }
 
-    final personalRecords = _personalRecords(workouts);
-    final exercisePrs = _exercisePrs(workouts);
-    final calendar = _calendar(workouts, personalRecords);
-    final streak = _streak(workouts);
-    final timeline = _timeline(workouts, personalRecords, streak);
-    final newestFirst = workouts.reversed.toList(growable: false);
+    return workouts;
+  }
+
+  PlanWorkoutHistorySnapshot _buildSnapshot(List<WorkoutHistory> workouts) {
+    if (workouts.isEmpty) return const PlanWorkoutHistorySnapshot.empty();
+    final chronological = [...workouts]
+      ..sort((left, right) => left.finishedAt.compareTo(right.finishedAt));
+    final personalRecords = _personalRecords(chronological);
+    final exercisePrs = _exercisePrs(chronological);
+    final calendar = _calendar(chronological, personalRecords);
+    final streak = _streak(chronological);
+    final timeline = _timeline(chronological, personalRecords, streak);
+    final newestFirst = chronological.reversed.toList(growable: false);
 
     return PlanWorkoutHistorySnapshot(
       workouts: newestFirst,
@@ -93,6 +124,181 @@ class WorkoutHistoryRepository {
       calendar: calendar,
       streak: streak,
     );
+  }
+
+  Future<List<HistoricoTreinoModel>> _loadLegacyHistory() async {
+    final loader = legacyHistoryLoader;
+    if (loader == null) return const [];
+    try {
+      return await loader();
+    } on Object {
+      // O journal canônico permanece suficiente quando um cache legado falha.
+      return const [];
+    }
+  }
+
+  Future<List<HistoricoSerieTreinoModel>> _loadLegacySets() async {
+    final loader = legacyExerciseHistoryLoader;
+    if (loader == null) return const [];
+    try {
+      return await loader();
+    } on Object {
+      return const [];
+    }
+  }
+
+  List<WorkoutHistory> _mergeWorkouts({
+    required List<WorkoutHistory> canonical,
+    required List<WorkoutHistory> legacy,
+  }) {
+    final ids = <String>{};
+    final merged = <WorkoutHistory>[];
+    for (final workout in canonical) {
+      if (ids.add(workout.id)) merged.add(workout);
+    }
+    for (final workout in legacy) {
+      // A identidade de sessao e a identidade logica do historico. Quando a
+      // mesma sessao existe nos dois formatos, o journal e a unica fonte.
+      if (ids.add(workout.id)) merged.add(workout);
+    }
+    return merged;
+  }
+
+  List<WorkoutHistory> _projectLegacyWorkouts(
+    List<HistoricoTreinoModel> history,
+    List<HistoricoSerieTreinoModel> allSets,
+  ) {
+    final ids = <String>{};
+    final projected = <WorkoutHistory>[];
+    for (final item in history) {
+      final id = _legacyWorkoutId(item);
+      if (!ids.add(id)) continue;
+      final sets = allSets
+          .where((set) => _belongsToLegacyWorkout(set, item, id))
+          .toList(growable: false);
+      projected.add(_buildLegacyWorkout(item, id, sets));
+    }
+    return projected;
+  }
+
+  WorkoutHistory _buildLegacyWorkout(
+    HistoricoTreinoModel item,
+    String id,
+    List<HistoricoSerieTreinoModel> sets,
+  ) {
+    final exercises = _buildLegacyExercises(sets);
+    final setCount = item.seriesConcluidas > 0
+        ? item.seriesConcluidas
+        : sets.length;
+    final totalVolume = item.volumeTotal > 0
+        ? item.volumeTotal
+        : sets.fold<double>(0, (total, set) => total + set.volume);
+    final totalLoad = sets.fold<double>(0, (total, set) => total + set.peso);
+    final durationSeconds = item.tempoSegundos < 0 ? 0 : item.tempoSegundos;
+    return WorkoutHistory(
+      id: id,
+      planId: 'legacy-history',
+      workoutId: item.id.trim().isEmpty ? id : item.id.trim(),
+      workoutName: item.nomeTreino,
+      startedAt: item.dataHora.subtract(Duration(seconds: durationSeconds)),
+      finishedAt: item.dataHora,
+      metrics: WorkoutMetrics(
+        durationSeconds: durationSeconds,
+        totalVolume: totalVolume,
+        totalLoad: totalLoad,
+        exerciseCount: item.exerciciosConcluidos > 0
+            ? item.exerciciosConcluidos
+            : exercises.length,
+        setCount: setCount,
+        totalRepetitions: sets.fold(0, (total, set) => total + set.repeticoes),
+      ),
+      exercises: exercises,
+      syncStatus: WorkoutSyncStatus.local,
+      calories: item.caloriasEstimadas > 0
+          ? item.caloriasEstimadas.toDouble()
+          : null,
+    );
+  }
+
+  List<ExerciseHistory> _buildLegacyExercises(
+    List<HistoricoSerieTreinoModel> sets,
+  ) {
+    final groups = <String, List<HistoricoSerieTreinoModel>>{};
+    final deduplicated = <String>{};
+    for (final set in sets) {
+      if (!deduplicated.add(set.deduplicationKey)) continue;
+      final id = set.exercicioId.trim().isEmpty
+          ? 'legacy:${set.chaveExercicio}'
+          : set.exercicioId.trim();
+      groups.putIfAbsent(id, () => []).add(set);
+    }
+    return groups.entries
+        .map((entry) {
+          final ordered = [...entry.value]
+            ..sort(
+              (left, right) => left.serieNumero.compareTo(right.serieNumero),
+            );
+          final metadata = exerciseMetadataResolver?.call(entry.key);
+          final completed = ordered
+              .map(
+                (set) => CompletedSet(
+                  id: set.id.trim().isEmpty
+                      ? '${set.deduplicationKey}:${set.serieNumero}'
+                      : set.id,
+                  index: set.serieNumero <= 0 ? 0 : set.serieNumero - 1,
+                  weight: set.peso,
+                  repetitions: set.repeticoes,
+                  restSeconds: set.descansoSegundos <= 0
+                      ? null
+                      : set.descansoSegundos,
+                  notes: set.comentario.trim().isEmpty ? null : set.comentario,
+                  completedAt: set.dataHora,
+                  syncStatus: WorkoutSyncStatus.local,
+                ),
+              )
+              .toList(growable: false);
+          final notes = completed
+              .map((set) => set.notes)
+              .whereType<String>()
+              .toSet()
+              .toList(growable: false);
+          return ExerciseHistory(
+            exerciseId: entry.key,
+            name: metadata?.name?.trim().isNotEmpty == true
+                ? metadata!.name!.trim()
+                : ordered.first.nomeExercicio,
+            sets: completed,
+            volume: completed.fold(0, (total, set) => total + set.volume),
+            totalRepetitions: completed.fold(
+              0,
+              (total, set) => total + set.repetitions,
+            ),
+            completedAt: completed.last.completedAt,
+            muscles: metadata?.muscles ?? const [],
+            category: metadata?.category,
+            notes: notes.isEmpty ? null : notes,
+          );
+        })
+        .toList(growable: false);
+  }
+
+  String _legacyWorkoutId(HistoricoTreinoModel item) {
+    final id = item.id.trim();
+    if (id.isNotEmpty) return id;
+    final name = item.nomeTreino.trim().toLowerCase().replaceAll(' ', '-');
+    return 'legacy:${item.dataHora.microsecondsSinceEpoch}:$name';
+  }
+
+  bool _belongsToLegacyWorkout(
+    HistoricoSerieTreinoModel set,
+    HistoricoTreinoModel workout,
+    String workoutId,
+  ) {
+    final sessionId = set.sessaoTreinoId.trim();
+    if (sessionId.isNotEmpty) {
+      return sessionId == workout.id.trim() || sessionId == workoutId;
+    }
+    return set.treinoId.trim().isNotEmpty && set.treinoId.trim() == workoutId;
   }
 
   WorkoutHistory _buildWorkout(
