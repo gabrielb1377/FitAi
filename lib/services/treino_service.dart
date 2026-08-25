@@ -49,6 +49,10 @@ class TreinoService extends ChangeNotifier {
   }
 
   Future<void> adicionarTreinoComPersistencia(TreinoModel treino) async {
+    // The device is the source of truth for creation; remote delivery is queued
+    // by StorageService only after this durable local write completes.
+    await StorageService.salvarTreino(treino);
+
     _initialized = true;
     _loadError = null;
     final index = _treinos.indexWhere((item) => item.id == treino.id);
@@ -60,7 +64,6 @@ class TreinoService extends ChangeNotifier {
     }
 
     notifyListeners();
-    await StorageService.salvarTreino(treino);
   }
 
   Future<bool> contemPlanoPronto(String readyPlanId) async {

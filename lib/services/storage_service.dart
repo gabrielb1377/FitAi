@@ -1722,7 +1722,10 @@ class StorageService {
     return prefs.getInt('totalCorridas') ?? 0;
   }
 
-  static Future<void> salvarTreino(TreinoModel treino) async {
+  static Future<void> salvarTreino(
+    TreinoModel treino, {
+    SyncService? syncService,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
 
     final lista = prefs.getStringList("treinos") ?? [];
@@ -1746,7 +1749,9 @@ class StorageService {
 
     await prefs.setStringList("treinos", atualizados);
 
-    unawaited(SyncService.instance.syncWorkouts([treino.toJson()]));
+    unawaited(
+      (syncService ?? SyncService.instance).syncWorkouts([treino.toJson()]),
+    );
   }
 
   static Future<List<TreinoModel>> carregarTreinos() async {

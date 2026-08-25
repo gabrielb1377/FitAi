@@ -97,7 +97,6 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
     setState(() => carregando = true);
 
     late final _PlanoGerado plano;
-    late final String mensagem;
 
     try {
       final treinoBackend = await backendAIService.generateWorkout(
@@ -115,12 +114,16 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
       );
 
       plano = _planoGeradoFromTreino(treinoBackend);
-      mensagem = 'Treino gerado pela IA FitIA.';
       _debugLog('Treino gerado pelo backend.');
     } catch (erro) {
-      _debugLog('Backend indisponivel. Usando fallback local. Detalhe: $erro');
-      plano = _montarPlano();
-      mensagem = 'Backend indisponível. Usando geração local.';
+      _debugLog('Geracao remota indisponivel. Detalhe: $erro');
+      if (mounted) {
+        setState(() => carregando = false);
+        _snack(
+          'Nao foi possivel gerar o plano agora. Verifique a conexao e tente novamente.',
+        );
+      }
+      return;
     }
 
     if (!mounted) return;
@@ -133,15 +136,27 @@ class _AIWorkoutPageState extends State<AIWorkoutPage> {
 
     setState(() => carregando = true);
 
-    treinoService.adicionarTreino(plano.treino);
+    try {
+      await treinoService.adicionarTreinoComPersistencia(plano.treino);
+    } catch (erro) {
+      _debugLog('Falha ao persistir plano gerado. Detalhe: $erro');
+      if (mounted) {
+        setState(() => carregando = false);
+        _snack(
+          'Nao foi possivel salvar o plano neste dispositivo. Tente novamente.',
+        );
+      }
+      return;
+    }
 
     if (!mounted) return;
 
     setState(() => carregando = false);
-    _snack(mensagem);
+    _snack('Treino gerado pela IA FitIA.');
     Navigator.pop(context, true);
   }
 
+  // ignore: unused_element
   _PlanoGerado _montarPlano() {
     final agora = DateTime.now();
     final divisaoFinal = divisaoSelecionada;
