@@ -40,7 +40,7 @@ class _PlanosPlanDetailPageState extends State<PlanosPlanDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final days = _days(_plan);
+    final days = buildPlanosPlanDays(_plan);
     final currentWeek = widget.progress.weeks
         .where((week) => week.isCurrent)
         .firstOrNull;
@@ -327,7 +327,7 @@ class PlanosWorkoutDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final exercises = _exercisesFor(plan, day);
+    final exercises = exercisesForPlanDay(plan, day);
     return PlanosOfficialPage(
       title: day.name,
       subtitle:
@@ -478,7 +478,7 @@ class _PlanosEditPlanPageState extends State<PlanosEditPlanPage> {
             title: 'Treinos',
             child: Column(
               children: [
-                for (final day in _days(widget.plan))
+                for (final day in buildPlanosPlanDays(widget.plan))
                   _detail(day.name, '${day.exerciseIds.length} exercicios'),
                 const SizedBox(height: FitSpacing.s8),
                 const FitGhostButton(
@@ -1308,7 +1308,11 @@ class PlanosPlanDayView {
   String get subtitle => 'Peito, Costas, Ombros';
 }
 
-List<PlanosPlanDayView> _days(TreinoModel plan) {
+/// Constrói a projeção de dias usada pelas telas oficiais de Planos.
+///
+/// Rotas nomeadas usam a mesma projeção para manter dia, ordem e exercícios
+/// consistentes com o detalhe aberto pela raiz do módulo.
+List<PlanosPlanDayView> buildPlanosPlanDays(TreinoModel plan) {
   final source = plan.planoDias.isEmpty
       ? [
           TreinoDiaModel(
@@ -1333,7 +1337,10 @@ List<PlanosPlanDayView> _days(TreinoModel plan) {
   ];
 }
 
-List<ExercicioModel> _exercisesFor(TreinoModel plan, PlanosPlanDayView day) {
+List<ExercicioModel> exercisesForPlanDay(
+  TreinoModel plan,
+  PlanosPlanDayView day,
+) {
   final ids = day.exerciseIds.toSet();
   final exercises = ids.isEmpty
       ? plan.exercicios

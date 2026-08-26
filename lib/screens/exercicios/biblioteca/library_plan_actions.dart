@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../../../core/design_system/components/navigation/fit_containers.dart';
 import '../../../core/exercises/exercise_plan_integration.dart';
+import '../../../core/navigation/app_routes.dart';
+import '../../../core/navigation/app_section.dart';
+import '../../../core/navigation/app_shell_navigation_scope.dart';
 import '../../../design_system/components/fit_button.dart';
 import '../../../design_system/tokens/fit_spacing.dart';
 import '../../../models/exercicio_model.dart';
 import '../../../models/treino_model.dart';
-import '../../treinos/criar_treino_page.dart';
+import '../../treinos/official/official_plan_editor_page.dart';
 
 Future<ExercisePlanInsertionResult?> showLibraryAddToPlanSheet({
   required BuildContext context,
@@ -251,9 +254,18 @@ class _LibraryAddToPlanSheetState extends State<_LibraryAddToPlanSheet> {
         icon: Icons.add_rounded,
         expand: true,
         onPressed: () async {
+          final shellNavigation = AppShellNavigationScope.maybeOf(context);
+          final navigator = Navigator.of(context, rootNavigator: true);
           Navigator.of(context).pop();
-          await Navigator.of(context).push<void>(
-            MaterialPageRoute(builder: (_) => const CriarTreinoPage()),
+          if (shellNavigation != null) {
+            await shellNavigation.open<void>(
+              AppShellSection.plans,
+              AppRoutes.plansCreateManual,
+            );
+            return;
+          }
+          await navigator.push<void>(
+            MaterialPageRoute(builder: (_) => const OfficialPlanEditorPage()),
           );
         },
       ),

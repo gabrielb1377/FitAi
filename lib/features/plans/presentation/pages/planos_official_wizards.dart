@@ -5,7 +5,81 @@ import 'package:flutter/material.dart';
 import '../../../../design_system/fit_design_system.dart';
 import '../../../../screens/ai_workout_page.dart';
 import '../../../../screens/treinos/official/official_plan_editor_page.dart';
+import 'planos_official_library_page.dart';
 import '../widgets/planos_official_primitives.dart';
+
+/// Ponto de entrada nomeado para a criação de planos.
+///
+/// Mantém a escolha explícita entre IA, criação manual e planos prontos sem
+/// redirecionar para os fluxos legados de musculação.
+class PlanosCreateChoicePage extends StatelessWidget {
+  const PlanosCreateChoicePage({super.key});
+
+  @override
+  Widget build(BuildContext context) => PlanosOfficialPage(
+    title: 'Criar plano',
+    subtitle: 'Escolha como deseja começar',
+    onBack: () => Navigator.of(context).maybePop(),
+    child: ListView(
+      padding: const EdgeInsets.all(FitSpacing.s16),
+      children: [
+        _option(
+          context,
+          title: 'Criar com IA',
+          description: 'Responda poucas perguntas e receba uma sugestão.',
+          icon: FitIcons.ai,
+          destination: const PlanosAiGoalPage(),
+        ),
+        const SizedBox(height: FitSpacing.s12),
+        _option(
+          context,
+          title: 'Criar manualmente',
+          description: 'Monte sua ficha com a estrutura que preferir.',
+          icon: FitIcons.edit,
+          destination: const PlanosManualGoalPage(),
+        ),
+        const SizedBox(height: FitSpacing.s12),
+        _option(
+          context,
+          title: 'Explorar planos prontos',
+          description: 'Comece a partir de um plano disponível.',
+          icon: FitIcons.library,
+          destination: const PlanosReadyLibraryPage(),
+        ),
+      ],
+    ),
+  );
+
+  Widget _option(
+    BuildContext context, {
+    required String title,
+    required String description,
+    required IconData icon,
+    required Widget destination,
+  }) => FitCard(
+    variant: FitCardVariant.clickable,
+    onTap: () => Navigator.of(
+      context,
+    ).push<void>(MaterialPageRoute(builder: (_) => destination)),
+    child: Row(
+      children: [
+        Icon(icon, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(width: FitSpacing.s12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: FitSpacing.s4),
+              Text(description, style: Theme.of(context).textTheme.bodySmall),
+            ],
+          ),
+        ),
+        const Icon(FitIcons.forward),
+      ],
+    ),
+  );
+}
 
 /// PLAN-002. Primeiro passo do assistente de plano com IA.
 class PlanosAiGoalPage extends StatefulWidget {

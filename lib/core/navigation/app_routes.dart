@@ -15,6 +15,13 @@ abstract final class AppRoutes {
   /// secao correspondente sem duplicar paginas raiz.
   static const home = '/home';
   static const plans = '/plans';
+  static const plansCreate = '/plans/create';
+  static const plansCreateWithAi = '/plans/create/ai';
+  static const plansCreateManual = '/plans/create/manual';
+  static const plansWeeks = '/plans/weeks';
+  static const plansWorkoutDay = '/plans/workout-day';
+  static const plansExercise = '/plans/exercise';
+  static const plansStatistics = '/plans/statistics';
   static const activities = '/activities';
   static const activitiesTimeline = '/activities/timeline';
   static const activitiesCalendar = '/activities/calendar';

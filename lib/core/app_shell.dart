@@ -13,6 +13,7 @@ import '../services/storage_service.dart';
 import 'app_router.dart';
 import 'navigation/app_section.dart';
 import 'navigation/app_routes.dart';
+import 'navigation/app_shell_navigation_scope.dart';
 import 'navigation/main_scaffold.dart';
 import 'navigation/navigation_controller.dart';
 import 'navigation/section_router.dart';
@@ -197,9 +198,12 @@ class _AppShellState extends State<AppShell> {
     );
     final sectionRouters = AppRouter.buildSectionRouters(routeState);
 
-    final shell = MainScaffold(
+    final shell = AppShellNavigationScope(
       navigationController: _navigationController,
-      sectionRouters: sectionRouters,
+      child: MainScaffold(
+        navigationController: _navigationController,
+        sectionRouters: sectionRouters,
+      ),
     );
     final scopedShell = widget.coreJourney == null
         ? shell

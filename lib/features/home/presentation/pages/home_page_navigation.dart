@@ -15,9 +15,17 @@ extension _HomePageNavigation on _HomePageState {
   }
 
   Future<void> _openCreatePlan() async {
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const CriarTreinoPage()));
+    final shellNavigation = AppShellNavigationScope.maybeOf(context);
+    if (shellNavigation != null) {
+      await shellNavigation.open<void>(
+        AppShellSection.plans,
+        AppRoutes.plansCreateManual,
+      );
+    } else {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(builder: (_) => const OfficialPlanEditorPage()),
+      );
+    }
     await _refresh();
   }
 

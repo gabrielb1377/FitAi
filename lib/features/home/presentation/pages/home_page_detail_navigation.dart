@@ -135,11 +135,24 @@ extension _HomePageDetailNavigation on _HomePageState {
     return _pushHome(const HomeCustomizePage(), HomeRoutes.customize);
   }
 
-  Future<void> _openWorkoutDetails(TreinoModel workout) {
-    return Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        settings: const RouteSettings(name: '/plans/detail'),
-        builder: (_) => TreinoDetalhesPage(treino: workout),
+  Future<void> _openWorkoutDetails(TreinoModel workout) async {
+    final shellNavigation = AppShellNavigationScope.maybeOf(context);
+    if (shellNavigation != null) {
+      await shellNavigation.open<void>(
+        AppShellSection.plans,
+        AppRoutes.corePlanDetail,
+        arguments: workout.id,
+      );
+      return;
+    }
+
+    final journey = CoreJourneyScope.maybeOf(context)?.notifier;
+    if (journey == null) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        settings: const RouteSettings(name: AppRoutes.corePlanDetail),
+        builder: (_) =>
+            CoreJourneyPlanDetailPage(controller: journey, plan: workout),
       ),
     );
   }

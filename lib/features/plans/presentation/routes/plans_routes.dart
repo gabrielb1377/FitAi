@@ -1,9 +1,14 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 
 import '../../../../core/navigation/app_section.dart';
 import '../../../../core/navigation/app_routes.dart';
 import '../../../../core/navigation/deep_link.dart';
 import '../../../../core/navigation/section_router.dart';
+import '../../../../design_system/fit_design_system.dart';
+import '../../../../screens/treinos/controllers/plan_progress_snapshot.dart';
+import '../../../../screens/treinos/exercicio_detalhe_page.dart';
+import '../../../../models/exercicio_model.dart';
+import '../../../../models/treino_model.dart';
 import '../../../core_journey/presentation/core_journey_route_pages.dart';
 import '../../../core_journey/presentation/core_journey_scope.dart';
 import '../../domain/workout_history_models.dart';
@@ -16,17 +21,17 @@ import '../pages/plan_workout_history_pages.dart';
 /// Rotas oficiais e reservadas do módulo Planos.
 abstract final class PlansRoutes {
   static const root = '/plans';
-  static const create = '/plans/create';
-  static const createWithAi = '/plans/create/ai';
-  static const createManual = '/plans/create/manual';
+  static const create = AppRoutes.plansCreate;
+  static const createWithAi = AppRoutes.plansCreateWithAi;
+  static const createManual = AppRoutes.plansCreateManual;
   static const detail = AppRoutes.corePlanDetail;
-  static const weeks = '/plans/weeks';
-  static const workoutDay = '/plans/workout-day';
-  static const exercise = '/plans/exercise';
+  static const weeks = AppRoutes.plansWeeks;
+  static const workoutDay = AppRoutes.plansWorkoutDay;
+  static const exercise = AppRoutes.plansExercise;
   static const session = AppRoutes.coreWorkout;
   static const completion = AppRoutes.coreWorkoutSummary;
   static const readyPlans = '/plans/ready';
-  static const statistics = '/plans/statistics';
+  static const statistics = AppRoutes.plansStatistics;
   static const calendar = '/plans/calendar';
   static const compare = '/plans/compare';
   static const history = AppRoutes.corePlanHistory;
@@ -68,10 +73,35 @@ abstract final class PlansRoutes {
             CoreJourneyWorkoutRoutePage(arguments: settings.arguments),
         completion: (_, settings) =>
             CoreJourneySummaryRoutePage(arguments: settings.arguments),
+        create: (_, _) => const PlanosCreateChoicePage(),
         createWithAi: (_, _) => const PlanosAiGoalPage(),
         createManual: (_, _) => const PlanosManualGoalPage(),
+        weeks: (context, settings) => _withPlan(
+          context,
+          settings.arguments,
+          (plan) => PlanosWeekPage(plan: plan, days: buildPlanosPlanDays(plan)),
+        ),
+        workoutDay: (context, settings) => _withPlanDay(
+          context,
+          settings.arguments,
+          (plan, day) => PlanosWorkoutDetailPage(plan: plan, day: day),
+        ),
+        exercise: (context, settings) => _withExercise(
+          context,
+          settings.arguments,
+          (exercise) => ExercicioDetalhePage(exercicio: exercise),
+        ),
         readyPlans: (_, _) => const PlanosReadyLibraryPage(),
-        calendar: (_, _) => const PlanosCalendarPage(),
+        statistics: (context, settings) => _withPlan(
+          context,
+          settings.arguments,
+          (plan) => PlanosStatisticsPage(
+            plan: plan,
+            progress: PlanProgressSnapshot.empty(plan),
+          ),
+        ),
+        calendar: (context, settings) =>
+            PlanosCalendarPage(plan: _planFor(context, settings.arguments)),
         compare: (_, _) => const PlanosComparePage(),
         history: (context, settings) {
           final filter = _historyFilter(settings.arguments);
@@ -112,6 +142,72 @@ abstract final class PlansRoutes {
   static Listenable? _historySource(BuildContext context) =>
       CoreJourneyScope.maybeOf(context)?.notifier;
 
+  static Widget _withPlan(
+    BuildContext context,
+    Object? arguments,
+    Widget Function(TreinoModel plan) builder,
+  ) {
+    final plan = _planFor(context, arguments);
+    if (plan == null) return const _PlanRouteUnavailablePage();
+    return builder(plan);
+  }
+
+  static Widget _withPlanDay(
+    BuildContext context,
+    Object? arguments,
+    Widget Function(TreinoModel plan, PlanosPlanDayView day) builder,
+  ) {
+    final plan = _planFor(context, arguments);
+    if (plan == null) return const _PlanRouteUnavailablePage();
+    final requestedDay = _routeArguments(arguments)?.dayCode;
+    final day = buildPlanosPlanDays(plan).where((item) {
+      return requestedDay == null || item.code == requestedDay;
+    }).firstOrNull;
+    if (day == null) return const _PlanRouteUnavailablePage();
+    return builder(plan, day);
+  }
+
+  static Widget _withExercise(
+    BuildContext context,
+    Object? arguments,
+    Widget Function(ExercicioModel exercise) builder,
+  ) {
+    final plan = _planFor(context, arguments);
+    final exerciseId = _routeArguments(arguments)?.exerciseId;
+    if (plan == null || exerciseId == null) {
+      return const _PlanRouteUnavailablePage();
+    }
+    final exercise = plan.exercicios.where((item) {
+      return item.id == exerciseId || item.nome == exerciseId;
+    }).firstOrNull;
+    if (exercise == null) return const _PlanRouteUnavailablePage();
+    return builder(exercise);
+  }
+
+  static TreinoModel? _planFor(BuildContext context, Object? arguments) {
+    final scope = CoreJourneyScope.maybeOf(context)?.notifier;
+    final planId =
+        _routeArguments(arguments)?.planId ?? coreJourneyRouteId(arguments);
+    if (scope == null || planId == null || planId.isEmpty) return null;
+    return scope.planById(planId);
+  }
+
+  static PlanRouteArguments? _routeArguments(Object? arguments) {
+    if (arguments is PlanRouteArguments) return arguments;
+    if (arguments is AppDeepLinkTarget) {
+      final query = arguments.uri.queryParameters;
+      final planId = query['id']?.trim();
+      return planId == null || planId.isEmpty
+          ? null
+          : PlanRouteArguments(
+              planId: planId,
+              dayCode: query['day']?.trim(),
+              exerciseId: query['exercise']?.trim(),
+            );
+    }
+    return null;
+  }
+
   static _WorkoutHistoryFilter _historyFilter(Object? arguments) {
     if (arguments is! AppDeepLinkTarget) return const _WorkoutHistoryFilter();
     final segments = arguments.uri.pathSegments;
@@ -142,6 +238,47 @@ abstract final class PlansRoutes {
     }
     return '';
   }
+}
+
+/// Argumentos mínimos para rotas secundárias de um plano já pertencente ao
+/// usuário autenticado. O destino resolve o plano no repositório canônico.
+class PlanRouteArguments {
+  const PlanRouteArguments({
+    required this.planId,
+    this.dayCode,
+    this.exerciseId,
+  });
+
+  final String planId;
+  final String? dayCode;
+  final String? exerciseId;
+}
+
+class _PlanRouteUnavailablePage extends StatelessWidget {
+  const _PlanRouteUnavailablePage();
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: Theme.of(context).colorScheme.surface,
+    body: SafeArea(
+      child: Column(
+        children: [
+          FitHeader(
+            title: 'Plano indisponivel',
+            showBackButton: true,
+            onBack: () => Navigator.of(context).maybePop(),
+          ),
+          const Expanded(
+            child: FitEmptyState(
+              icon: FitIcons.workout,
+              title: 'Plano nao encontrado',
+              description: 'Abra seus planos e escolha um item disponivel.',
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _WorkoutHistoryFilter {
