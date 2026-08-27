@@ -140,12 +140,18 @@ class TreinoModel {
   }
 
   TreinoModel somenteDia(TreinoDiaModel dia) {
-    final ids = dia.exercicioIds.toSet();
+    final seenIds = <String>{};
+    final ids = dia.exercicioIds
+        .where((id) => seenIds.add(id))
+        .toList(growable: false);
     final exerciciosDoDia = ids.isEmpty
         ? exercicios
-        : exercicios.where((exercicio) {
-            return ids.contains(exercicio.id) || ids.contains(exercicio.nome);
-          }).toList();
+        : [
+            for (final id in ids)
+              ...exercicios.where(
+                (exercicio) => exercicio.id == id || exercicio.nome == id,
+              ),
+          ];
 
     return TreinoModel(
       id: "${id}_${dia.ordem}",

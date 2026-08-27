@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -70,6 +71,7 @@ class CoreJourneyController extends ChangeNotifier {
   bool _disposed = false;
   Timer? _syncRetryTimer;
   Future<void>? _initialization;
+  Future<void> _exerciseMutationQueue = Future<void>.value();
 
   static const _syncRetryInterval = Duration(seconds: 30);
 
@@ -349,26 +351,148 @@ class CoreJourneyController extends ChangeNotifier {
     required String change,
     String? previousExerciseId,
     String? exerciseId,
-  }) => _perform(() async {
-    final session = sessionById(sessionId);
-    if (session == null) throw StateError('Treino local nao encontrado.');
-    final workout = workoutForSession(session);
-    if (workout == null) throw StateError('Treino local nao encontrado.');
-    final updated = TreinoModel.fromJson({
-      ...workout.toJson(),
-      'exercicios': exercises.map((item) => item.toJson()).toList(),
-    });
-    await _requiredRepository.updateWorkoutSnapshot(
-      sessionId: sessionId,
-      workoutSnapshot: updated.toJson(),
-      change: change,
-      previousExerciseId: previousExerciseId,
-      exerciseId: exerciseId,
-    );
-    await _reload();
-    unawaited(_flushOutbox());
-    return updated;
-  });
+  }) => _serializeExerciseMutation(
+    () => _perform(() async {
+      final session = sessionById(sessionId);
+      if (session == null) throw StateError('Treino local nao encontrado.');
+      final workout = workoutForSession(session);
+      if (workout == null) throw StateError('Treino local nao encontrado.');
+      if (_sameExerciseSequence(workout.exercicios, exercises)) return workout;
+      _validateWorkoutExerciseMutation(
+        session: session,
+        current: workout.exercicios,
+        next: exercises,
+        change: change,
+        previousExerciseId: previousExerciseId,
+        exerciseId: exerciseId,
+      );
+      final updated = TreinoModel.fromJson({
+        ...workout.toJson(),
+        'exercicios': exercises.map((item) => item.toJson()).toList(),
+      });
+      await _requiredRepository.updateWorkoutSnapshot(
+        sessionId: sessionId,
+        workoutSnapshot: updated.toJson(),
+        change: change,
+        previousExerciseId: previousExerciseId,
+        exerciseId: exerciseId,
+      );
+      await _reload();
+      unawaited(_flushOutbox());
+      return updated;
+    }),
+  );
+
+  Future<T?> _serializeExerciseMutation<T>(Future<T?> Function() action) async {
+    final previous = _exerciseMutationQueue;
+    final completion = Completer<void>();
+    _exerciseMutationQueue = completion.future;
+    await previous;
+    try {
+      return await action();
+    } finally {
+      completion.complete();
+    }
+  }
+
+  void _validateWorkoutExerciseMutation({
+    required WorkoutSessionLocal session,
+    required List<ExercicioModel> current,
+    required List<ExercicioModel> next,
+    required String change,
+    required String? previousExerciseId,
+    required String? exerciseId,
+  }) {
+    if (next.isEmpty) {
+      throw StateError('O treino precisa manter pelo menos um exercicio.');
+    }
+    final currentIds = current.map(_requiredExerciseId).toList(growable: false);
+    final nextIds = next.map(_requiredExerciseId).toList(growable: false);
+    if (nextIds.toSet().length != nextIds.length) {
+      throw StateError(
+        'O mesmo exercicio nao pode aparecer duas vezes na sessao.',
+      );
+    }
+    final previousId = previousExerciseId?.trim();
+    final targetId = exerciseId?.trim();
+
+    switch (change) {
+      case 'add':
+        if (targetId == null ||
+            targetId.isEmpty ||
+            currentIds.contains(targetId) ||
+            !nextIds.contains(targetId)) {
+          throw StateError(
+            'Nao foi possivel adicionar este exercicio ao treino.',
+          );
+        }
+        break;
+      case 'replace':
+        if (previousId == null ||
+            previousId.isEmpty ||
+            targetId == null ||
+            targetId.isEmpty ||
+            previousId == targetId ||
+            !currentIds.contains(previousId) ||
+            currentIds.contains(targetId) ||
+            nextIds.contains(previousId) ||
+            !nextIds.contains(targetId)) {
+          throw StateError('Nao foi possivel substituir este exercicio.');
+        }
+        break;
+      case 'remove':
+        if (previousId == null ||
+            previousId.isEmpty ||
+            !currentIds.contains(previousId) ||
+            nextIds.contains(previousId)) {
+          throw StateError('Nao foi possivel remover este exercicio.');
+        }
+        if (setsFor(session.id).any((set) => set.exerciseId == previousId)) {
+          throw StateError(
+            'Exercicios com series concluidas nao podem ser removidos da sessao.',
+          );
+        }
+        break;
+      case 'reorder':
+        if (currentIds.length != nextIds.length ||
+            !nextIds.toSet().containsAll(currentIds)) {
+          throw StateError(
+            'A nova ordem nao representa os exercicios do treino.',
+          );
+        }
+        final currentIndex = session.currentExerciseIndex;
+        if (currentIndex >= 0 &&
+            currentIndex < currentIds.length &&
+            currentIds[currentIndex] != nextIds[currentIndex]) {
+          throw StateError('Reordene apenas os exercicios futuros do treino.');
+        }
+        break;
+      default:
+        throw ArgumentError('Mutacao de exercicio desconhecida: $change');
+    }
+  }
+
+  String _requiredExerciseId(ExercicioModel exercise) {
+    final id = exercise.id.trim();
+    if (id.isEmpty) {
+      throw ArgumentError('O exercicio precisa de um ID canonico.');
+    }
+    return id;
+  }
+
+  bool _sameExerciseSequence(
+    List<ExercicioModel> left,
+    List<ExercicioModel> right,
+  ) {
+    if (left.length != right.length) return false;
+    for (var index = 0; index < left.length; index++) {
+      if (jsonEncode(left[index].toJson()) !=
+          jsonEncode(right[index].toJson())) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   Future<RegisterSetResult?> completeSet({
     required String sessionId,

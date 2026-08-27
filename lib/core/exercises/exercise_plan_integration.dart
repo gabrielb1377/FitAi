@@ -64,6 +64,7 @@ class ExercisePlanIntegration {
     ExercisePlanInsertion insertion,
   ) async {
     final plan = insertion.plan;
+    _requiredExerciseId(insertion.exercise.id);
     final configuredExercise = insertion.exercise.copyWith(
       series: insertion.sets.clamp(1, 99),
       repeticoes: insertion.repetitions.trim().isEmpty
@@ -123,17 +124,158 @@ class ExercisePlanIntegration {
       origem: plan.origem,
       readyPlanId: plan.readyPlanId,
     );
-    final savePlan = this.savePlan;
-    if (savePlan != null) {
-      await savePlan(updated);
-    } else {
-      await _treinoService.adicionarTreinoComPersistencia(updated);
-    }
+    await _persistPlan(updated);
     return ExercisePlanInsertionResult(
       plan: updated,
       insertedExercise: configuredExercise,
       position: position,
     );
+  }
+
+  /// Replaces one future prescription while preserving the plan identity and
+  /// its local-first persistence path. A plan created by R2.4 has one unique
+  /// catalog ID per exercise, which keeps this command unambiguous.
+  Future<TreinoModel> replaceInPlan({
+    required TreinoModel plan,
+    required String previousExerciseId,
+    required ExercicioModel replacement,
+  }) async {
+    final previousId = _requiredExerciseId(previousExerciseId);
+    final replacementId = _requiredExerciseId(replacement.id);
+    if (previousId == replacementId) return plan;
+    final index = plan.exercicios.indexWhere((item) => item.id == previousId);
+    if (index < 0) throw StateError('Exercicio original nao existe no plano.');
+    if (plan.exercicios.any((item) => item.id == replacementId)) {
+      throw StateError('O exercicio substituto ja existe no plano.');
+    }
+    final exercises = List<ExercicioModel>.from(plan.exercicios)
+      ..[index] = replacement;
+    final updated = _withExercises(
+      plan,
+      exercises: exercises,
+      days: _mapDayIds(
+        plan,
+        (ids) => [
+          for (final id in ids)
+            if (id == previousId) replacementId else id,
+        ],
+      ),
+    );
+    await _persistPlan(updated);
+    return updated;
+  }
+
+  /// Removes only an exercise that has a valid remaining plan structure.
+  /// Session sets are not owned by plan definitions and are never touched.
+  Future<TreinoModel> removeFromPlan({
+    required TreinoModel plan,
+    required String exerciseId,
+  }) async {
+    final id = _requiredExerciseId(exerciseId);
+    if (plan.exercicios.length <= 1) {
+      throw StateError('O plano precisa manter pelo menos um exercicio.');
+    }
+    if (!plan.exercicios.any((item) => item.id == id)) {
+      throw StateError('Exercicio nao existe no plano.');
+    }
+    for (final day in plan.planoDias) {
+      if (day.exercicioIds.contains(id) && day.exercicioIds.length <= 1) {
+        throw StateError('O treino precisa manter pelo menos um exercicio.');
+      }
+    }
+    final updated = _withExercises(
+      plan,
+      exercises: plan.exercicios.where((item) => item.id != id).toList(),
+      days: _mapDayIds(plan, (ids) => ids.where((item) => item != id).toList()),
+    );
+    await _persistPlan(updated);
+    return updated;
+  }
+
+  /// Persists a deterministic order. Day projections follow the same order,
+  /// so `TreinoModel.somenteDia` restores it after a restart.
+  Future<TreinoModel> reorderPlanExercises({
+    required TreinoModel plan,
+    required List<String> orderedExerciseIds,
+  }) async {
+    final currentIds = plan.exercicios
+        .map((exercise) => _requiredExerciseId(exercise.id))
+        .toList(growable: false);
+    final requested = orderedExerciseIds
+        .map(_requiredExerciseId)
+        .toList(growable: false);
+    if (requested.length != currentIds.length ||
+        requested.toSet().length != requested.length ||
+        !requested.toSet().containsAll(currentIds)) {
+      throw StateError('A nova ordem nao representa os exercicios do plano.');
+    }
+    if (_sameSequence(currentIds, requested)) return plan;
+    final byId = {
+      for (final exercise in plan.exercicios) exercise.id: exercise,
+    };
+    final updated = _withExercises(
+      plan,
+      exercises: [for (final id in requested) byId[id]!],
+      days: _mapDayIds(plan, (ids) {
+        final dayIds = ids.toSet();
+        return [
+          for (final id in requested)
+            if (dayIds.contains(id)) id,
+          for (final id in ids)
+            if (!requested.contains(id)) id,
+        ];
+      }),
+    );
+    await _persistPlan(updated);
+    return updated;
+  }
+
+  Future<void> _persistPlan(TreinoModel plan) async {
+    final savePlan = this.savePlan;
+    if (savePlan != null) {
+      await savePlan(plan);
+    } else {
+      await _treinoService.adicionarTreinoComPersistencia(plan);
+    }
+  }
+
+  TreinoModel _withExercises(
+    TreinoModel plan, {
+    required List<ExercicioModel> exercises,
+    required List<TreinoDiaModel> days,
+  }) => TreinoModel.fromJson({
+    ...plan.toJson(),
+    'exercicios': exercises.map((exercise) => exercise.toJson()).toList(),
+    'planoDias': days.map((day) => day.toJson()).toList(),
+  });
+
+  List<TreinoDiaModel> _mapDayIds(
+    TreinoModel plan,
+    List<String> Function(List<String> ids) transform,
+  ) => [
+    for (final day in plan.planoDias)
+      TreinoDiaModel(
+        codigo: day.codigo,
+        nome: day.nome,
+        ordem: day.ordem,
+        exercicioIds: transform(List<String>.from(day.exercicioIds)),
+      ),
+  ];
+
+  String _requiredExerciseId(String id) {
+    final normalized = id.trim();
+    if (normalized.isEmpty) {
+      throw ArgumentError('O exercicio precisa de um ID canonico.');
+    }
+    return normalized;
+  }
+
+  bool _sameSequence(List<String> left, List<String> right) {
+    if (left.length != right.length) return false;
+    for (var index = 0; index < left.length; index++) {
+      if (left[index] != right[index]) return false;
+    }
+    return true;
   }
 
   String _identityFor(ExercicioModel exercise) =>

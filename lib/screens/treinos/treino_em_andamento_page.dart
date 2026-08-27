@@ -778,6 +778,11 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     );
     if (!mounted || selecionado == null) return;
 
+    if (_exercicios.any((exercise) => _mesmoExercicio(exercise, selecionado))) {
+      _mostrarMensagem('Este exercício já está no treino.');
+      return;
+    }
+
     final slots = _snapshotSlots();
     final insertIndex = _totalExercicios == 0 ? 0 : _exercicioAtual + 1;
     slots.insert(insertIndex, _ExerciseSessionSlot(exercicio: selecionado));
@@ -808,6 +813,10 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     if (!mounted || selecionado == null) return;
 
     if (_mesmoExercicio(exercicioAtual, selecionado)) return;
+    if (_exercicios.any((exercise) => _mesmoExercicio(exercise, selecionado))) {
+      _mostrarMensagem('Este exercício já está no treino.');
+      return;
+    }
 
     final updatedExercises = List<ExercicioModel>.of(_exercicios)
       ..[_exercicioAtual] = selecionado;
@@ -837,6 +846,16 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   Future<void> _removerExercicioAtual() async {
     if (_totalExercicios <= 1) {
       _mostrarMensagem('O treino precisa ter pelo menos um exercício.');
+      return;
+    }
+    final exercicioAtual = _exercicio;
+    final possuiSeriesPersistidas =
+        exercicioAtual != null &&
+        (_seriesConcluidas[_exercicioAtual]?.isNotEmpty ?? false);
+    if (possuiSeriesPersistidas) {
+      _mostrarMensagem(
+        'Séries concluídas permanecem no histórico. Substitua o exercício para continuar.',
+      );
       return;
     }
 
@@ -902,11 +921,16 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
   }
 
   Future<void> _reordenarExercicios(int oldIndex, int newIndex) async {
+    final targetIndex = oldIndex < newIndex ? newIndex - 1 : newIndex;
+    if (oldIndex <= _exercicioAtual || targetIndex <= _exercicioAtual) {
+      _mostrarMensagem('Reordene apenas os exercícios futuros do treino.');
+      return;
+    }
     final slots = _snapshotSlots();
     final currentSlot = slots[_exercicioAtual];
 
     final moved = slots.removeAt(oldIndex);
-    slots.insert(newIndex, moved);
+    slots.insert(targetIndex, moved);
     final persisted = await _persistExerciseSequence(
       slots.map((slot) => slot.exercicio).toList(growable: false),
       change: 'reorder',
@@ -2400,6 +2424,15 @@ class _ReorderExercisesSheet extends StatelessWidget {
                     color: Colors.white,
                   ),
                 ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Apenas exercícios futuros podem mudar de posição.',
+                style: TextStyle(
+                  color: Colors.white.withAlpha(150),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 10),
               Expanded(

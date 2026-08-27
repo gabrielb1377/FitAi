@@ -121,7 +121,11 @@ void main() {
         final session = await controller.startWorkout(plan: plan);
         final workout = controller.workoutForSession(session!)!;
         final original = workout.exercicios.first;
-        final replacement = workout.exercicios.last;
+        final replacement = ExercicioModel.fromJson({
+          ...workout.exercicios.last.toJson(),
+          'id': 'replacement-${workout.exercicios.last.id}',
+          'nome': 'Substituicao canônica',
+        });
         await controller.completeSet(
           sessionId: session.id,
           exercise: original,
@@ -131,7 +135,7 @@ void main() {
 
         final updated = await controller.updateWorkoutExercises(
           sessionId: session.id,
-          exercises: [replacement, original],
+          exercises: [replacement, ...workout.exercicios.skip(1)],
           change: 'replace',
           previousExerciseId: original.id,
           exerciseId: replacement.id,
