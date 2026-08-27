@@ -10,11 +10,15 @@ class OfficialPlanEditorPage extends StatefulWidget {
   const OfficialPlanEditorPage({
     super.key,
     this.initialPlan,
+    this.saveAsNew = false,
     this.onSaved,
     this.onDeleted,
   });
 
   final TreinoModel? initialPlan;
+
+  /// A draft already has plan data but has not entered persistent storage.
+  final bool saveAsNew;
   final ValueChanged<TreinoModel>? onSaved;
   final VoidCallback? onDeleted;
 
@@ -23,9 +27,21 @@ class OfficialPlanEditorPage extends StatefulWidget {
 }
 
 class _OfficialPlanEditorPageState extends State<OfficialPlanEditorPage> {
-  static const _goals = ['Hipertrofia', 'Definição', 'Força', 'Saúde'];
+  static const _goals = [
+    'Hipertrofia',
+    'Emagrecimento',
+    'Definição',
+    'Força',
+    'Performance',
+    'Saúde',
+  ];
   static const _levels = ['Iniciante', 'Intermediário', 'Avançado'];
-  static const _splits = ['Upper / Lower', 'Push / Pull / Legs', 'Full Body'];
+  static const _splits = [
+    'Upper / Lower',
+    'Push / Pull / Legs',
+    'Full Body',
+    'Personalizada',
+  ];
 
   late final TextEditingController _nameController;
   late final TextEditingController _descriptionController;
@@ -34,7 +50,7 @@ class _OfficialPlanEditorPageState extends State<OfficialPlanEditorPage> {
   late String _split;
   var _saving = false;
 
-  bool get _editing => widget.initialPlan != null;
+  bool get _editing => widget.initialPlan != null && !widget.saveAsNew;
 
   @override
   void initState() {

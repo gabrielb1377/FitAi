@@ -62,6 +62,9 @@ class ExercicioModel {
     int? series,
     String? repeticoes,
     int? descansoSegundos,
+    String? rir,
+    String? cadencia,
+    String? observacoesTreino,
     bool? favorito,
   }) {
     return ExercicioModel(
@@ -85,9 +88,9 @@ class ExercicioModel {
       series: series ?? this.series,
       repeticoes: repeticoes ?? this.repeticoes,
       descansoSegundos: descansoSegundos ?? this.descansoSegundos,
-      rir: rir,
-      cadencia: cadencia,
-      observacoesTreino: observacoesTreino,
+      rir: rir ?? this.rir,
+      cadencia: cadencia ?? this.cadencia,
+      observacoesTreino: observacoesTreino ?? this.observacoesTreino,
       favorito: favorito ?? this.favorito,
     );
   }

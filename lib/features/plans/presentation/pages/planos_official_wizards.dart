@@ -3,8 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../design_system/fit_design_system.dart';
+import '../../../../models/exercicio_model.dart';
+import '../../../../models/treino_model.dart';
 import '../../../../screens/ai_workout_page.dart';
+import '../../../../screens/exercicios/biblioteca/biblioteca_exercicios_page.dart';
 import '../../../../screens/treinos/official/official_plan_editor_page.dart';
+import '../../domain/manual_plan_draft.dart';
 import 'planos_official_library_page.dart';
 import '../widgets/planos_official_primitives.dart';
 
@@ -411,7 +415,7 @@ class PlanosAiReadyPage extends StatelessWidget {
   }
 }
 
-/// PLAN-006. Inicio do fluxo manual.
+/// PLAN-006. Inicio do fluxo manual com um rascunho ainda não persistido.
 class PlanosManualGoalPage extends StatefulWidget {
   const PlanosManualGoalPage({super.key});
 
@@ -423,101 +427,91 @@ class _PlanosManualGoalPageState extends State<PlanosManualGoalPage> {
   var _goal = 'Hipertrofia';
 
   @override
-  Widget build(BuildContext context) {
-    return PlanosOfficialPage(
-      title: 'Qual o objetivo principal?',
-      subtitle: 'Escolha o foco do seu plano',
-      onBack: () => Navigator.of(context).maybePop(),
-      bottomAction: FitPrimaryButton(
-        label: 'Continuar',
-        fullWidth: true,
-        onPressed: () => Navigator.of(context).push<void>(
-          MaterialPageRoute(builder: (_) => PlanosStructurePage(goal: _goal)),
-        ),
-      ),
-      child: ListView(
-        padding: const EdgeInsets.all(FitSpacing.s16),
-        children: [
-          const FitStepProgress(currentStep: 1, totalSteps: 4),
-          const SizedBox(height: FitSpacing.s24),
-          for (final option in _goals) ...[
-            PlanosChoiceTile(
-              title: option.title,
-              description: option.description,
-              icon: option.icon,
-              selected: _goal == option.title,
-              onTap: () => setState(() => _goal = option.title),
-            ),
-            const SizedBox(height: FitSpacing.s8),
-          ],
+  Widget build(BuildContext context) => PlanosOfficialPage(
+    title: 'Qual o objetivo principal?',
+    subtitle: 'Escolha o foco do seu plano',
+    onBack: () => Navigator.of(context).maybePop(),
+    bottomAction: FitPrimaryButton(
+      label: 'Continuar',
+      fullWidth: true,
+      onPressed: _openStructure,
+    ),
+    child: ListView(
+      padding: const EdgeInsets.all(FitSpacing.s16),
+      children: [
+        const FitStepProgress(currentStep: 1, totalSteps: 4),
+        const SizedBox(height: FitSpacing.s24),
+        for (final option in _goals) ...[
+          PlanosChoiceTile(
+            title: option.title,
+            description: option.description,
+            icon: option.icon,
+            selected: _goal == option.title,
+            onTap: () => setState(() => _goal = option.title),
+          ),
+          const SizedBox(height: FitSpacing.s8),
         ],
-      ),
+      ],
+    ),
+  );
+
+  void _openStructure() {
+    final draft = ManualPlanDraft(
+      id: 'manual_${DateTime.now().microsecondsSinceEpoch}',
+      goal: _goal,
+    );
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => PlanosStructurePage(draft: draft)),
     );
   }
 }
 
-/// PLAN-007. Definicao da estrutura de treino.
+/// PLAN-007. A escolha de estrutura passa a compor o mesmo rascunho.
 class PlanosStructurePage extends StatefulWidget {
-  const PlanosStructurePage({super.key, required this.goal});
+  const PlanosStructurePage({super.key, required this.draft});
 
-  final String goal;
+  final ManualPlanDraft draft;
 
   @override
   State<PlanosStructurePage> createState() => _PlanosStructurePageState();
 }
 
 class _PlanosStructurePageState extends State<PlanosStructurePage> {
-  var _structure = 'Upper / Lower';
+  late String _structure = widget.draft.structure;
 
   @override
-  Widget build(BuildContext context) {
-    return PlanosOfficialPage(
-      title: 'Estrutura do plano',
-      subtitle: 'Defina como sera seu treino',
-      onBack: () => Navigator.of(context).maybePop(),
-      bottomAction: FitPrimaryButton(
-        label: 'Continuar',
-        fullWidth: true,
-        onPressed: () => Navigator.of(context).push<void>(
-          MaterialPageRoute(
-            builder: (_) => PlanosBuildWorkoutsPage(
-              goal: widget.goal,
-              structure: _structure,
-            ),
+  Widget build(BuildContext context) => PlanosOfficialPage(
+    title: 'Estrutura do plano',
+    subtitle: 'Defina como será seu treino',
+    onBack: () => Navigator.of(context).maybePop(),
+    bottomAction: FitPrimaryButton(
+      label: 'Continuar',
+      fullWidth: true,
+      onPressed: _openWorkouts,
+    ),
+    child: ListView(
+      padding: const EdgeInsets.all(FitSpacing.s16),
+      children: [
+        const FitStepProgress(currentStep: 2, totalSteps: 4),
+        const SizedBox(height: FitSpacing.s24),
+        _selectionSummary('Objetivo', widget.draft.goal, FitIcons.goal),
+        const SizedBox(height: FitSpacing.s16),
+        for (final option in _structures) ...[
+          PlanosChoiceTile(
+            title: option.title,
+            description: option.description,
+            icon: option.icon,
+            selected: _structure == option.title,
+            onTap: () => setState(() => _structure = option.title),
           ),
-        ),
-      ),
-      child: ListView(
-        padding: const EdgeInsets.all(FitSpacing.s16),
-        children: [
-          const FitStepProgress(currentStep: 2, totalSteps: 4),
-          const SizedBox(height: FitSpacing.s24),
-          _configSummary(
-            'Nivel de experiencia',
-            'Intermediario',
-            FitIcons.progress,
-          ),
-          _configSummary('Dias por semana', '4 dias', FitIcons.calendar),
-          const SizedBox(height: FitSpacing.s16),
-          for (final option in _structures) ...[
-            PlanosChoiceTile(
-              title: option.title,
-              description: option.description,
-              icon: option.icon,
-              selected: _structure == option.title,
-              onTap: () => setState(() => _structure = option.title),
-            ),
-            const SizedBox(height: FitSpacing.s8),
-          ],
+          const SizedBox(height: FitSpacing.s8),
         ],
-      ),
-    );
-  }
+      ],
+    ),
+  );
 
-  Widget _configSummary(String title, String value, IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: FitSpacing.s8),
-      child: FitCard(
+  Widget _selectionSummary(String title, String value, IconData icon) =>
+      FitCard(
         padding: const EdgeInsets.all(FitSpacing.s12),
         child: Row(
           children: [
@@ -527,307 +521,516 @@ class _PlanosStructurePageState extends State<PlanosStructurePage> {
             Text(value, style: Theme.of(context).textTheme.labelMedium),
           ],
         ),
+      );
+
+  void _openWorkouts() {
+    widget.draft.structure = _structure;
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => PlanosBuildWorkoutsPage(draft: widget.draft),
       ),
     );
   }
 }
 
-/// PLAN-008. Lista dos treinos que compoem a rotina manual.
-class PlanosBuildWorkoutsPage extends StatelessWidget {
-  const PlanosBuildWorkoutsPage({
-    super.key,
-    required this.goal,
-    required this.structure,
-  });
+/// PLAN-008. Os treinos são criados pelo usuário e não por uma lista exemplo.
+class PlanosBuildWorkoutsPage extends StatefulWidget {
+  const PlanosBuildWorkoutsPage({super.key, required this.draft});
 
-  final String goal;
-  final String structure;
+  final ManualPlanDraft draft;
 
   @override
-  Widget build(BuildContext context) {
-    final days = const [
-      ('Segunda', 'Upper A'),
-      ('Terca', 'Lower A'),
-      ('Quinta', 'Upper B'),
-      ('Sexta', 'Lower B'),
-    ];
-    return PlanosOfficialPage(
-      title: 'Seus treinos',
-      subtitle: 'Organize e adicione os treinos',
-      onBack: () => Navigator.of(context).maybePop(),
-      bottomAction: FitPrimaryButton(
-        label: 'Continuar',
-        fullWidth: true,
-        onPressed: () => Navigator.of(context).push<void>(
-          MaterialPageRoute(
-            builder: (_) => PlanosEditWorkoutPage(
-              goal: goal,
-              structure: structure,
-              title: days.first.$2,
-            ),
-          ),
-        ),
-      ),
-      child: ListView(
-        padding: const EdgeInsets.all(FitSpacing.s16),
-        children: [
-          const FitStepProgress(currentStep: 3, totalSteps: 4),
-          const SizedBox(height: FitSpacing.s24),
-          for (final day in days) ...[
-            FitCard(
-              variant: FitCardVariant.clickable,
-              onTap: () => Navigator.of(context).push<void>(
-                MaterialPageRoute(
-                  builder: (_) => PlanosEditWorkoutPage(
-                    goal: goal,
-                    structure: structure,
-                    title: day.$2,
+  State<PlanosBuildWorkoutsPage> createState() =>
+      _PlanosBuildWorkoutsPageState();
+}
+
+class _PlanosBuildWorkoutsPageState extends State<PlanosBuildWorkoutsPage> {
+  @override
+  Widget build(BuildContext context) => PlanosOfficialPage(
+    title: 'Seus treinos',
+    subtitle: 'Adicione exercícios do catálogo e configure a prescrição',
+    onBack: () => Navigator.of(context).maybePop(),
+    bottomAction: FitPrimaryButton(
+      label: 'Continuar',
+      fullWidth: true,
+      onPressed: _openReview,
+    ),
+    child: ListView(
+      padding: const EdgeInsets.all(FitSpacing.s16),
+      children: [
+        const FitStepProgress(currentStep: 3, totalSteps: 4),
+        const SizedBox(height: FitSpacing.s24),
+        for (final day in widget.draft.days) ...[
+          FitCard(
+            variant: FitCardVariant.clickable,
+            onTap: () => _editDay(day),
+            child: Row(
+              children: [
+                const Icon(FitIcons.workout),
+                const SizedBox(width: FitSpacing.s12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        day.title,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      Text('${day.exercises.length} exercícios configurados'),
+                    ],
                   ),
                 ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(FitIcons.workout),
-                  const SizedBox(width: FitSpacing.s12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${day.$1} - ${day.$2}',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const Text('5 exercicios'),
-                      ],
-                    ),
-                  ),
+                if (widget.draft.days.length > 1)
+                  IconButton(
+                    tooltip: 'Remover treino',
+                    onPressed: () =>
+                        setState(() => widget.draft.removeDay(day.id)),
+                    icon: const Icon(FitIcons.close),
+                  )
+                else
                   const Icon(FitIcons.forward),
-                ],
-              ),
-            ),
-            const SizedBox(height: FitSpacing.s8),
-          ],
-          FitOutlinedCard(
-            onTap: () => Navigator.of(context).push<void>(
-              MaterialPageRoute(builder: (_) => const OfficialPlanEditorPage()),
-            ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(FitIcons.add),
-                SizedBox(width: FitSpacing.s8),
-                Text('Adicionar treino'),
               ],
             ),
           ),
+          const SizedBox(height: FitSpacing.s8),
         ],
+        FitOutlinedCard(
+          onTap: () => setState(widget.draft.addDay),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(FitIcons.add),
+              SizedBox(width: FitSpacing.s8),
+              Text('Adicionar treino'),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Future<void> _editDay(ManualPlanDraftDay day) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) =>
+            PlanosEditWorkoutPage(draft: widget.draft, dayId: day.id),
       ),
+    );
+    if (mounted) setState(() {});
+  }
+
+  void _openReview() {
+    final error = widget.draft.validate();
+    if (error != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
+      return;
+    }
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => PlanosReviewPage(draft: widget.draft)),
     );
   }
 }
 
-/// PLAN-009. Editor de um treino manual antes da revisao.
-class PlanosEditWorkoutPage extends StatelessWidget {
+/// PLAN-009. Seleciona exercícios reais da Biblioteca e persiste prescrição no draft.
+class PlanosEditWorkoutPage extends StatefulWidget {
   const PlanosEditWorkoutPage({
     super.key,
-    required this.goal,
-    required this.structure,
-    required this.title,
+    required this.draft,
+    required this.dayId,
   });
 
-  final String goal;
-  final String structure;
-  final String title;
+  final ManualPlanDraft draft;
+  final String dayId;
 
   @override
-  Widget build(BuildContext context) {
-    const exercises = [
-      'Supino reto',
-      'Remada curvada',
-      'Desenvolvimento com halteres',
-      'Elevacao lateral',
-      'Triceps testa',
-    ];
-    return PlanosOfficialPage(
-      title: 'Editar treino',
-      subtitle: title,
-      onBack: () => Navigator.of(context).maybePop(),
-      bottomAction: FitPrimaryButton(
-        label: 'Continuar',
-        fullWidth: true,
-        onPressed: () => Navigator.of(context).push<void>(
-          MaterialPageRoute(
-            builder: (_) => PlanosReviewPage(goal: goal, structure: structure),
-          ),
-        ),
-      ),
-      child: ListView(
-        padding: const EdgeInsets.all(FitSpacing.s16),
-        children: [
-          for (var index = 0; index < exercises.length; index++) ...[
-            FitCard(
-              child: Row(
-                children: [
-                  Text(
-                    '${index + 1}',
-                    style: Theme.of(context).textTheme.labelMedium,
-                  ),
-                  const SizedBox(width: FitSpacing.s12),
-                  const SizedBox.square(
-                    dimension: FitLayout.domainThumbnailSmall,
-                    child: PlanosPlanMedia(
-                      compact: true,
-                      height: FitLayout.domainThumbnailSmall,
-                    ),
-                  ),
-                  const SizedBox(width: FitSpacing.s12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          exercises[index],
-                          style: Theme.of(context).textTheme.titleSmall,
-                        ),
-                        const Text('4 series  |  8-12 reps  |  60s'),
-                      ],
-                    ),
-                  ),
-                  const Icon(Icons.drag_handle_rounded),
-                ],
-              ),
-            ),
+  State<PlanosEditWorkoutPage> createState() => _PlanosEditWorkoutPageState();
+}
+
+class _PlanosEditWorkoutPageState extends State<PlanosEditWorkoutPage> {
+  ManualPlanDraftDay get _day => widget.draft.dayById(widget.dayId)!;
+
+  @override
+  Widget build(BuildContext context) => PlanosOfficialPage(
+    title: 'Editar treino',
+    subtitle: _day.title,
+    onBack: () => Navigator.of(context).maybePop(),
+    bottomAction: FitPrimaryButton(
+      label: 'Concluir treino',
+      fullWidth: true,
+      onPressed: () => Navigator.of(context).maybePop(),
+    ),
+    child: ListView(
+      padding: const EdgeInsets.all(FitSpacing.s16),
+      children: [
+        if (_day.exercises.isEmpty)
+          const FitEmptyStateCard(
+            title: 'Nenhum exercício selecionado',
+            description:
+                'Adicione exercícios reais da Biblioteca para continuar.',
+          )
+        else
+          for (var index = 0; index < _day.exercises.length; index++) ...[
+            _exerciseCard(_day.exercises[index], index),
             const SizedBox(height: FitSpacing.s8),
           ],
-          FitOutlinedCard(
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+        FitOutlinedCard(
+          onTap: _openCatalog,
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(FitIcons.add),
+              SizedBox(width: FitSpacing.s8),
+              Text('Adicionar exercício'),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _exerciseCard(ExercicioModel exercise, int index) {
+    final configured =
+        exercise.series > 0 &&
+        exercise.repeticoes.trim().isNotEmpty &&
+        exercise.descansoSegundos > 0;
+    return FitCard(
+      child: Row(
+        children: [
+          Text('${index + 1}', style: Theme.of(context).textTheme.labelMedium),
+          const SizedBox(width: FitSpacing.s12),
+          const SizedBox.square(
+            dimension: FitLayout.domainThumbnailSmall,
+            child: PlanosPlanMedia(
+              compact: true,
+              height: FitLayout.domainThumbnailSmall,
+            ),
+          ),
+          const SizedBox(width: FitSpacing.s12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(FitIcons.add),
-                SizedBox(width: FitSpacing.s8),
-                Text('Adicionar exercicio'),
+                Text(
+                  exercise.nome,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                Text(
+                  configured
+                      ? '${exercise.series} séries | ${exercise.repeticoes} reps | ${exercise.descansoSegundos}s'
+                      : 'Prescrição pendente',
+                ),
               ],
             ),
           ),
+          IconButton(
+            tooltip: 'Configurar prescrição',
+            onPressed: () => _configure(exercise),
+            icon: const Icon(FitIcons.edit),
+          ),
+          IconButton(
+            tooltip: 'Remover exercício',
+            onPressed: () => setState(
+              () => widget.draft.removeExercise(
+                dayId: widget.dayId,
+                exerciseId: exercise.id,
+              ),
+            ),
+            icon: const Icon(FitIcons.close),
+          ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _openCatalog() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) =>
+            BibliotecaExerciciosPage(onSelecionar: _addCatalogExercise),
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
+  void _addCatalogExercise(ExercicioModel exercise) {
+    final result = widget.draft.addExercise(
+      dayId: widget.dayId,
+      exercise: exercise,
+    );
+    final message = switch (result) {
+      ManualPlanDraftSelectionResult.added => '${exercise.nome} adicionado.',
+      ManualPlanDraftSelectionResult.duplicate =>
+        '${exercise.nome} já está neste plano.',
+      ManualPlanDraftSelectionResult.missingCatalogId =>
+        'Este exercício não possui ID do catálogo.',
+      ManualPlanDraftSelectionResult.dayNotFound => 'Treino indisponível.',
+    };
+    if (mounted) {
+      setState(() {});
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  Future<void> _configure(ExercicioModel exercise) async {
+    final prescription =
+        await FitBottomSheetContainer.show<_ManualExercisePrescription>(
+          context: context,
+          title: 'Prescrição',
+          subtitle: exercise.nome,
+          isScrollControlled: true,
+          child: _ManualPrescriptionForm(exercise: exercise),
+        );
+    if (!mounted || prescription == null) return;
+    setState(
+      () => widget.draft.updatePrescription(
+        dayId: widget.dayId,
+        exerciseId: exercise.id,
+        sets: prescription.sets,
+        reps: prescription.reps,
+        restSeconds: prescription.restSeconds,
       ),
     );
   }
 }
 
-/// PLAN-010. Revisao do fluxo manual, sem persistir dados inventados.
-class PlanosReviewPage extends StatelessWidget {
-  const PlanosReviewPage({
-    super.key,
-    required this.goal,
-    required this.structure,
+class _ManualPrescriptionForm extends StatefulWidget {
+  const _ManualPrescriptionForm({required this.exercise});
+
+  final ExercicioModel exercise;
+
+  @override
+  State<_ManualPrescriptionForm> createState() =>
+      _ManualPrescriptionFormState();
+}
+
+class _ManualPrescriptionFormState extends State<_ManualPrescriptionForm> {
+  late final TextEditingController _sets;
+  late final TextEditingController _reps;
+  late final TextEditingController _rest;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _sets = TextEditingController(
+      text: widget.exercise.series > 0 ? '${widget.exercise.series}' : '',
+    );
+    _reps = TextEditingController(text: widget.exercise.repeticoes);
+    _rest = TextEditingController(
+      text: widget.exercise.descansoSegundos > 0
+          ? '${widget.exercise.descansoSegundos}'
+          : '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _sets.dispose();
+    _reps.dispose();
+    _rest.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.all(FitSpacing.s16),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: _sets,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(labelText: 'Séries'),
+        ),
+        const SizedBox(height: FitSpacing.s12),
+        TextField(
+          controller: _reps,
+          decoration: const InputDecoration(labelText: 'Repetições'),
+        ),
+        const SizedBox(height: FitSpacing.s12),
+        TextField(
+          controller: _rest,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(labelText: 'Descanso (segundos)'),
+        ),
+        if (_error != null) ...[
+          const SizedBox(height: FitSpacing.s8),
+          Text(_error!, style: Theme.of(context).textTheme.bodySmall),
+        ],
+        const SizedBox(height: FitSpacing.s16),
+        FitPrimaryButton(
+          label: 'Salvar prescrição',
+          fullWidth: true,
+          onPressed: _submit,
+        ),
+      ],
+    ),
+  );
+
+  void _submit() {
+    final sets = int.tryParse(_sets.text.trim());
+    final rest = int.tryParse(_rest.text.trim());
+    final reps = _reps.text.trim();
+    if (sets == null ||
+        sets <= 0 ||
+        rest == null ||
+        rest <= 0 ||
+        reps.isEmpty) {
+      setState(() => _error = 'Informe séries, repetições e descanso válidos.');
+      return;
+    }
+    Navigator.of(context).pop(
+      _ManualExercisePrescription(sets: sets, reps: reps, restSeconds: rest),
+    );
+  }
+}
+
+class _ManualExercisePrescription {
+  const _ManualExercisePrescription({
+    required this.sets,
+    required this.reps,
+    required this.restSeconds,
   });
 
-  final String goal;
-  final String structure;
-
-  @override
-  Widget build(BuildContext context) {
-    return PlanosOfficialPage(
-      title: 'Revisao do plano',
-      onBack: () => Navigator.of(context).maybePop(),
-      bottomAction: FitPrimaryButton(
-        label: 'Continuar',
-        fullWidth: true,
-        onPressed: () => _openPersistedEditor(context),
-      ),
-      child: ListView(
-        padding: const EdgeInsets.all(FitSpacing.s16),
-        children: [
-          const PlanosPlanMedia(label: 'Capa do plano manual'),
-          const SizedBox(height: FitSpacing.s16),
-          Text(structure, style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: FitSpacing.s8),
-          FitChip(label: goal, selected: true),
-          const SizedBox(height: FitSpacing.s16),
-          const PlanosMetricRow(
-            metrics: [
-              PlanosMetricData(
-                label: 'Treinos',
-                value: '4',
-                icon: FitIcons.workout,
-              ),
-              PlanosMetricData(
-                label: 'Exercicios',
-                value: '20',
-                icon: FitIcons.exercise,
-              ),
-              PlanosMetricData(
-                label: 'Semanas',
-                value: '8',
-                icon: FitIcons.calendar,
-              ),
-            ],
-          ),
-          const SizedBox(height: FitSpacing.s16),
-          _ReviewRow(title: 'Divisao do treino', value: structure),
-          _ReviewRow(title: 'Nivel', value: 'Intermediario'),
-          _ReviewRow(title: 'Equipamentos', value: 'Todos'),
-          _ReviewRow(title: 'Duracao media do treino', value: '60 min'),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _openPersistedEditor(BuildContext context) async {
-    final created = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => const OfficialPlanEditorPage()),
-    );
-    if (!context.mounted || created != true) return;
-    await Navigator.of(
-      context,
-    ).push<void>(MaterialPageRoute(builder: (_) => const PlanosCreatedPage()));
-  }
+  final int sets;
+  final String reps;
+  final int restSeconds;
 }
 
-/// PLAN-011. Confirmacao visual do fluxo manual.
-class PlanosCreatedPage extends StatelessWidget {
-  const PlanosCreatedPage({super.key});
+/// PLAN-010. A revisão usa apenas dados já presentes no rascunho.
+class PlanosReviewPage extends StatelessWidget {
+  const PlanosReviewPage({super.key, required this.draft});
+
+  final ManualPlanDraft draft;
 
   @override
-  Widget build(BuildContext context) {
-    return PlanosOfficialPage(
-      title: 'Parabens!',
-      subtitle: 'Seu plano foi criado com sucesso!',
-      onBack: () => Navigator.of(context).maybePop(),
-      bottomAction: FitPrimaryButton(
-        label: 'Ir para meus planos',
-        fullWidth: true,
-        onPressed: () =>
-            Navigator.of(context).popUntil((route) => route.isFirst),
-      ),
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(FitSpacing.s24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                FitIcons.success,
-                size: FitLayout.domainProgressRingLarge,
-              ),
-              const SizedBox(height: FitSpacing.s32),
-              const FitCard(
-                child: Column(
-                  children: [
-                    _ReviewRow(title: 'Nome do plano', value: 'Upper / Lower'),
-                    _ReviewRow(title: 'Objetivo', value: 'Hipertrofia'),
-                    _ReviewRow(title: 'Duracao', value: '8 semanas'),
-                    _ReviewRow(title: 'Dias por semana', value: '4 dias'),
-                  ],
-                ),
-              ),
-            ],
+  Widget build(BuildContext context) => PlanosOfficialPage(
+    title: 'Revisão do plano',
+    onBack: () => Navigator.of(context).maybePop(),
+    bottomAction: FitPrimaryButton(
+      label: 'Salvar plano',
+      fullWidth: true,
+      onPressed: () => _openPersistedEditor(context),
+    ),
+    child: ListView(
+      padding: const EdgeInsets.all(FitSpacing.s16),
+      children: [
+        const PlanosPlanMedia(label: 'Capa do plano manual'),
+        const SizedBox(height: FitSpacing.s16),
+        Text(draft.structure, style: Theme.of(context).textTheme.headlineSmall),
+        const SizedBox(height: FitSpacing.s8),
+        FitChip(label: draft.goal, selected: true),
+        const SizedBox(height: FitSpacing.s16),
+        PlanosMetricRow(
+          metrics: [
+            PlanosMetricData(
+              label: 'Treinos',
+              value: '${draft.days.length}',
+              icon: FitIcons.workout,
+            ),
+            PlanosMetricData(
+              label: 'Exercícios',
+              value: '${draft.exerciseCount}',
+              icon: FitIcons.exercise,
+            ),
+            PlanosMetricData(
+              label: 'Duração',
+              value: '${draft.estimatedMinutes} min',
+              icon: FitIcons.time,
+            ),
+          ],
+        ),
+        const SizedBox(height: FitSpacing.s16),
+        _ReviewRow(title: 'Divisão do treino', value: draft.structure),
+        _ReviewRow(title: 'Objetivo', value: draft.goal),
+        _ReviewRow(title: 'Dias por semana', value: '${draft.days.length}'),
+        for (final day in draft.days)
+          _ReviewRow(
+            title: day.title,
+            value: '${day.exercises.length} exercícios',
           ),
+      ],
+    ),
+  );
+
+  Future<void> _openPersistedEditor(BuildContext context) async {
+    final error = draft.validate();
+    if (error != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
+      return;
+    }
+    TreinoModel? savedPlan;
+    final created = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => OfficialPlanEditorPage(
+          initialPlan: draft.toEditorPlan(),
+          saveAsNew: true,
+          onSaved: (plan) => savedPlan = plan,
         ),
       ),
     );
+    if (!context.mounted || created != true || savedPlan == null) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => PlanosCreatedPage(plan: savedPlan!)),
+    );
   }
+}
+
+/// PLAN-011. Confirma apenas a entidade realmente persistida.
+class PlanosCreatedPage extends StatelessWidget {
+  const PlanosCreatedPage({super.key, required this.plan});
+
+  final TreinoModel plan;
+
+  @override
+  Widget build(BuildContext context) => PlanosOfficialPage(
+    title: 'Parabéns!',
+    subtitle: 'Seu plano foi criado com sucesso!',
+    onBack: () => Navigator.of(context).maybePop(),
+    bottomAction: FitPrimaryButton(
+      label: 'Ir para meus planos',
+      fullWidth: true,
+      onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+    ),
+    child: Center(
+      child: Padding(
+        padding: const EdgeInsets.all(FitSpacing.s24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              FitIcons.success,
+              size: FitLayout.domainProgressRingLarge,
+            ),
+            const SizedBox(height: FitSpacing.s32),
+            FitCard(
+              child: Column(
+                children: [
+                  _ReviewRow(title: 'Nome do plano', value: plan.nome),
+                  _ReviewRow(title: 'Objetivo', value: plan.objetivo),
+                  _ReviewRow(
+                    title: 'Dias por semana',
+                    value: '${plan.planoDias.length}',
+                  ),
+                  _ReviewRow(
+                    title: 'Exercícios',
+                    value: '${plan.exercicios.length}',
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class _ReviewRow extends StatelessWidget {
