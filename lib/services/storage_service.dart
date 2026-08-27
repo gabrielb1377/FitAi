@@ -54,6 +54,7 @@ class StorageService {
   static const String _exerciseProgressionDecisionsKey =
       'exerciseProgressionDecisions';
   static const int _exerciseHistorySchemaVersion = 1;
+  static Future<void> _planMutationQueue = Future<void>.value();
 
   static int xpNecessarioParaNivel(int nivelAtual) {
     return XpConfig.xpParaProximoNivel(nivelAtual);
@@ -1703,7 +1704,7 @@ class StorageService {
   static Future<void> salvarTreino(
     TreinoModel treino, {
     SyncService? syncService,
-  }) async {
+  }) => _serializePlanMutation(() async {
     final prefs = await SharedPreferences.getInstance();
 
     final lista = prefs.getStringList("treinos") ?? [];
@@ -1730,7 +1731,46 @@ class StorageService {
     unawaited(
       (syncService ?? SyncService.instance).syncWorkouts([treino.toJson()]),
     );
-  }
+  });
+
+  /// Remove a definicao local do plano antes de solicitar sua remocao remota.
+  ///
+  /// O historico canonico fica no journal de sessoes e nao e tocado aqui.
+  /// Quando estiver offline, [SyncService] usa a mesma fila autenticada das
+  /// demais definicoes de plano para entregar a exclusao posteriormente.
+  static Future<bool> removerTreino(
+    String treinoId, {
+    SyncService? syncService,
+  }) => _serializePlanMutation(() async {
+    final normalizedId = treinoId.trim();
+    if (normalizedId.isEmpty) return false;
+
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getStringList('treinos') ?? const <String>[];
+    var removed = false;
+    final remaining = <String>[];
+
+    for (final raw in saved) {
+      try {
+        final decoded = jsonDecode(raw);
+        final id = decoded is Map ? decoded['id']?.toString().trim() : null;
+        if (id == normalizedId) {
+          removed = true;
+          continue;
+        }
+      } on FormatException {
+        // Mantem registros legados ou corrompidos para recuperacao assistida.
+      }
+      remaining.add(raw);
+    }
+
+    if (!removed) return false;
+    await prefs.setStringList('treinos', remaining);
+    unawaited(
+      (syncService ?? SyncService.instance).deleteWorkout(normalizedId),
+    );
+    return true;
+  });
 
   static Future<List<TreinoModel>> carregarTreinos() async {
     final prefs = await SharedPreferences.getInstance();
@@ -1745,6 +1785,15 @@ class StorageService {
   static Future<void> apagarTreinos() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove("treinos");
+  }
+
+  static Future<T> _serializePlanMutation<T>(Future<T> Function() action) {
+    final result = _planMutationQueue.then((_) => action());
+    _planMutationQueue = result.then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stackTrace) {},
+    );
+    return result;
   }
 
   static Future<List<FitaiNotificationModel>> carregarNotificacoes() async {

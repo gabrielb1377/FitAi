@@ -273,7 +273,8 @@ class _OfficialPlanEditorPageState extends State<OfficialPlanEditorPage> {
       ),
     );
     if (!mounted || confirmed != true) return;
-    TreinoService.instance.removerTreino(plan.id);
+    await TreinoService.instance.removerTreinoComPersistencia(plan.id);
+    if (!mounted) return;
     widget.onDeleted?.call();
     Navigator.pop(context, true);
   }

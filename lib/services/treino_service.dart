@@ -28,13 +28,9 @@ class TreinoService extends ChangeNotifier {
 
     try {
       final saved = await StorageService.carregarTreinos();
-      final byId = <String, TreinoModel>{
-        for (final workout in _treinos) workout.id: workout,
-        for (final workout in saved) workout.id: workout,
-      };
       _treinos
         ..clear()
-        ..addAll(byId.values);
+        ..addAll(saved);
       _initialized = true;
     } catch (error) {
       _loadError = error;
@@ -75,8 +71,19 @@ class TreinoService extends ChangeNotifier {
     return salvos.any((item) => item.readyPlanId == readyPlanId);
   }
 
-  void removerTreino(String id) {
-    _treinos.removeWhere((t) => t.id == id);
+  /// Exclui a definicao persistida do plano antes de refletir a lista em
+  /// memoria. O journal de sessoes permanece intacto para proteger uma sessao
+  /// ativa ou historico ja concluido.
+  Future<bool> removerTreinoComPersistencia(String id) async {
+    final removed = await StorageService.removerTreino(id);
+    if (!removed) return false;
+    _treinos.removeWhere((treino) => treino.id == id);
     notifyListeners();
+    return true;
+  }
+
+  @Deprecated('Use removerTreinoComPersistencia para manter a exclusao local.')
+  void removerTreino(String id) {
+    unawaited(removerTreinoComPersistencia(id));
   }
 }

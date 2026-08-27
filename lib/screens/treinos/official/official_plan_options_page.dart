@@ -241,7 +241,8 @@ class _OfficialPlanOptionsPageState extends State<OfficialPlanOptionsPage> {
       ),
     );
     if (!mounted || confirmed != true) return;
-    TreinoService.instance.removerTreino(_plan.id);
+    await TreinoService.instance.removerTreinoComPersistencia(_plan.id);
+    if (!mounted) return;
     Navigator.pop(context, true);
   }
 

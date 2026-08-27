@@ -77,10 +77,28 @@ class SyncService {
   }
 
   Future<void> syncWorkouts(List<Map<String, dynamic>> workouts) {
+    final workoutId = workouts.length == 1
+        ? workouts.single['id']?.toString().trim()
+        : null;
     return _sendOrQueue(
       type: 'workouts',
       path: '/sync/workouts',
       payload: {'items': workouts},
+      queueId: _workoutQueueId(workoutId),
+    );
+  }
+
+  /// Replica uma exclusao de definicao de plano. A operacao e idempotente e
+  /// compartilha a fila de definicoes, portanto uma criacao pendente do mesmo
+  /// plano nao pode ressurgir apos a exclusao local.
+  Future<void> deleteWorkout(String workoutId) {
+    final normalizedId = workoutId.trim();
+    if (normalizedId.isEmpty) return Future<void>.value();
+    return _sendOrQueue(
+      type: 'workout-delete',
+      path: '/sync/workouts/delete',
+      payload: {'id': normalizedId},
+      queueId: _workoutQueueId(normalizedId),
     );
   }
 
@@ -186,8 +204,14 @@ class SyncService {
     required String type,
     required String path,
     required Map<String, dynamic> payload,
+    String? queueId,
   }) async {
-    await _sendOrQueueWithResult(type: type, path: path, payload: payload);
+    await _sendOrQueueWithResult(
+      type: type,
+      path: path,
+      payload: payload,
+      queueId: queueId,
+    );
   }
 
   Future<bool> _sendOrQueueWithResult({
@@ -209,6 +233,10 @@ class SyncService {
       'attempts': 0,
       'createdAt': DateTime.now().toIso8601String(),
     };
+
+    // Uma mutacao entregue tambem confirma que qualquer versao pendente da
+    // mesma definicao foi superada. Isto evita replay tardio apos reconexao.
+    await _removeQueuedById(queueItem['id']!.toString());
 
     final sent = await _trySend(
       path,
@@ -292,6 +320,12 @@ class SyncService {
     _debugLog('Item marcado como pendente: ${item['type']}');
   }
 
+  Future<void> _removeQueuedById(String id) async {
+    final queue = await _loadQueue();
+    final remaining = queue.where((entry) => entry['id'] != id).toList();
+    if (remaining.length != queue.length) await _saveQueue(remaining);
+  }
+
   Future<List<Map<String, dynamic>>> _loadQueue() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getStringList(_queueKey) ?? const <String>[];
@@ -340,6 +374,13 @@ class SyncService {
 
   String _queueId(String type) {
     return '${type}_${DateTime.now().microsecondsSinceEpoch}_${Random().nextInt(1 << 31)}';
+  }
+
+  String _workoutQueueId(String? workoutId) {
+    final normalizedId = workoutId?.trim() ?? '';
+    return normalizedId.isEmpty
+        ? _queueId('workouts')
+        : 'workout_$normalizedId';
   }
 
   Map<String, dynamic> _map(dynamic value) {
