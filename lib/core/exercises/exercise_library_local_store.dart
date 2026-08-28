@@ -96,6 +96,8 @@ class SharedPreferencesExerciseLibraryLocalStore
   final String userScope;
 
   String get storageKey => '$_storagePrefix.${_normalizeScope(userScope)}';
+  bool get _isAnonymousScope =>
+      _normalizeScope(userScope) == _normalizeScope(anonymousScope);
 
   @override
   Future<ExerciseLibraryLocalState> load() async {
@@ -107,10 +109,14 @@ class SharedPreferencesExerciseLibraryLocalStore
       await preferences.remove(storageKey);
     }
     final current = decoded ?? const ExerciseLibraryLocalState();
-    final legacyFavorites =
-        preferences.getStringList(_legacyFavoriteKey) ?? const <String>[];
-    final legacyRecents =
-        preferences.getStringList(_legacyRecentKey) ?? const <String>[];
+    // Legacy keys had no owner. Only the anonymous bridge can read them;
+    // authenticated accounts must never inherit another account's library.
+    final legacyFavorites = _isAnonymousScope
+        ? preferences.getStringList(_legacyFavoriteKey) ?? const <String>[]
+        : const <String>[];
+    final legacyRecents = _isAnonymousScope
+        ? preferences.getStringList(_legacyRecentKey) ?? const <String>[]
+        : const <String>[];
     final merged = ExerciseLibraryLocalState(
       favoriteIds: _mergeIds(current.favoriteIds, legacyFavorites),
       recentIds: _mergeIds(
@@ -200,7 +206,10 @@ class SharedPreferencesExerciseLibraryLocalStore
       throw StateError('Nao foi possivel salvar a Biblioteca local.');
     }
 
-    // Compatibility bridge while legacy exercise screens still use these keys.
+    if (!_isAnonymousScope) return;
+
+    // Compatibility bridge while unowned legacy exercise screens still use
+    // these keys. Authenticated data is intentionally never mirrored here.
     final favoritesSaved = await preferences.setStringList(
       _legacyFavoriteKey,
       state.favoriteIds,

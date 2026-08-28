@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/auth/local_account_data_boundary.dart';
+import '../../../core/exercises/exercise_catalog_identity.dart';
 import '../../../core/exercises/exercise_identity.dart';
 import '../../../core/exercises/exercise_library_intelligence.dart';
 import '../../../core/exercises/exercise_library_local_store.dart';
@@ -10,6 +12,7 @@ import '../../../data/exercicios/exercicios.dart';
 import '../../../models/exercicio_model.dart';
 
 typedef LibraryCatalogLoader = Future<List<ExercicioModel>> Function();
+typedef LibraryUserScopeResolver = String Function();
 
 enum LibrarySection { home, explore, favorites, recent }
 
@@ -100,10 +103,12 @@ class LibraryCatalogController extends ChangeNotifier {
     LibraryCatalogLoader? catalogLoader,
     ExerciseLibraryLocalStore? localStore,
     ExerciseLibraryIntelligence? intelligence,
+    LibraryUserScopeResolver? userScopeResolver,
     this.initialCategory,
   }) : _catalogLoader = catalogLoader ?? _loadBundledCatalog,
-       _localStore = localStore ?? SharedPreferencesExerciseLibraryLocalStore(),
-       _intelligence = intelligence ?? const ExerciseLibraryIntelligence();
+       _providedLocalStore = localStore,
+       _intelligence = intelligence ?? const ExerciseLibraryIntelligence(),
+       _userScopeResolver = userScopeResolver ?? _defaultUserScope;
 
   static const recentStorageKey = 'fitai_exercicios_recentemente_visualizados';
 
@@ -210,10 +215,14 @@ class LibraryCatalogController extends ChangeNotifier {
   );
 
   final LibraryCatalogLoader _catalogLoader;
-  final ExerciseLibraryLocalStore _localStore;
+  final ExerciseLibraryLocalStore? _providedLocalStore;
   final ExerciseLibraryIntelligence _intelligence;
+  final LibraryUserScopeResolver _userScopeResolver;
   final String? initialCategory;
 
+  ExerciseLibraryLocalStore? _localStore;
+  String? _localStoreScope;
+  ExerciseCatalogIdentity? _catalogIdentity;
   List<ExercicioModel> _exercises = const [];
   Map<String, _LibrarySearchIndex> _searchIndex = const {};
   Set<String> _favoriteIds = const {};
@@ -252,6 +261,7 @@ class LibraryCatalogController extends ChangeNotifier {
 
     try {
       _exercises = List<ExercicioModel>.from(await _catalogLoader());
+      _catalogIdentity = ExerciseCatalogIdentity(_exercises);
       _searchIndex = _buildSearchIndex(_exercises);
       if (_exercises.isEmpty) {
         _status = LibraryLoadStatus.empty;
@@ -336,7 +346,8 @@ class LibraryCatalogController extends ChangeNotifier {
       _favoriteIds.contains(exercise.id);
 
   Future<bool> toggleFavorite(ExercicioModel exercise) async {
-    final state = await _localStore.toggleFavorite(_idFor(exercise));
+    await _ensureLocalStore();
+    final state = await _store().toggleFavorite(_idFor(exercise));
     _applyLocalState(state);
     final favorite = _favoriteIds.contains(_idFor(exercise));
     notifyListeners();
@@ -350,13 +361,15 @@ class LibraryCatalogController extends ChangeNotifier {
     ExercicioModel exercise,
     ExerciseUsageEvent event,
   ) async {
-    final state = await _localStore.recordUse(_idFor(exercise), event);
+    await _ensureLocalStore();
+    final state = await _store().recordUse(_idFor(exercise), event);
     _applyLocalState(state);
     notifyListeners();
   }
 
   Future<void> clearRecents() async {
-    final state = await _localStore.clearRecents();
+    await _ensureLocalStore();
+    final state = await _store().clearRecents();
     _applyLocalState(state);
     notifyListeners();
   }
@@ -486,7 +499,8 @@ class LibraryCatalogController extends ChangeNotifier {
 
   Future<void> _loadLocalState() async {
     try {
-      _applyLocalState(await _localStore.load());
+      await _ensureLocalStore();
+      _applyLocalState(await _store().load());
     } catch (error, stackTrace) {
       _favoriteIds = const {};
       _recentIds = const [];
@@ -498,6 +512,33 @@ class LibraryCatalogController extends ChangeNotifier {
       );
     }
   }
+
+  Future<void> _ensureLocalStore() async {
+    if (_providedLocalStore != null) {
+      _localStore = _providedLocalStore;
+      return;
+    }
+    final scope = _userScopeResolver().trim();
+    if (_localStore != null && _localStoreScope == scope) return;
+    _localStore = SharedPreferencesExerciseLibraryLocalStore(
+      userScope: scope.isEmpty
+          ? SharedPreferencesExerciseLibraryLocalStore.anonymousScope
+          : scope,
+    );
+    _localStoreScope = scope;
+  }
+
+  ExerciseLibraryLocalStore _store() {
+    final store = _localStore;
+    if (store == null) {
+      throw StateError('Biblioteca local ainda nao foi inicializada.');
+    }
+    return store;
+  }
+
+  static String _defaultUserScope() =>
+      AccountSessionLifecycle.activeUserId ??
+      SharedPreferencesExerciseLibraryLocalStore.anonymousScope;
 
   void _applyLocalState(ExerciseLibraryLocalState state) {
     _favoriteIds = Set<String>.from(state.favoriteIds);
@@ -609,6 +650,7 @@ class LibraryCatalogController extends ChangeNotifier {
         ...exercise.musculosSecundarios,
         ...exercise.equipamentos,
         ...exercise.tags,
+        ...?_catalogIdentity?.aliasesFor(exercise),
         ..._exerciseAliases(exercise),
       ].join(' '),
     );
