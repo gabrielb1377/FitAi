@@ -105,6 +105,7 @@ class WorkoutVerticalRepository {
     int? nextExerciseIndex,
     int? nextSetIndex,
     String? exerciseName,
+    String? canonicalExerciseId,
     double? rpe,
     String? notes,
   }) => _serial(() async {
@@ -140,6 +141,7 @@ class WorkoutVerticalRepository {
       syncStatus: WorkoutSyncStatus.pending,
       version: 1,
       exerciseName: exerciseName,
+      canonicalExerciseId: canonicalExerciseId,
       restSeconds: restDuration.inSeconds,
       rpe: rpe,
       notes: notes,

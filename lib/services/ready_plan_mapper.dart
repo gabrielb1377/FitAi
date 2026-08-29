@@ -1,6 +1,17 @@
+import '../core/exercises/exercise_catalog_binding.dart';
+import '../data/exercicios/exercicios.dart';
 import '../models/exercicio_model.dart';
 import '../models/ready_plan_model.dart';
 import '../models/treino_model.dart';
+
+class ReadyPlanBindingException implements Exception {
+  const ReadyPlanBindingException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'ReadyPlanBindingException: $message';
+}
 
 class ReadyPlanMapper {
   ReadyPlanMapper._();
@@ -9,7 +20,9 @@ class ReadyPlanMapper {
     ReadyPlanModel plan, {
     required String workoutId,
     required String source,
+    ExerciseCatalogBinder? catalogBinder,
   }) {
+    final binder = catalogBinder ?? ExerciseCatalogBinder(bancoExercicios);
     final exercises = <ExercicioModel>[];
     final days = <TreinoDiaModel>[];
 
@@ -23,50 +36,35 @@ class ReadyPlanMapper {
         exerciseIndex++
       ) {
         final readyExercise = day.exercises[exerciseIndex];
-        final exerciseId = '${workoutId}_${day.id}_${readyExercise.id}';
-        ids.add(exerciseId);
+        final binding = binder.bindTemplate(
+          templateItemId: readyExercise.id,
+          remoteExerciseId: readyExercise.exerciseId,
+          canonicalExerciseId: readyExercise.canonicalExerciseId,
+          exerciseName: readyExercise.exerciseName,
+        );
+        if (!binding.isResolved || binding.entry == null) {
+          throw ReadyPlanBindingException(
+            'O exercício "${readyExercise.exerciseName}" ainda não possui um '
+            'vínculo seguro com a Biblioteca FitIA.',
+          );
+        }
 
+        // This is a stable plan occurrence, not an exercise catalog identity.
+        final itemId = '${workoutId}_${day.id}_${readyExercise.id}';
+        ids.add(itemId);
         exercises.add(
-          ExercicioModel(
-            id: exerciseId,
-            nome: readyExercise.exerciseName,
-            categoria: readyExercise.category.isEmpty
-                ? day.muscleGroup
-                : readyExercise.category,
-            descricao: _description(readyExercise),
-            comoExecutar:
-                'Execute com controle, postura segura e amplitude confortável.',
-            cuidados: 'Reduza a intensidade em caso de dor ou desconforto.',
-            musculos: readyExercise.muscles.isEmpty
-                ? _groups(day.muscleGroup)
-                : readyExercise.muscles,
-            equipamentos: readyExercise.equipment.isEmpty
-                ? plan.equipment
-                : readyExercise.equipment,
-            locais: plan.location.isEmpty ? const [] : [plan.location],
-            dificuldade: plan.level,
-            objetivo: plan.goal,
-            imagem: '',
-            gifPath: '',
-            video: '',
-            tags: [
-              plan.category,
-              plan.goal,
-              'source:$source',
-              'series:${readyExercise.sets}',
-              'repeticoes:${readyExercise.reps}',
-              'descanso:${readyExercise.restSeconds}',
-              if (readyExercise.rir.isNotEmpty) 'rir:${readyExercise.rir}',
-              if (readyExercise.cadence.isNotEmpty)
-                'cadencia:${readyExercise.cadence}',
-            ].where((tag) => tag.trim().isNotEmpty).toList(),
-            caloriasHora: 0,
+          binding.entry!.exercise.copyWith(
+            id: itemId,
+            canonicalExerciseId: binding.canonicalExerciseId,
+            canonicalName: binding.canonicalName,
+            templateItemId: binding.templateItemId,
+            remoteExerciseId: binding.remoteExerciseId,
             series: readyExercise.sets,
             repeticoes: readyExercise.reps,
             descansoSegundos: readyExercise.restSeconds,
             rir: readyExercise.rir,
             cadencia: readyExercise.cadence,
-            observacoesTreino: readyExercise.notes,
+            observacoesTreino: _description(readyExercise),
           ),
         );
       }
@@ -113,13 +111,5 @@ class ReadyPlanMapper {
       if (exercise.notes.isNotEmpty) exercise.notes,
     ];
     return details.join(' | ');
-  }
-
-  static List<String> _groups(String value) {
-    return value
-        .split(RegExp(r'\+|/|,'))
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .toList();
   }
 }

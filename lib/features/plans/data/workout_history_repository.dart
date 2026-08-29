@@ -307,7 +307,11 @@ class WorkoutHistoryRepository {
   ) {
     final grouped = <String, List<WorkoutSetLocal>>{};
     for (final set in sets) {
-      grouped.putIfAbsent(set.exerciseId, () => []).add(set);
+      final identity = set.canonicalExerciseId?.trim();
+      final historyExerciseId = identity == null || identity.isEmpty
+          ? set.exerciseId
+          : identity;
+      grouped.putIfAbsent(historyExerciseId, () => []).add(set);
     }
     final exercises = grouped.entries
         .map((entry) => _buildExercise(entry.key, entry.value))

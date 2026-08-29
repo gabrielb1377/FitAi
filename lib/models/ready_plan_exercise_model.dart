@@ -1,6 +1,7 @@
 class ReadyPlanExerciseModel {
   final String id;
   final String exerciseId;
+  final String canonicalExerciseId;
   final String exerciseName;
   final int order;
   final int sets;
@@ -16,6 +17,7 @@ class ReadyPlanExerciseModel {
   const ReadyPlanExerciseModel({
     required this.id,
     this.exerciseId = '',
+    this.canonicalExerciseId = '',
     required this.exerciseName,
     this.order = 0,
     this.sets = 0,
@@ -36,6 +38,7 @@ class ReadyPlanExerciseModel {
         json['exerciseId'],
         fallback: _string(json['exercicioId']),
       ),
+      canonicalExerciseId: _string(json['canonicalExerciseId']),
       exerciseName: _string(
         json['exerciseName'],
         fallback: _string(json['nome'], fallback: 'Exercício'),
@@ -56,6 +59,7 @@ class ReadyPlanExerciseModel {
   Map<String, dynamic> toJson() => {
     'id': id,
     'exerciseId': exerciseId,
+    'canonicalExerciseId': canonicalExerciseId,
     'exerciseName': exerciseName,
     'order': order,
     'sets': sets,

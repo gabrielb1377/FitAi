@@ -542,6 +542,9 @@ class CoreJourneyController extends ChangeNotifier {
           ? 0
           : session.currentSetIndex + 1,
       exerciseName: exercise.nome,
+      canonicalExerciseId: exercise.canonicalExerciseId.trim().isEmpty
+          ? exercise.id
+          : exercise.canonicalExerciseId,
       rpe: rpe,
       notes: notes,
     );

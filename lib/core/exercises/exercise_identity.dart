@@ -66,13 +66,20 @@ abstract final class ExerciseIdentity {
     return name.isEmpty ? 'name:unknown' : 'name:$name';
   }
 
+  /// A ocorrência do plano continua em [ExercicioModel.id]. Quando houver
+  /// catálogo ligado, histórico, PR e progressão devem usar esta identidade.
+  static String canonicalIdFor(ExercicioModel exercise) {
+    final canonical = exercise.canonicalExerciseId.trim();
+    return canonical.isNotEmpty ? canonical : exercise.id.trim();
+  }
+
   static bool matchesExercise({
     required String storedExerciseId,
     required String storedExerciseKey,
     required String storedExerciseName,
     required ExercicioModel exercise,
   }) {
-    final exerciseId = exercise.id.trim();
+    final exerciseId = canonicalIdFor(exercise);
     if (exerciseId.isNotEmpty && storedExerciseId.trim() == exerciseId) {
       return true;
     }
@@ -83,7 +90,7 @@ abstract final class ExerciseIdentity {
       exerciseName: storedExerciseName,
     );
     final exerciseKey = buildExerciseKey(
-      exerciseId: exercise.id,
+      exerciseId: exerciseId,
       exerciseName: exercise.nome,
     );
     if (seriesKey == exerciseKey) return true;

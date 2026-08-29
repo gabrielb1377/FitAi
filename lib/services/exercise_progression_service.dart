@@ -58,7 +58,7 @@ class ExerciseProgressionService {
     final targetSets = config.sets.clamp(2, 4).toInt();
     final targetRest = config.restSeconds.clamp(30, 180).toInt();
     final exerciseKey = ExerciseIdentity.buildExerciseKey(
-      exerciseId: exercise.id,
+      exerciseId: ExerciseIdentity.canonicalIdFor(exercise),
       exerciseName: exercise.nome,
     );
     final latest = recent.isEmpty ? null : recent.first;
@@ -78,7 +78,7 @@ class ExerciseProgressionService {
       int? suggestedRestSeconds,
     }) {
       return ExerciseProgressionModel(
-        exerciseId: exercise.id,
+        exerciseId: ExerciseIdentity.canonicalIdFor(exercise),
         exerciseKey: exerciseKey,
         exerciseName: exercise.nome,
         currentWeight: currentWeight,
@@ -195,7 +195,7 @@ class ExerciseProgressionService {
     ExercicioModel exercise,
   ) async {
     final key = ExerciseIdentity.buildExerciseKey(
-      exerciseId: exercise.id,
+      exerciseId: ExerciseIdentity.canonicalIdFor(exercise),
       exerciseName: exercise.nome,
     );
     final saved = await StorageService.carregarDecisaoProgressaoExercicio(key);

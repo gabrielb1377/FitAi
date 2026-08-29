@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../core/api/api_config.dart';
+import '../core/exercises/exercise_catalog_binding.dart';
+import '../data/exercicios/exercicios.dart';
 import '../features/auth/data/auth_service.dart';
 import '../models/exercicio_model.dart';
 import '../models/treino_model.dart';
@@ -20,12 +22,17 @@ class BackendAIException implements Exception {
 }
 
 class BackendAIService {
-  BackendAIService({http.Client? client, AuthService? authService})
-    : _client = client ?? http.Client(),
-      _authService = authService ?? AuthService();
+  BackendAIService({
+    http.Client? client,
+    AuthService? authService,
+    ExerciseCatalogBinder? catalogBinder,
+  }) : _client = client ?? http.Client(),
+       _authService = authService ?? AuthService(),
+       _catalogBinder = catalogBinder ?? ExerciseCatalogBinder(bancoExercicios);
 
   final http.Client _client;
   final AuthService _authService;
+  final ExerciseCatalogBinder _catalogBinder;
 
   Future<TreinoModel> generateWorkout({
     required String objetivo,
@@ -161,12 +168,16 @@ class BackendAIService {
 
       final idsDoDia = <String>[];
 
-      for (final exercicioJson in exerciciosDiaJson) {
+      for (
+        var exerciseIndex = 0;
+        exerciseIndex < exerciciosDiaJson.length;
+        exerciseIndex += 1
+      ) {
+        final exercicioJson = exerciciosDiaJson[exerciseIndex];
         final exercicio = _exercicioFromBackendJson(
           exercicioJson,
-          objetivo: _string(request['objetivo'], fallback: 'Geral'),
-          nivel: _string(request['nivel'], fallback: 'Iniciante'),
-          local: _string(request['local'], fallback: ''),
+          fallbackItemId:
+              '${_string(json['id'], fallback: 'ai')}_${index}_$exerciseIndex',
         );
 
         exercicios.add(exercicio);
@@ -220,50 +231,36 @@ class BackendAIService {
 
   ExercicioModel _exercicioFromBackendJson(
     Map<String, dynamic> json, {
-    required String objetivo,
-    required String nivel,
-    required String local,
+    required String fallbackItemId,
   }) {
     final descanso = _int(json['descanso'], fallback: 90);
     final series = _int(json['series'], fallback: 3);
     final repeticoes = _string(json['repeticoes'], fallback: '8-12');
-    final categoria = _string(json['categoria'], fallback: 'Geral');
+    final itemId = _string(json['id'], fallback: fallbackItemId);
+    final binding = _catalogBinder.bindAi(
+      templateItemId: itemId,
+      remoteExerciseId: _string(json['exerciseId']),
+      canonicalExerciseId: _string(json['canonicalExerciseId']),
+      exerciseName: _string(json['nome'], fallback: 'Exercício'),
+    );
+    if (!binding.isResolved || binding.entry == null) {
+      throw BackendAIException(
+        'A resposta da IA contém um exercício sem vínculo canônico seguro: '
+        '"${_string(json['nome'], fallback: 'Exercício')}".',
+      );
+    }
 
-    return ExercicioModel(
-      id: _string(
-        json['id'],
-        fallback:
-            'ex_${DateTime.now().microsecondsSinceEpoch}_${_string(json['nome'], fallback: 'sem_nome')}',
-      ),
-      nome: _string(json['nome'], fallback: 'Exercicio'),
-      categoria: categoria,
-      descricao:
-          'Series: $series | Repeticoes: $repeticoes | Descanso: ${descanso}s',
-      comoExecutar: _string(
-        json['comoExecutar'],
-        fallback:
-            'Execute com controle, postura segura e amplitude confortavel.',
-      ),
-      cuidados: _string(
-        json['cuidados'],
-        fallback: 'Reduza intensidade em caso de dor ou desconforto.',
-      ),
-      musculos: _stringList(json['musculos']),
-      equipamentos: _stringList(json['equipamentos']),
-      locais: local.trim().isEmpty ? const [] : [local],
-      dificuldade: nivel,
-      objetivo: objetivo,
-      imagem: '',
-      gifPath: _string(json['gifPath']),
-      video: '',
-      tags: [
-        categoria.toLowerCase(),
-        objetivo.toLowerCase(),
-        'series:$series',
-        'repeticoes:$repeticoes',
-        'descanso:$descanso',
-      ],
-      caloriasHora: _int(json['caloriasHora']),
+    return binding.entry!.exercise.copyWith(
+      id: itemId,
+      canonicalExerciseId: binding.canonicalExerciseId,
+      canonicalName: binding.canonicalName,
+      templateItemId: binding.templateItemId,
+      remoteExerciseId: binding.remoteExerciseId,
+      series: series,
+      repeticoes: repeticoes,
+      descansoSegundos: descanso,
+      observacoesTreino:
+          'Séries: $series | Repetições: $repeticoes | Descanso: ${descanso}s',
     );
   }
 

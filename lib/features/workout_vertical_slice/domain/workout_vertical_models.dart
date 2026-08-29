@@ -147,6 +147,7 @@ class WorkoutSetLocal {
     required this.syncStatus,
     required this.version,
     this.exerciseName,
+    this.canonicalExerciseId,
     this.restSeconds,
     this.rpe,
     this.notes,
@@ -163,6 +164,9 @@ class WorkoutSetLocal {
   final WorkoutSyncStatus syncStatus;
   final int version;
   final String? exerciseName;
+
+  /// Identidade estável do catálogo, distinta da ocorrência no plano.
+  final String? canonicalExerciseId;
   final int? restSeconds;
   final double? rpe;
   final String? notes;
@@ -171,6 +175,7 @@ class WorkoutSetLocal {
     WorkoutSyncStatus? syncStatus,
     DateTime? updatedAt,
     String? exerciseName,
+    String? canonicalExerciseId,
     int? restSeconds,
     double? rpe,
     String? notes,
@@ -187,6 +192,7 @@ class WorkoutSetLocal {
       syncStatus: syncStatus ?? this.syncStatus,
       version: version,
       exerciseName: exerciseName ?? this.exerciseName,
+      canonicalExerciseId: canonicalExerciseId ?? this.canonicalExerciseId,
       restSeconds: restSeconds ?? this.restSeconds,
       rpe: rpe ?? this.rpe,
       notes: notes ?? this.notes,
@@ -205,6 +211,7 @@ class WorkoutSetLocal {
     'syncStatus': syncStatus.name,
     'version': version,
     'exerciseName': exerciseName,
+    'canonicalExerciseId': canonicalExerciseId,
     'restSeconds': restSeconds,
     'rpe': rpe,
     'notes': notes,
@@ -225,6 +232,7 @@ class WorkoutSetLocal {
         ),
         version: json['version'] as int,
         exerciseName: _nullableString(json['exerciseName']),
+        canonicalExerciseId: _nullableString(json['canonicalExerciseId']),
         restSeconds: json['restSeconds'] as int?,
         rpe: _nullableDouble(json['rpe']),
         notes: _nullableString(json['notes']),

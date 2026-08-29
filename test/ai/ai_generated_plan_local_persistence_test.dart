@@ -231,7 +231,14 @@ final _generationResponse = {
         6,
         (index) => {
           'id': 'exercise-$index',
-          'nome': 'Exercicio $index',
+          'nome': const [
+            'Supino Reto com Barra',
+            'Supino Inclinado com Halteres',
+            'Crucifixo no Cabo',
+            'Puxada Frontal na Polia Alta',
+            'Remada Curvada com Barra',
+            'Rosca Direta com Barra',
+          ][index],
           'categoria': 'Peito',
           'series': 3,
           'repeticoes': '8-12',

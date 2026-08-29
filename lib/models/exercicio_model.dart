@@ -21,6 +21,16 @@ class ExercicioModel {
   final String gifPath;
   final String video;
 
+  /// Catalog identity is independent from the plan-specific exercise item.
+  ///
+  /// Existing consumers still use [id] as the stable snapshot/occurrence ID.
+  /// When an exercise enters through a template or AI, these fields keep its
+  /// verified catalog identity and the upstream references separate.
+  final String canonicalExerciseId;
+  final String canonicalName;
+  final String templateItemId;
+  final String remoteExerciseId;
+
   final int series;
   final String repeticoes;
   final int descansoSegundos;
@@ -46,6 +56,10 @@ class ExercicioModel {
     required this.imagem,
     this.gifPath = "",
     required this.video,
+    this.canonicalExerciseId = "",
+    this.canonicalName = "",
+    this.templateItemId = "",
+    this.remoteExerciseId = "",
     required this.tags,
     required this.caloriasHora,
     this.series = 0,
@@ -59,6 +73,7 @@ class ExercicioModel {
 
   /// Creates a prescription-specific snapshot without changing the catalog.
   ExercicioModel copyWith({
+    String? id,
     int? series,
     String? repeticoes,
     int? descansoSegundos,
@@ -66,9 +81,13 @@ class ExercicioModel {
     String? cadencia,
     String? observacoesTreino,
     bool? favorito,
+    String? canonicalExerciseId,
+    String? canonicalName,
+    String? templateItemId,
+    String? remoteExerciseId,
   }) {
     return ExercicioModel(
-      id: id,
+      id: id ?? this.id,
       nome: nome,
       categoria: categoria,
       descricao: descricao,
@@ -83,6 +102,10 @@ class ExercicioModel {
       imagem: imagem,
       gifPath: gifPath,
       video: video,
+      canonicalExerciseId: canonicalExerciseId ?? this.canonicalExerciseId,
+      canonicalName: canonicalName ?? this.canonicalName,
+      templateItemId: templateItemId ?? this.templateItemId,
+      remoteExerciseId: remoteExerciseId ?? this.remoteExerciseId,
       tags: tags,
       caloriasHora: caloriasHora,
       series: series ?? this.series,
@@ -112,6 +135,10 @@ class ExercicioModel {
       "imagem": imagem,
       "gifPath": gifPath,
       "video": video,
+      "canonicalExerciseId": canonicalExerciseId,
+      "canonicalName": canonicalName,
+      "templateItemId": templateItemId,
+      "remoteExerciseId": remoteExerciseId,
       "favorito": favorito,
       "tags": tags,
       "caloriasHora": caloriasHora,
@@ -143,6 +170,10 @@ class ExercicioModel {
       imagem: json["imagem"] ?? "",
       gifPath: json["gifPath"] ?? "",
       video: json["video"] ?? "",
+      canonicalExerciseId: json["canonicalExerciseId"]?.toString() ?? "",
+      canonicalName: json["canonicalName"]?.toString() ?? "",
+      templateItemId: json["templateItemId"]?.toString() ?? "",
+      remoteExerciseId: json["remoteExerciseId"]?.toString() ?? "",
       favorito: json["favorito"] ?? false,
       tags: List<String>.from(json["tags"] ?? const []),
       caloriasHora: json["caloriasHora"] ?? 0,
