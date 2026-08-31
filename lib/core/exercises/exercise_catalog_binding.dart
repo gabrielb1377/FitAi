@@ -2,6 +2,12 @@ import '../../models/exercicio_model.dart';
 import 'exercise_catalog_identity.dart';
 import 'exercise_identity.dart';
 
+/// Versioned, fail-closed contract for external exercise references.
+abstract final class ExerciseCatalogBindingContract {
+  static const int version = 1;
+  static const String identifier = 'ExerciseCatalogBindingContract/v1';
+}
+
 /// Origin-specific methods accepted at the catalog binding boundary.
 enum ExerciseCatalogBindingMethod {
   canonical,

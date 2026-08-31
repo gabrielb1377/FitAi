@@ -44,11 +44,8 @@ void main() {
         .where((item) => !item.isResolved)
         .map((item) => item.sourceName)
         .toList();
-    expect(bindings.where((item) => item.isResolved), hasLength(25));
-    expect(
-      unresolved,
-      unorderedEquals(const ['Remada com mochila', 'Barra fixa assistida']),
-    );
+    expect(bindings.where((item) => item.isResolved), hasLength(27));
+    expect(unresolved, isEmpty);
   });
 
   test('LIB-BIND-02: canonicalExerciseId vence sem depender de nome', () {
@@ -134,7 +131,7 @@ void main() {
   });
 
   test('LIB-BIND-11: desconhecido não cria ID derivado', () {
-    final binding = _template(binder, 'Remada com mochila');
+    final binding = _template(binder, 'Remada improvisada desconhecida');
     expect(binding.isResolved, isFalse);
     expect(binding.canonicalExerciseId, isEmpty);
   });
@@ -213,7 +210,7 @@ void main() {
   test('LIB-BIND-15: template sem vínculo seguro não chega à persistência', () {
     expect(
       () => ReadyPlanMapper.toTreino(
-        _readyPlan('Remada com mochila'),
+        _readyPlan('Remada improvisada desconhecida'),
         workoutId: 'workout-1',
         source: 'ready_plan_offline',
       ),

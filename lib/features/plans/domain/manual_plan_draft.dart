@@ -63,7 +63,16 @@ class ManualPlanDraft {
       return ManualPlanDraftSelectionResult.duplicate;
     }
 
-    day.exercises.add(exercise);
+    day.exercises.add(
+      exercise.copyWith(
+        canonicalExerciseId: exercise.canonicalExerciseId.trim().isEmpty
+            ? exercise.id.trim()
+            : exercise.canonicalExerciseId.trim(),
+        canonicalName: exercise.canonicalName.trim().isEmpty
+            ? exercise.nome.trim()
+            : exercise.canonicalName.trim(),
+      ),
+    );
     return ManualPlanDraftSelectionResult.added;
   }
 

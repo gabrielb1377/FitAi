@@ -910,4 +910,71 @@ final List<ExercicioModel> exerciciosCostas = [
     imagem: "assets/gifs/costas/trx_row_remada_em_suspensao.gif",
     video: "",
   ),
+  ExercicioModel(
+    id: "costas_031",
+    nome: "Remada com Mochila",
+    categoria: "Costas",
+    descricao:
+        "Remada unilateral adaptada para treino em casa usando uma mochila carregada como resistência. Mantém o padrão de puxada horizontal sem exigir halteres ou máquina.",
+    comoExecutar:
+        "Apoie uma mão e o joelho do mesmo lado em uma superfície estável. Segure a alça da mochila carregada com a mão livre e deixe o braço estender abaixo do ombro. Puxe a mochila em direção ao quadril, retraindo a escápula. Desça devagar e repita do outro lado.",
+    cuidados:
+        "Distribua o peso da mochila e feche todos os zíperes antes de começar. Use apoio firme, mantenha a coluna neutra e não gire o tronco para criar impulso. Reduza a carga se a alça não permitir pegada segura.",
+    musculos: ["Latíssimo do Dorso", "Romboides"],
+    musculosSecundarios: [
+      "Bíceps Braquial",
+      "Trapézio Médio",
+      "Deltóide Posterior",
+      "Core",
+    ],
+    equipamentos: ["Mochila", "Superfície de Apoio"],
+    locais: ["Casa"],
+    tags: [
+      "remada com mochila",
+      "backpack row",
+      "remada unilateral",
+      "costas",
+      "casa",
+      "mochila",
+    ],
+    dificuldade: "Iniciante",
+    objetivo: "Hipertrofia",
+    caloriasHora: 280,
+    imagem: "",
+    video: "",
+  ),
+  ExercicioModel(
+    id: "costas_032",
+    nome: "Barra Fixa Assistida",
+    categoria: "Costas",
+    descricao:
+        "Variação progressiva da barra fixa em que uma faixa elástica reduz parte da carga corporal. Preserva a puxada vertical e permite desenvolver força para a barra fixa livre.",
+    comoExecutar:
+        "Prenda uma faixa elástica resistente na barra fixa e apoie um pé ou joelho na faixa. Segure a barra em pegada pronada, deprime as escápulas e puxe o corpo até o queixo alcançar a altura da barra. Desça com controle até estender os braços.",
+    cuidados:
+        "Verifique a fixação da faixa antes de usar. Escolha assistência suficiente para evitar impulso, mantenha o tronco estável e não solte a faixa sob tensão. Progrida reduzindo a assistência, não sacrificando a amplitude.",
+    musculos: ["Latíssimo do Dorso"],
+    musculosSecundarios: [
+      "Romboides",
+      "Trapézio Inferior",
+      "Bíceps Braquial",
+      "Antebraço",
+      "Core",
+    ],
+    equipamentos: ["Barra Fixa", "Faixa Elástica"],
+    locais: ["Casa", "Academia"],
+    tags: [
+      "barra fixa assistida",
+      "assisted pull up",
+      "assisted pull-up",
+      "barra fixa com elastico",
+      "costas",
+      "calistenia",
+    ],
+    dificuldade: "Iniciante",
+    objetivo: "Força",
+    caloriasHora: 320,
+    imagem: "",
+    video: "",
+  ),
 ];
