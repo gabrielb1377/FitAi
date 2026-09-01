@@ -250,9 +250,11 @@ class _ExerciseMediaHero extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   ExercicioGifImage(
-                    imagem: exercise.imagem,
+                    canonicalExerciseId:
+                        exercise.canonicalExerciseId.trim().isNotEmpty
+                        ? exercise.canonicalExerciseId
+                        : exercise.id,
                     titulo: exercise.nome,
-                    gifPath: exercise.gifPath,
                     fit: BoxFit.contain,
                     cacheHeight: 640,
                   ),

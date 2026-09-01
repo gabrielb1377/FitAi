@@ -590,7 +590,9 @@ class _TreinoProfissionalPageState extends State<TreinoProfissionalPage> {
       behavior: HitTestBehavior.opaque,
       onTap: () => mostrarGifExercicioTelaCheia(
         context,
-        imagem: exercicio.imagem,
+        canonicalExerciseId: exercicio.canonicalExerciseId.trim().isNotEmpty
+            ? exercicio.canonicalExerciseId
+            : exercicio.id,
         titulo: exercicio.nome,
         subtitulo: exercicio.categoria,
       ),
@@ -670,28 +672,14 @@ class _TreinoProfissionalPageState extends State<TreinoProfissionalPage> {
   }
 
   Widget _gif(ExercicioModel exercicio) {
-    final imagem = exercicio.imagem.trim();
-    if (imagem.isEmpty) return _gifFallback(exercicio);
-
-    final isNetwork =
-        imagem.startsWith("http://") || imagem.startsWith("https://");
-
-    if (isNetwork) {
-      return Image.network(
-        imagem,
-        fit: BoxFit.contain,
-        filterQuality: FilterQuality.low,
-        errorBuilder: (_, _, _) => _gifFallback(exercicio),
-      );
-    }
-
-    return Image.asset(
-      imagem,
+    return ExercicioGifImage(
+      canonicalExerciseId: exercicio.canonicalExerciseId.trim().isNotEmpty
+          ? exercicio.canonicalExerciseId
+          : exercicio.id,
+      titulo: exercicio.nome,
       fit: BoxFit.contain,
       cacheWidth: 900,
-      filterQuality: FilterQuality.low,
-      semanticLabel: exercicio.nome,
-      errorBuilder: (_, _, _) => _gifFallback(exercicio),
+      placeholder: _gifFallback(exercicio),
     );
   }
 

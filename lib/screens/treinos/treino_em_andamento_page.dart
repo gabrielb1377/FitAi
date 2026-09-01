@@ -1825,9 +1825,11 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
             child: ClipRRect(
               borderRadius: FitRadius.mediumBorder,
               child: ExercicioGifImage(
-                imagem: exercicio.imagem,
+                canonicalExerciseId:
+                    exercicio.canonicalExerciseId.trim().isNotEmpty
+                    ? exercicio.canonicalExerciseId
+                    : exercicio.id,
                 titulo: exercicio.nome,
-                gifPath: exercicio.gifPath,
                 fit: BoxFit.contain,
                 cacheHeight: 640,
               ),
@@ -2846,9 +2848,10 @@ class _ExerciseGif extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox.expand(
       child: ExercicioGifImage(
-        imagem: exercicio.imagem,
+        canonicalExerciseId: exercicio.canonicalExerciseId.trim().isNotEmpty
+            ? exercicio.canonicalExerciseId
+            : exercicio.id,
         titulo: exercicio.nome,
-        gifPath: exercicio.gifPath,
         fit: BoxFit.contain,
         placeholder: Center(
           child: Icon(

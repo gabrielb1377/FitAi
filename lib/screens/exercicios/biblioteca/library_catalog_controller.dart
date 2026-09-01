@@ -225,6 +225,7 @@ class LibraryCatalogController extends ChangeNotifier {
   ExerciseCatalogIdentity? _catalogIdentity;
   List<ExercicioModel> _exercises = const [];
   Map<String, _LibrarySearchIndex> _searchIndex = const {};
+  final Map<String, List<ExercicioModel>> _visibleExercisesCache = {};
   Set<String> _favoriteIds = const {};
   List<String> _recentIds = const [];
   Map<String, int> _usageScoreById = const {};
@@ -263,6 +264,7 @@ class LibraryCatalogController extends ChangeNotifier {
       _exercises = List<ExercicioModel>.from(await _catalogLoader());
       _catalogIdentity = ExerciseCatalogIdentity(_exercises);
       _searchIndex = _buildSearchIndex(_exercises);
+      _visibleExercisesCache.clear();
       if (_exercises.isEmpty) {
         _status = LibraryLoadStatus.empty;
         notifyListeners();
@@ -437,19 +439,21 @@ class LibraryCatalogController extends ChangeNotifier {
   }
 
   List<ExercicioModel> get visibleExercises {
+    final cacheKey = _visibleExercisesCacheKey();
+    final cached = _visibleExercisesCache[cacheKey];
+    if (cached != null) return cached;
+
     final favoriteOnly = _section == LibrarySection.favorites;
     final recentOnly = _section == LibrarySection.recent;
-    final result = _filteredExercises(filters: _filters, query: _query)
-        .where((exercise) {
-          if (favoriteOnly && !_favoriteIds.contains(_idFor(exercise))) {
-            return false;
-          }
-          if (recentOnly && !_recentIds.contains(_idFor(exercise))) {
-            return false;
-          }
-          return true;
-        })
-        .toList(growable: true);
+    final result = <ExercicioModel>[];
+    for (final exercise in _filteredExercises(
+      filters: _filters,
+      query: _query,
+    )) {
+      if (favoriteOnly && !_favoriteIds.contains(_idFor(exercise))) continue;
+      if (recentOnly && !_recentIds.contains(_idFor(exercise))) continue;
+      result.add(exercise);
+    }
 
     switch (_filters.sort) {
       case LibrarySort.alphabetical:
@@ -475,7 +479,12 @@ class LibraryCatalogController extends ChangeNotifier {
       case LibrarySort.all:
         break;
     }
-    return List.unmodifiable(result);
+    final resolved = List<ExercicioModel>.unmodifiable(result);
+    if (_visibleExercisesCache.length >= 32) {
+      _visibleExercisesCache.clear();
+    }
+    _visibleExercisesCache[cacheKey] = resolved;
+    return resolved;
   }
 
   List<ExercicioModel> _filteredExercises({
@@ -483,18 +492,21 @@ class LibraryCatalogController extends ChangeNotifier {
     required String query,
   }) {
     final filterQuery = _filterQuery(filters: filters, query: query);
-    return _exercises
-        .where((exercise) {
-          final index = _indexFor(exercise);
-          return _matchesGroup(index, filterQuery.groupAliases) &&
-              _matchesLevel(index, filterQuery.level) &&
-              _matchesEquipment(index, filterQuery.equipment) &&
-              _matchesCategory(index, filterQuery.category) &&
-              _matchesMovement(index, filterQuery.movement) &&
-              _matchesObjective(index, filterQuery.objective) &&
-              _matchesSearch(index, filterQuery.searchTokens);
-        })
-        .toList(growable: false);
+    final result = <ExercicioModel>[];
+    for (final exercise in _exercises) {
+      final index = _indexFor(exercise);
+      if (!_matchesGroup(index, filterQuery.groupAliases) ||
+          !_matchesLevel(index, filterQuery.level) ||
+          !_matchesEquipment(index, filterQuery.equipment) ||
+          !_matchesCategory(index, filterQuery.category) ||
+          !_matchesMovement(index, filterQuery.movement) ||
+          !_matchesObjective(index, filterQuery.objective) ||
+          !_matchesSearch(index, filterQuery.searchTokens)) {
+        continue;
+      }
+      result.add(exercise);
+    }
+    return result;
   }
 
   Future<void> _loadLocalState() async {
@@ -544,10 +556,23 @@ class LibraryCatalogController extends ChangeNotifier {
     _favoriteIds = Set<String>.from(state.favoriteIds);
     _recentIds = List<String>.from(state.recentIds);
     _usageScoreById = Map<String, int>.from(state.usageScoreById);
+    _visibleExercisesCache.clear();
     for (final exercise in _exercises) {
       exercise.favorito = _favoriteIds.contains(_idFor(exercise));
     }
   }
+
+  String _visibleExercisesCacheKey() => [
+    _section.name,
+    _query,
+    _filters.muscleGroup ?? '',
+    _filters.level ?? '',
+    _filters.equipment ?? '',
+    _filters.category ?? '',
+    _filters.movement ?? '',
+    _filters.objective ?? '',
+    _filters.sort.name,
+  ].join('\u0000');
 
   String _idFor(ExercicioModel exercise) => exercise.id.trim().isNotEmpty
       ? exercise.id.trim()

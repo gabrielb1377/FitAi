@@ -70,8 +70,9 @@ class ExerciseHubHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ExercicioGifViewer(
-            imagem: exercicio.imagem,
-            gifPath: exercicio.gifPath,
+            canonicalExerciseId: exercicio.canonicalExerciseId.trim().isNotEmpty
+                ? exercicio.canonicalExerciseId
+                : exercicio.id,
             titulo: exercicio.nome,
             subtitulo: primaryMuscle,
             height: 246,

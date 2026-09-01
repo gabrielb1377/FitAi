@@ -5,43 +5,96 @@ import 'package:flutter/services.dart';
 
 import '../theme/app_theme.dart';
 
+/// Resolves exercise media exclusively through the reviewed v2 contract.
+///
+/// A display title is intentionally never used as an asset key. Unknown,
+/// unreviewed and rejected canonical IDs all return no asset so the existing
+/// placeholder can fail closed instead of showing the wrong exercise.
+class ExerciseMediaResolver {
+  static const String manifestPath =
+      'assets/exercises/exercise_media_manifest_v2.json';
+
+  static Future<Map<String, String>>? _manifestFuture;
+
+  static Future<Map<String, String>> get manifest {
+    return _manifestFuture ??= _loadManifest();
+  }
+
+  static Future<Map<String, String>> _loadManifest() async {
+    try {
+      final raw = await rootBundle.loadString(manifestPath);
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map || decoded['entries'] is! List) return const {};
+
+      final paths = <String, String>{};
+      for (final value in decoded['entries'] as List<dynamic>) {
+        if (value is! Map) continue;
+        final id = value['canonicalExerciseId']?.toString().trim() ?? '';
+        final path = value['assetPath']?.toString().trim() ?? '';
+        final level = value['verificationLevel']?.toString();
+        final status = value['status']?.toString();
+        if (id.isEmpty || path.isEmpty || status != 'VERIFIED') continue;
+        if (level != 'VERIFIED_HIGH' && level != 'VERIFIED_SHARED') continue;
+        paths[id] = path;
+      }
+      return Map.unmodifiable(paths);
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  /// Exposed for focused widget tests and other media-only integrations.
+  static String? pathFor(
+    String canonicalExerciseId,
+    Map<String, String> manifest,
+  ) {
+    final id = canonicalExerciseId.trim();
+    if (id.isEmpty) return null;
+    return manifest[id];
+  }
+
+  @visibleForTesting
+  static void resetForTest() {
+    _manifestFuture = null;
+  }
+
+  @visibleForTesting
+  static void setManifestForTest(Map<String, String> manifest) {
+    _manifestFuture = Future.value(Map.unmodifiable(Map.of(manifest)));
+  }
+}
+
 class ExercicioGifViewer extends StatelessWidget {
-  final String imagem;
+  final String canonicalExerciseId;
   final String titulo;
   final String? subtitulo;
-  final String? gifPath;
   final double height;
   final double borderRadius;
 
   const ExercicioGifViewer({
     super.key,
-    required this.imagem,
+    required this.canonicalExerciseId,
     required this.titulo,
     this.subtitulo,
-    this.gifPath,
     this.height = 220,
     this.borderRadius = 24,
   });
 
   @override
   Widget build(BuildContext context) {
-    final temPossivelGif =
-        titulo.trim().isNotEmpty ||
-        imagem.trim().isNotEmpty ||
-        (gifPath?.trim().isNotEmpty ?? false);
+    final canOpen = canonicalExerciseId.trim().isNotEmpty;
 
     return Semantics(
-      button: temPossivelGif,
-      label: temPossivelGif ? 'Abrir GIF do exercicio' : 'GIF indisponivel',
+      button: canOpen,
+      label: canOpen ? 'Abrir execução de $titulo' : 'Mídia indisponível',
       child: InkWell(
         borderRadius: BorderRadius.circular(borderRadius),
-        onTap: temPossivelGif
+        onTap: canOpen
             ? () => mostrarGifExercicioTelaCheia(
                 context,
-                imagem: imagem,
+                canonicalExerciseId: canonicalExerciseId,
                 titulo: titulo,
                 subtitulo: subtitulo,
-                gifPath: gifPath,
               )
             : null,
         child: AnimatedContainer(
@@ -66,9 +119,8 @@ class ExercicioGifViewer extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               ExercicioGifImage(
-                imagem: imagem,
+                canonicalExerciseId: canonicalExerciseId,
                 titulo: titulo,
-                gifPath: gifPath,
                 placeholder: _placeholder(),
                 cacheHeight: 520,
               ),
@@ -111,9 +163,8 @@ class ExercicioGifViewer extends StatelessWidget {
 }
 
 class ExercicioGifImage extends StatelessWidget {
-  final String imagem;
+  final String canonicalExerciseId;
   final String titulo;
-  final String? gifPath;
   final BoxFit fit;
   final Widget? placeholder;
   final int? cacheWidth;
@@ -121,9 +172,8 @@ class ExercicioGifImage extends StatelessWidget {
 
   const ExercicioGifImage({
     super.key,
-    required this.imagem,
+    required this.canonicalExerciseId,
     required this.titulo,
-    this.gifPath,
     this.fit = BoxFit.contain,
     this.placeholder,
     this.cacheWidth,
@@ -133,22 +183,22 @@ class ExercicioGifImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Map<String, String>>(
-      future: _GifResolver.manifest,
+      future: ExerciseMediaResolver.manifest,
       builder: (context, snapshot) {
-        final paths = _GifResolver.pathsFor(
-          titulo: titulo,
-          imagem: imagem,
-          gifPath: gifPath,
-          manifest: snapshot.data ?? const {},
+        final path = ExerciseMediaResolver.pathFor(
+          canonicalExerciseId,
+          snapshot.data ?? const {},
         );
+        if (path == null) return placeholder ?? _defaultPlaceholder();
 
-        return _GifAssetChain(
-          paths: paths,
+        return Image.asset(
+          path,
           fit: fit,
-          semanticLabel: titulo,
-          placeholder: placeholder ?? _defaultPlaceholder(),
           cacheWidth: cacheWidth,
           cacheHeight: cacheHeight,
+          filterQuality: FilterQuality.low,
+          semanticLabel: titulo,
+          errorBuilder: (_, _, _) => placeholder ?? _defaultPlaceholder(),
         );
       },
     );
@@ -170,34 +220,30 @@ class ExercicioGifImage extends StatelessWidget {
 
 void mostrarGifExercicioTelaCheia(
   BuildContext context, {
-  required String imagem,
+  required String canonicalExerciseId,
   required String titulo,
   String? subtitulo,
-  String? gifPath,
 }) {
   showDialog<void>(
     context: context,
     useSafeArea: false,
     builder: (_) => _ExercicioGifDialog(
-      imagem: imagem.trim(),
+      canonicalExerciseId: canonicalExerciseId.trim(),
       titulo: titulo,
       subtitulo: subtitulo,
-      gifPath: gifPath,
     ),
   );
 }
 
 class _ExercicioGifDialog extends StatelessWidget {
-  final String imagem;
+  final String canonicalExerciseId;
   final String titulo;
   final String? subtitulo;
-  final String? gifPath;
 
   const _ExercicioGifDialog({
-    required this.imagem,
+    required this.canonicalExerciseId,
     required this.titulo,
     this.subtitulo,
-    this.gifPath,
   });
 
   @override
@@ -265,24 +311,12 @@ class _ExercicioGifDialog extends StatelessWidget {
   }
 
   Widget _imagem() {
-    return FutureBuilder<Map<String, String>>(
-      future: _GifResolver.manifest,
-      builder: (context, snapshot) {
-        final paths = _GifResolver.pathsFor(
-          titulo: titulo,
-          imagem: imagem,
-          gifPath: gifPath,
-          manifest: snapshot.data ?? const {},
-        );
-
-        return _GifAssetChain(
-          paths: paths,
-          fit: BoxFit.contain,
-          semanticLabel: titulo,
-          placeholder: _placeholder(),
-          cacheWidth: 1200,
-        );
-      },
+    return ExercicioGifImage(
+      canonicalExerciseId: canonicalExerciseId,
+      titulo: titulo,
+      fit: BoxFit.contain,
+      cacheWidth: 1200,
+      placeholder: _placeholder(),
     );
   }
 
@@ -306,7 +340,7 @@ class _ExercicioGifDialog extends StatelessWidget {
           ),
           SizedBox(height: 14),
           Text(
-            'GIF indisponivel',
+            'GIF indisponível',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.white,
@@ -317,177 +351,5 @@ class _ExercicioGifDialog extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-class _GifAssetChain extends StatelessWidget {
-  final List<String> paths;
-  final BoxFit fit;
-  final String semanticLabel;
-  final Widget placeholder;
-  final int? cacheWidth;
-  final int? cacheHeight;
-
-  const _GifAssetChain({
-    required this.paths,
-    required this.fit,
-    required this.semanticLabel,
-    required this.placeholder,
-    this.cacheWidth,
-    this.cacheHeight,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return _buildCandidate(0);
-  }
-
-  Widget _buildCandidate(int index) {
-    if (index >= paths.length) return placeholder;
-
-    final path = paths[index];
-    final isNetwork = path.startsWith('http://') || path.startsWith('https://');
-
-    if (isNetwork) {
-      return Image.network(
-        path,
-        fit: fit,
-        filterQuality: FilterQuality.low,
-        errorBuilder: (_, _, _) => _buildCandidate(index + 1),
-      );
-    }
-
-    return Image.asset(
-      path,
-      fit: fit,
-      cacheWidth: cacheWidth,
-      cacheHeight: cacheHeight,
-      filterQuality: FilterQuality.low,
-      semanticLabel: semanticLabel,
-      errorBuilder: (_, _, _) => _buildCandidate(index + 1),
-    );
-  }
-}
-
-class _GifResolver {
-  static const String manifestPath = 'assets/gifs/gif_manifest.json';
-
-  static Future<Map<String, String>>? _manifestFuture;
-
-  static Future<Map<String, String>> get manifest {
-    return _manifestFuture ??= _loadManifest();
-  }
-
-  static Future<Map<String, String>> _loadManifest() async {
-    try {
-      final raw = await rootBundle.loadString(manifestPath);
-      final decoded = jsonDecode(raw);
-
-      if (decoded is! Map) return const {};
-
-      return decoded.map<String, String>((key, value) {
-        return MapEntry(key.toString(), value.toString());
-      });
-    } catch (_) {
-      return const {};
-    }
-  }
-
-  static List<String> pathsFor({
-    required String titulo,
-    required String imagem,
-    required String? gifPath,
-    required Map<String, String> manifest,
-  }) {
-    final slug = normalizarNome(titulo);
-    final manifestValue = manifest[slug];
-
-    return _unique([
-      _assetPath(manifestValue),
-      _legacyRootFallback(gifPath),
-      _legacyRootFallback(imagem),
-      _assetPath(gifPath),
-      _assetPath(imagem),
-    ]);
-  }
-
-  /// Old catalog rows may still contain category folders while bundled GIFs
-  /// live at the root of `assets/gifs`. Keep the original path as a final
-  /// candidate, but try the local basename first when no manifest entry exists.
-  static String? _legacyRootFallback(String? rawPath) {
-    final path = _assetPath(rawPath);
-    if (path == null || path.startsWith('http')) return path;
-    final separator = path.lastIndexOf('/');
-    if (separator < 0) return path;
-    return 'assets/gifs/${path.substring(separator + 1)}';
-  }
-
-  static String normalizarNome(String value) {
-    var text = value.toLowerCase().trim();
-    const replacements = {
-      'á': 'a',
-      'à': 'a',
-      'ã': 'a',
-      'â': 'a',
-      'ä': 'a',
-      'é': 'e',
-      'è': 'e',
-      'ê': 'e',
-      'ë': 'e',
-      'í': 'i',
-      'ì': 'i',
-      'î': 'i',
-      'ï': 'i',
-      'ó': 'o',
-      'ò': 'o',
-      'õ': 'o',
-      'ô': 'o',
-      'ö': 'o',
-      'ú': 'u',
-      'ù': 'u',
-      'û': 'u',
-      'ü': 'u',
-      'ç': 'c',
-      'ñ': 'n',
-    };
-
-    for (final entry in replacements.entries) {
-      text = text.replaceAll(entry.key, entry.value);
-    }
-
-    text = text.replaceAll(RegExp(r'[^a-z0-9]+'), '_');
-    text = text.replaceAll(RegExp(r'_+'), '_');
-    return text.replaceAll(RegExp(r'^_|_$'), '');
-  }
-
-  static String? _assetPath(String? rawPath) {
-    final raw = rawPath?.trim();
-    if (raw == null || raw.isEmpty) return null;
-    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
-
-    final normalized = raw.replaceAll('\\', '/').replaceAll('%25', '%');
-
-    if (normalized.startsWith('assets/gifs/')) {
-      return normalized;
-    }
-
-    if (normalized.startsWith('assets/')) {
-      return normalized;
-    }
-
-    final clean = normalized.replaceAll(RegExp(r'^/+'), '');
-    return 'assets/gifs/$clean';
-  }
-
-  static List<String> _unique(List<String?> values) {
-    final seen = <String>{};
-    final result = <String>[];
-
-    for (final value in values) {
-      if (value == null || value.trim().isEmpty) continue;
-      if (seen.add(value)) result.add(value);
-    }
-
-    return result;
   }
 }

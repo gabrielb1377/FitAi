@@ -708,8 +708,9 @@ class LibraryExerciseMedia extends StatelessWidget {
     return ColoredBox(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: ExercicioGifImage(
-        imagem: exercise.imagem,
-        gifPath: exercise.gifPath,
+        canonicalExerciseId: exercise.canonicalExerciseId.trim().isNotEmpty
+            ? exercise.canonicalExerciseId
+            : exercise.id,
         titulo: exercise.nome,
         fit: fit,
         cacheHeight: 420,

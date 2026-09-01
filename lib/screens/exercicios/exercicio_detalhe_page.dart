@@ -97,10 +97,12 @@ class ExercicioDetalhePage extends StatelessWidget {
                   _heroBadge(),
                   const SizedBox(height: 14),
                   ExercicioGifViewer(
-                    imagem: exercicio.imagem,
+                    canonicalExerciseId:
+                        exercicio.canonicalExerciseId.trim().isNotEmpty
+                        ? exercicio.canonicalExerciseId
+                        : exercicio.id,
                     titulo: exercicio.nome,
                     subtitulo: exercicio.categoria,
-                    gifPath: exercicio.gifPath,
                     height: 246,
                     borderRadius: 28,
                   ),

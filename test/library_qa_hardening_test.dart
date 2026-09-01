@@ -313,7 +313,7 @@ void main() {
   );
 
   testWidgets(
-    'legacy category media path falls back to the bundled root asset',
+    'media resolution fails closed for an unverified canonical exercise',
     (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
@@ -322,8 +322,8 @@ void main() {
               width: 120,
               height: 120,
               child: ExercicioGifImage(
-                imagem: 'assets/gifs/legacy/sit_up.gif',
-                titulo: 'Legacy media fallback',
+                canonicalExerciseId: 'unverified_exercise',
+                titulo: 'Mídia pendente',
               ),
             ),
           ),
@@ -331,8 +331,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final image = tester.widget<Image>(find.byType(Image));
-      expect((image.image as AssetImage).assetName, 'assets/gifs/sit_up.gif');
+      expect(find.byType(Image), findsNothing);
+      expect(find.byIcon(Icons.fitness_center_rounded), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
@@ -407,30 +407,29 @@ bool _hasNoMedia(ExercicioModel item) =>
     item.gifPath.trim().isEmpty &&
     item.video.trim().isEmpty;
 
-bool _hasLocalMedia(ExercicioModel item) {
-  final path = item.gifPath.trim().isNotEmpty ? item.gifPath : item.imagem;
-  if (path.trim().isEmpty || path.startsWith('http')) return true;
-  if (File(path).existsSync()) return true;
-  final separator = path.replaceAll('\\', '/').lastIndexOf('/');
-  final basename = separator < 0 ? path : path.substring(separator + 1);
-  return File('assets/gifs/$basename').existsSync();
-}
-
 _MediaAudit _mediaAudit(Iterable<ExercicioModel> catalog) {
   final decoded =
-      jsonDecode(File('assets/gifs/gif_manifest.json').readAsStringSync())
+      jsonDecode(
+            File(
+              'assets/exercises/exercise_media_manifest_v2.json',
+            ).readAsStringSync(),
+          )
           as Map<String, dynamic>;
+  final entries = <String, Map<String, dynamic>>{
+    for (final item in decoded['entries'] as List<dynamic>)
+      if (item is Map<String, dynamic>)
+        item['canonicalExerciseId']?.toString() ?? '': item,
+  };
   final direct = <ExercicioModel>[];
   final manifest = <ExercicioModel>[];
   final unresolved = <ExercicioModel>[];
 
   for (final exercise in catalog) {
-    if (_hasLocalMedia(exercise)) {
-      direct.add(exercise);
-      continue;
-    }
-    final path = decoded[_gifManifestKey(exercise.nome)]?.toString();
-    if (path != null && File('assets/gifs/$path').existsSync()) {
+    final entry = entries[exercise.id];
+    final path = entry?['assetPath']?.toString();
+    if (entry?['status'] == 'VERIFIED' &&
+        path != null &&
+        File(path).existsSync()) {
       manifest.add(exercise);
     } else {
       unresolved.add(exercise);
@@ -442,14 +441,6 @@ _MediaAudit _mediaAudit(Iterable<ExercicioModel> catalog) {
     manifest: manifest,
     unresolved: unresolved,
   );
-}
-
-String _gifManifestKey(String name) {
-  final normalized = ExerciseIdentity.normalizeName(name);
-  return normalized
-      .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
-      .replaceAll(RegExp(r'_+'), '_')
-      .replaceAll(RegExp(r'^_|_$'), '');
 }
 
 class _MediaAudit {

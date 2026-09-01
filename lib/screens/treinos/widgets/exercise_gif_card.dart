@@ -1,20 +1,27 @@
 import 'package:flutter/material.dart';
 
 import '../../../theme/app_theme.dart';
+import '../../../widgets/exercicio_gif_viewer.dart';
 
 class ExerciseGifCard extends StatelessWidget {
-  final String imagePath;
+  final String canonicalExerciseId;
+  final String title;
   final VoidCallback? onTap;
 
-  const ExerciseGifCard({super.key, required this.imagePath, this.onTap});
+  const ExerciseGifCard({
+    super.key,
+    required this.canonicalExerciseId,
+    required this.title,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final imagem = imagePath.trim();
+    final canOpen = canonicalExerciseId.trim().isNotEmpty;
 
     return InkWell(
       borderRadius: BorderRadius.circular(28),
-      onTap: imagem.isEmpty ? null : onTap,
+      onTap: canOpen ? onTap : null,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(28),
         child: Container(
@@ -24,30 +31,15 @@ class ExerciseGifCard extends StatelessWidget {
             color: AppColors.surfaceVariant,
             border: Border.all(color: Colors.white.withAlpha(12)),
           ),
-          child: imagem.isEmpty ? _fallback(60) : _image(imagem),
+          child: ExercicioGifImage(
+            canonicalExerciseId: canonicalExerciseId,
+            titulo: title,
+            fit: BoxFit.contain,
+            cacheHeight: 620,
+            placeholder: _fallback(60),
+          ),
         ),
       ),
-    );
-  }
-
-  Widget _image(String imagem) {
-    final isNetwork =
-        imagem.startsWith('http://') || imagem.startsWith('https://');
-    if (isNetwork) {
-      return Image.network(
-        imagem,
-        fit: BoxFit.contain,
-        filterQuality: FilterQuality.low,
-        errorBuilder: (_, _, _) => _fallback(60),
-      );
-    }
-
-    return Image.asset(
-      imagem,
-      fit: BoxFit.contain,
-      cacheHeight: 620,
-      filterQuality: FilterQuality.low,
-      errorBuilder: (_, _, _) => _fallback(60),
     );
   }
 

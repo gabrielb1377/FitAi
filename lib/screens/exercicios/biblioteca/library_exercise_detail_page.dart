@@ -1045,8 +1045,9 @@ class _BibliotecaExercicioDetalhePageState
   void _showGif() {
     mostrarGifExercicioTelaCheia(
       context,
-      imagem: exercise.imagem,
-      gifPath: exercise.gifPath,
+      canonicalExerciseId: exercise.canonicalExerciseId.trim().isNotEmpty
+          ? exercise.canonicalExerciseId
+          : exercise.id,
       titulo: exercise.nome,
       subtitulo: exercise.categoria,
     );

@@ -44,7 +44,9 @@ class WorkoutCurrentExercise extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imagem = exercicio.imagem.trim();
+    final canonicalExerciseId = exercicio.canonicalExerciseId.trim().isNotEmpty
+        ? exercicio.canonicalExerciseId
+        : exercicio.id;
     final repetitionsText = repeticoesController.text.trim().isEmpty
         ? '0'
         : repeticoesController.text.trim();
@@ -53,15 +55,14 @@ class WorkoutCurrentExercise extends StatelessWidget {
       child: Column(
         children: [
           ExerciseGifCard(
-            imagePath: exercicio.imagem,
-            onTap: imagem.isEmpty
-                ? () {}
-                : () => mostrarGifExercicioTelaCheia(
-                    context,
-                    imagem: imagem,
-                    titulo: exercicio.nome,
-                    subtitulo: exercicio.categoria,
-                  ),
+            canonicalExerciseId: canonicalExerciseId,
+            title: exercicio.nome,
+            onTap: () => mostrarGifExercicioTelaCheia(
+              context,
+              canonicalExerciseId: canonicalExerciseId,
+              titulo: exercicio.nome,
+              subtitulo: exercicio.categoria,
+            ),
           ),
           const SizedBox(height: 22),
           ExerciseInfoCard(

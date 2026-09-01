@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../design_system/fit_design_system.dart';
 import '../../../../models/exercicio_model.dart';
 import '../../../../models/treino_model.dart';
+import '../../../../widgets/exercicio_gif_viewer.dart';
 
 class PlanMedia extends StatelessWidget {
   const PlanMedia({
@@ -51,7 +52,7 @@ class ExerciseMedia extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final path = _path;
+    final exercise = this.exercise;
     return ClipRRect(
       borderRadius: borderRadius,
       child: SizedBox(
@@ -59,32 +60,19 @@ class ExerciseMedia extends StatelessWidget {
         height: height,
         child: ColoredBox(
           color: FitColors.surfaceVariant,
-          child: path.isEmpty ? _fallback() : _image(path),
+          child: exercise == null
+              ? _fallback()
+              : ExercicioGifImage(
+                  canonicalExerciseId:
+                      exercise.canonicalExerciseId.trim().isNotEmpty
+                      ? exercise.canonicalExerciseId
+                      : exercise.id,
+                  titulo: exercise.nome,
+                  fit: fit,
+                  placeholder: _fallback(),
+                ),
         ),
       ),
-    );
-  }
-
-  String get _path {
-    final gif = exercise?.gifPath.trim() ?? '';
-    if (gif.isNotEmpty) return gif;
-    return exercise?.imagem.trim() ?? '';
-  }
-
-  Widget _image(String path) {
-    if (path.startsWith('http://') || path.startsWith('https://')) {
-      return Image.network(
-        path,
-        fit: fit,
-        filterQuality: FilterQuality.medium,
-        errorBuilder: (_, _, _) => _fallback(),
-      );
-    }
-    return Image.asset(
-      path,
-      fit: fit,
-      filterQuality: FilterQuality.medium,
-      errorBuilder: (_, _, _) => _fallback(),
     );
   }
 
