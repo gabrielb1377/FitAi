@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../models/exercicio_model.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/exercicio_gif_viewer.dart';
 import 'exercise_history.dart';
 
 class WorkoutMobileFocusLayout extends StatelessWidget {
@@ -165,7 +166,7 @@ class _ExerciseBody extends StatelessWidget {
         : repeticoesController.text.trim();
     return Column(
       children: [
-        _Gif(path: exercicio.imagem),
+        _Gif(exercicio: exercicio),
         const SizedBox(height: 22),
         Text(
           exercicio.nome,
@@ -255,8 +256,8 @@ class _ExerciseBody extends StatelessWidget {
 }
 
 class _Gif extends StatelessWidget {
-  final String path;
-  const _Gif({required this.path});
+  final ExercicioModel exercicio;
+  const _Gif({required this.exercicio});
 
   @override
   Widget build(BuildContext context) {
@@ -266,14 +267,14 @@ class _Gif extends StatelessWidget {
         height: 220,
         width: double.infinity,
         color: AppColors.surface,
-        child: path.trim().isEmpty
-            ? const Icon(Icons.fitness_center, size: 48)
-            : Image.asset(
-                path,
-                fit: BoxFit.contain,
-                errorBuilder: (_, _, _) =>
-                    const Icon(Icons.fitness_center, size: 48),
-              ),
+        child: ExercicioGifImage(
+          canonicalExerciseId: exercicio.canonicalExerciseId.isNotEmpty
+              ? exercicio.canonicalExerciseId
+              : exercicio.id,
+          titulo: exercicio.nome,
+          fit: BoxFit.contain,
+          placeholder: const Icon(Icons.fitness_center, size: 48),
+        ),
       ),
     );
   }

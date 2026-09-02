@@ -4,6 +4,7 @@ import '../../../../core/design_system/components/domain/shared/fit_domain_primi
 import '../../../../design_system/fit_design_system.dart';
 import '../../../../models/coach_insight_model.dart';
 import '../../../../models/treino_model.dart';
+import '../../../../widgets/exercicio_gif_viewer.dart';
 import '../widgets/home_detail_scaffold.dart';
 import '../widgets/home_official_components.dart';
 
@@ -156,26 +157,28 @@ class _WorkoutHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final media = workout.exercicios.firstOrNull?.imagem.trim() ?? '';
+    final exercise = workout.exercicios.firstOrNull;
+    final canonicalExerciseId = exercise?.canonicalExerciseId.isNotEmpty == true
+        ? exercise!.canonicalExerciseId
+        : exercise?.id ?? '';
     return Stack(
       children: [
         FitDomainMedia(
           aspectRatio: FitLayout.domainCompactMediaAspectRatio,
           fallbackLabel: workout.nome,
           fallbackIcon: FitIcons.workout,
-          child: media.isEmpty
-              ? null
-              : Image.asset(
-                  media,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const Center(
-                    child: Icon(
-                      FitIcons.workout,
-                      color: FitColors.primary,
-                      size: FitLayout.iconSizeState,
-                    ),
-                  ),
-                ),
+          child: ExercicioGifImage(
+            canonicalExerciseId: canonicalExerciseId,
+            titulo: exercise?.nome ?? workout.nome,
+            fit: BoxFit.cover,
+            placeholder: const Center(
+              child: Icon(
+                FitIcons.workout,
+                color: FitColors.primary,
+                size: FitLayout.iconSizeState,
+              ),
+            ),
+          ),
         ),
         Positioned.fill(
           child: DecoratedBox(

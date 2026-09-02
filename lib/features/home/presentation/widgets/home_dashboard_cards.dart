@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../design_system/fit_design_system.dart';
 import '../../../../models/fitai_meta_model.dart';
 import '../../../../models/treino_model.dart';
+import '../../../../widgets/exercicio_gif_viewer.dart';
 import '../../../../services/treino_do_dia_service.dart';
 
 /// Resumo compacto da evolucao diaria, equivalente ao anel do prototipo Home.
@@ -380,7 +381,11 @@ class _ExercisePreviewStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final exercise = exercises.isEmpty ? null : exercises.first;
-    final path = exercise?.imagem?.toString().trim() ?? '';
+    final canonicalExerciseId =
+        exercise?.canonicalExerciseId?.toString().trim().isNotEmpty == true
+        ? exercise.canonicalExerciseId.toString()
+        : exercise?.id?.toString() ?? '';
+    final exerciseName = exercise?.nome?.toString() ?? 'Exercicio';
     return Semantics(
       image: true,
       label: exercises.isEmpty
@@ -393,14 +398,12 @@ class _ExercisePreviewStrip extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              if (path.isNotEmpty)
-                Image.asset(
-                  path,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, _, _) => _mediaFallback(context),
-                )
-              else
-                _mediaFallback(context),
+              ExercicioGifImage(
+                canonicalExerciseId: canonicalExerciseId,
+                titulo: exerciseName,
+                fit: BoxFit.contain,
+                placeholder: _mediaFallback(context),
+              ),
               if (exercises.length > 1)
                 Positioned(
                   right: FitSpacing.s8,

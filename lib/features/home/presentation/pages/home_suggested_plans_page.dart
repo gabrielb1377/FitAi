@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/design_system/components/domain/shared/fit_domain_primitives.dart';
 import '../../../../design_system/fit_design_system.dart';
 import '../../../../models/treino_model.dart';
+import '../../../../widgets/exercicio_gif_viewer.dart';
 import '../widgets/home_detail_scaffold.dart';
 import '../widgets/home_official_components.dart';
 
@@ -110,7 +111,10 @@ class _SuggestedPlanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final media = plan.exercicios.firstOrNull?.imagem.trim() ?? '';
+    final exercise = plan.exercicios.firstOrNull;
+    final canonicalExerciseId = exercise?.canonicalExerciseId.isNotEmpty == true
+        ? exercise!.canonicalExerciseId
+        : exercise?.id ?? '';
     return FitCard(
       onTap: onTap,
       variant: FitCardVariant.clickable,
@@ -122,19 +126,18 @@ class _SuggestedPlanCard extends StatelessWidget {
             aspectRatio: FitLayout.domainCompactMediaAspectRatio,
             fallbackLabel: plan.nome,
             fallbackIcon: FitIcons.plans,
-            child: media.isEmpty
-                ? null
-                : Image.asset(
-                    media,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const Center(
-                      child: Icon(
-                        FitIcons.plans,
-                        color: FitColors.primary,
-                        size: FitLayout.iconSizeState,
-                      ),
-                    ),
-                  ),
+            child: ExercicioGifImage(
+              canonicalExerciseId: canonicalExerciseId,
+              titulo: exercise?.nome ?? plan.nome,
+              fit: BoxFit.cover,
+              placeholder: const Center(
+                child: Icon(
+                  FitIcons.plans,
+                  color: FitColors.primary,
+                  size: FitLayout.iconSizeState,
+                ),
+              ),
+            ),
           ),
           Positioned.fill(
             child: DecoratedBox(

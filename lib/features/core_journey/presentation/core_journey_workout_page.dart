@@ -6,6 +6,7 @@ import '../../../core/navigation/app_routes.dart';
 import '../../../design_system/design_system.dart';
 import '../../../models/exercicio_model.dart';
 import '../../../models/treino_model.dart';
+import '../../../widgets/exercicio_gif_viewer.dart';
 import '../../workout_vertical_slice/domain/workout_vertical_models.dart';
 import 'core_journey_controller.dart';
 import 'core_journey_scope.dart';
@@ -263,25 +264,26 @@ class _ExerciseCard extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (exercise.imagem.isNotEmpty)
-          Semantics(
-            image: true,
-            label: 'Midia do exercicio ${exercise.nome}',
-            child: AspectRatio(
-              aspectRatio: 16 / 9,
-              child: ClipRRect(
-                borderRadius: FitRadius.mediumBorder,
-                child: Image.asset(
-                  exercise.imagem,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) =>
-                      _ExerciseMediaFallback(exerciseName: exercise.nome),
+        Semantics(
+          image: true,
+          label: 'Midia do exercicio ${exercise.nome}',
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: ClipRRect(
+              borderRadius: FitRadius.mediumBorder,
+              child: ExercicioGifImage(
+                canonicalExerciseId: exercise.canonicalExerciseId.isNotEmpty
+                    ? exercise.canonicalExerciseId
+                    : exercise.id,
+                titulo: exercise.nome,
+                fit: BoxFit.cover,
+                placeholder: _ExerciseMediaFallback(
+                  exerciseName: exercise.nome,
                 ),
               ),
             ),
-          )
-        else
-          _ExerciseMediaFallback(exerciseName: exercise.nome),
+          ),
+        ),
         const SizedBox(height: FitSpacing.s12),
         Text(
           '${exercise.series} series  |  ${exercise.repeticoes} reps  |  ${exercise.descansoSegundos}s descanso',

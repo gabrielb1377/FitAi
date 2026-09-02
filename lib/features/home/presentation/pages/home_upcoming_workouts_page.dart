@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../design_system/fit_design_system.dart';
 import '../../../../models/treino_model.dart';
+import '../../../../widgets/exercicio_gif_viewer.dart';
 import '../widgets/home_detail_scaffold.dart';
 import '../widgets/home_official_components.dart';
 
@@ -132,7 +133,10 @@ class _UpcomingWorkoutCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final workout = item.workout;
-    final media = workout.exercicios.firstOrNull?.imagem.trim() ?? '';
+    final exercise = workout.exercicios.firstOrNull;
+    final canonicalExerciseId = exercise?.canonicalExerciseId.isNotEmpty == true
+        ? exercise!.canonicalExerciseId
+        : exercise?.id ?? '';
     return FitCard(
       onTap: onTap,
       variant: FitCardVariant.clickable,
@@ -145,15 +149,14 @@ class _UpcomingWorkoutCard extends StatelessWidget {
             dimension: FitLayout.domainThumbnail,
             child: ClipRRect(
               borderRadius: FitRadius.mediumBorder,
-              child: media.isEmpty
-                  ? const _WorkoutMediaFallback()
-                  : mediaBuilder?.call(media) ??
-                        Image.asset(
-                          media,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) =>
-                              const _WorkoutMediaFallback(),
-                        ),
+              child:
+                  mediaBuilder?.call(canonicalExerciseId) ??
+                  ExercicioGifImage(
+                    canonicalExerciseId: canonicalExerciseId,
+                    titulo: exercise?.nome ?? workout.nome,
+                    fit: BoxFit.cover,
+                    placeholder: const _WorkoutMediaFallback(),
+                  ),
             ),
           ),
           const SizedBox(width: FitSpacing.s12),
