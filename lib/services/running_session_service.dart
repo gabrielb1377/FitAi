@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
-import 'package:geolocator/geolocator.dart';
 
 import '../models/corrida_model.dart';
 import '../models/running_session_model.dart';
 import '../features/progression/progression.dart';
+import 'running_location_source.dart';
 import 'storage_service.dart';
 import 'sync_service.dart';
 
@@ -15,8 +15,11 @@ class RunningSessionService extends ChangeNotifier {
     DateTime Function()? clock,
     this._trackGps = true,
     ProgressionEngine? progressionEngine,
+    RunningLocationSource? locationSource,
   }) : _clock = clock ?? DateTime.now,
-       _progressionEngine = progressionEngine ?? ProgressionEngine.instance;
+       _progressionEngine = progressionEngine ?? ProgressionEngine.instance,
+       _locationSource =
+           locationSource ?? const GeolocatorRunningLocationSource();
 
   static final RunningSessionService instance = RunningSessionService._();
 
@@ -24,10 +27,12 @@ class RunningSessionService extends ChangeNotifier {
   factory RunningSessionService.forTesting({
     DateTime Function()? clock,
     ProgressionEngine? progressionEngine,
+    RunningLocationSource? locationSource,
   }) => RunningSessionService._(
     clock: clock,
-    trackGps: false,
+    trackGps: locationSource != null,
     progressionEngine: progressionEngine,
+    locationSource: locationSource,
   );
 
   static const int _defaultCountdownSeconds = 3;
@@ -37,22 +42,28 @@ class RunningSessionService extends ChangeNotifier {
   final DateTime Function() _clock;
   final bool _trackGps;
   final ProgressionEngine _progressionEngine;
+  final RunningLocationSource _locationSource;
   final Set<String> _syncingRunIds = <String>{};
   Timer? _timer;
   Timer? _countdownTimer;
-  StreamSubscription<Position>? _positionSubscription;
+  StreamSubscription<RunningLocationSample>? _positionSubscription;
   RunningSessionModel? _session;
   bool _initialized = false;
   bool _initializing = false;
   bool _saving = false;
   bool _gpsConnected = false;
+  bool _startingGpsStream = false;
   bool _countdownActive = false;
   int _countdownSeconds = _defaultCountdownSeconds;
-  Position? _lastAcceptedPosition;
+  RunningLocationSample? _lastAcceptedSample;
+  DateTime? _lastAcceptedTimestamp;
+  bool _requiresLocationSegmentStart = true;
+  RunningLocationStatus _locationStatus = RunningLocationStatus.idle;
 
   bool get initialized => _initialized;
   bool get saving => _saving;
   bool get gpsConnected => _gpsConnected;
+  RunningLocationStatus get locationStatus => _locationStatus;
   bool get countdownActive => _countdownActive;
   int get countdownSeconds => _countdownSeconds;
   RunningSessionModel? get session => _session;
@@ -82,7 +93,9 @@ class RunningSessionService extends ChangeNotifier {
 
     if (restored != null && !restored.finished) {
       _session = _restoreElapsedTime(restored);
-      _lastAcceptedPosition = null;
+      _resetLocationSegment(
+        lastTimestamp: _lastRouteTimestamp(_session!.route),
+      );
 
       if (_session!.finalizing) {
         try {
@@ -150,7 +163,7 @@ class RunningSessionService extends ChangeNotifier {
     if (!await StorageService.carregarPrimeiraCorrida()) {
       await StorageService.salvarPrimeiraCorrida(true);
     }
-    _lastAcceptedPosition = null;
+    _resetLocationSegment();
     _countdownActive = false;
     _countdownTimer?.cancel();
 
@@ -174,6 +187,7 @@ class RunningSessionService extends ChangeNotifier {
     _timer?.cancel();
     _timer = null;
     await _stopGpsStream();
+    _resetLocationSegment(lastTimestamp: _lastRouteTimestamp(session.route));
 
     _session = _advanceSessionTo(session, now).copyWith(
       paused: true,
@@ -203,6 +217,7 @@ class RunningSessionService extends ChangeNotifier {
           session.accumulatedPausedSeconds + _pausedSeconds(session, now),
       lastUpdatedAt: now,
     );
+    _resetLocationSegment(lastTimestamp: _lastRouteTimestamp(_session!.route));
     await _persistSession();
     _ensureTimer();
     unawaited(_ensureGpsStream());
@@ -259,7 +274,7 @@ class RunningSessionService extends ChangeNotifier {
     await _stopGpsStream();
     await StorageService.limparCorridaAtiva();
     _session = null;
-    _lastAcceptedPosition = null;
+    _resetLocationSegment();
     notifyListeners();
   }
 
@@ -287,77 +302,38 @@ class RunningSessionService extends ChangeNotifier {
   }
 
   Future<void> _ensureGpsStream() async {
-    if (!_trackGps) return;
-    final permissionGranted = await _ensureLocationPermission();
-    if (!permissionGranted) {
-      _setGpsConnected(false);
-      return;
-    }
+    if (_trackGps &&
+        _positionSubscription == null &&
+        !_startingGpsStream &&
+        _canTrackLocation) {
+      _startingGpsStream = true;
+      try {
+        final status = await _locationSource.ensureReady();
+        if (status != RunningLocationStatus.available) {
+          _setLocationStatus(status);
+          return;
+        }
+        if (!_canTrackLocation || _positionSubscription != null) return;
 
-    if (_positionSubscription != null) return;
-
-    try {
-      _positionSubscription =
-          Geolocator.getPositionStream(
-            locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.bestForNavigation,
-              distanceFilter: 5,
-            ),
-          ).listen(
-            _handlePosition,
-            onError: (Object error) {
-              _log('GPS perdido: $error');
-              _setGpsConnected(false);
-            },
-          );
-      _setGpsConnected(true);
-      _log('GPS conectado');
-    } catch (error) {
-      _log('GPS perdido: $error');
-      _setGpsConnected(false);
-    }
-  }
-
-  Future<bool> _ensureLocationPermission() async {
-    try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        _log('GPS perdido: servico desativado');
-        return false;
+        _positionSubscription = _locationSource.samples.listen(
+          _recordLocation,
+          onError: (Object error) =>
+              unawaited(_handleLocationStreamError(error)),
+        );
+        _setLocationStatus(RunningLocationStatus.available);
+        _log('GPS conectado');
+      } on Object catch (error) {
+        _log('GPS perdido: $error');
+        _setLocationStatus(RunningLocationStatus.unavailable);
+      } finally {
+        _startingGpsStream = false;
       }
-
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        _log('GPS perdido: permissao negada');
-        return false;
-      }
-
-      return true;
-    } catch (error) {
-      _log('GPS perdido: $error');
-      return false;
     }
-  }
-
-  void _handlePosition(Position position) {
-    _recordLocation(
-      latitude: position.latitude,
-      longitude: position.longitude,
-      accuracy: position.accuracy,
-      altitude: position.altitude,
-      speedMps: position.speed,
-      recordedAt: position.timestamp,
-    );
   }
 
   /// Test-only location seam for the local running core.
   ///
-  /// Production samples are provided by Geolocator through [_handlePosition].
+  /// Production samples are provided by [GeolocatorRunningLocationSource].
   /// Keeping the metric update below independent of the plugin makes offline
   /// recovery and invalid-point handling verifiable without a native device.
   @visibleForTesting
@@ -370,23 +346,18 @@ class RunningSessionService extends ChangeNotifier {
     double speedMps = 0,
   }) {
     _recordLocation(
-      latitude: latitude,
-      longitude: longitude,
-      accuracy: accuracy,
-      altitude: altitude,
-      speedMps: speedMps,
-      recordedAt: recordedAt,
+      RunningLocationSample(
+        latitude: latitude,
+        longitude: longitude,
+        timestamp: recordedAt,
+        accuracy: accuracy,
+        altitude: altitude,
+        speedMps: speedMps,
+      ),
     );
   }
 
-  void _recordLocation({
-    required double latitude,
-    required double longitude,
-    required double accuracy,
-    required double altitude,
-    required double speedMps,
-    required DateTime recordedAt,
-  }) {
+  void _recordLocation(RunningLocationSample sample) {
     final session = _session;
     if (session == null ||
         session.finished ||
@@ -395,15 +366,7 @@ class RunningSessionService extends ChangeNotifier {
       return;
     }
 
-    if (!latitude.isFinite ||
-        !longitude.isFinite ||
-        !accuracy.isFinite ||
-        !altitude.isFinite ||
-        !speedMps.isFinite ||
-        latitude.abs() > 90 ||
-        longitude.abs() > 180 ||
-        accuracy < 0 ||
-        accuracy > _maxAcceptedAccuracyMeters) {
+    if (!_isValidLocationSample(sample)) {
       return;
     }
 
@@ -411,17 +374,14 @@ class RunningSessionService extends ChangeNotifier {
     final currentSession = _advanceSessionTo(session, now);
 
     var distanceKm = currentSession.distanceKm;
-    var currentSpeed = _speedMpsToKmh(speedMps);
-    final previous = _lastAcceptedPosition;
+    var currentSpeed = _speedMpsToKmh(sample.speedMps ?? 0);
+    final previous = _lastAcceptedSample;
 
-    if (previous != null) {
-      final meters = Geolocator.distanceBetween(
-        previous.latitude,
-        previous.longitude,
-        latitude,
-        longitude,
-      );
-      final seconds = recordedAt.difference(previous.timestamp).inSeconds.abs();
+    if (previous != null && !_requiresLocationSegmentStart) {
+      final meters = _distanceMeters(previous, sample);
+      final seconds =
+          sample.timestamp.difference(previous.timestamp).inMilliseconds /
+          Duration.millisecondsPerSecond;
       final segmentSpeed = seconds <= 0 ? 0.0 : (meters / seconds) * 3.6;
 
       if (meters < 0 || segmentSpeed > _maxAcceptedSpeedKmh) {
@@ -436,27 +396,18 @@ class RunningSessionService extends ChangeNotifier {
       }
     }
 
-    _lastAcceptedPosition = Position(
-      longitude: longitude,
-      latitude: latitude,
-      timestamp: recordedAt,
-      accuracy: accuracy,
-      altitude: altitude,
-      altitudeAccuracy: 0,
-      heading: 0,
-      headingAccuracy: 0,
-      speed: speedMps,
-      speedAccuracy: 0,
-    );
+    _lastAcceptedSample = sample;
+    _lastAcceptedTimestamp = sample.timestamp;
+    _requiresLocationSegmentStart = false;
     final route = [
       ...currentSession.route,
       RunningRoutePointModel(
-        latitude: latitude,
-        longitude: longitude,
-        accuracy: accuracy,
-        altitude: altitude,
+        latitude: sample.latitude,
+        longitude: sample.longitude,
+        accuracy: sample.accuracy ?? 0,
+        altitude: sample.altitude ?? 0,
         speed: currentSpeed,
-        timestamp: now.toIso8601String(),
+        timestamp: sample.timestamp.toIso8601String(),
       ),
     ];
 
@@ -470,6 +421,77 @@ class RunningSessionService extends ChangeNotifier {
     );
     unawaited(_persistSession());
     notifyListeners();
+  }
+
+  bool get _canTrackLocation {
+    final session = _session;
+    return session != null &&
+        !session.finished &&
+        !session.paused &&
+        !session.finalizing;
+  }
+
+  bool _isValidLocationSample(RunningLocationSample sample) {
+    final accuracy = sample.accuracy;
+    final altitude = sample.altitude;
+    final speed = sample.speedMps;
+    final lastTimestamp = _lastAcceptedTimestamp;
+    final latestAllowed = _clock().add(const Duration(minutes: 5));
+
+    return sample.latitude.isFinite &&
+        sample.longitude.isFinite &&
+        sample.latitude >= -90 &&
+        sample.latitude <= 90 &&
+        sample.longitude >= -180 &&
+        sample.longitude <= 180 &&
+        (accuracy == null ||
+            (accuracy.isFinite &&
+                accuracy >= 0 &&
+                accuracy <= _maxAcceptedAccuracyMeters)) &&
+        (altitude == null || altitude.isFinite) &&
+        (speed == null || speed.isFinite) &&
+        !sample.timestamp.isAfter(latestAllowed) &&
+        (lastTimestamp == null || sample.timestamp.isAfter(lastTimestamp));
+  }
+
+  double _distanceMeters(RunningLocationSample from, RunningLocationSample to) {
+    const earthRadiusMeters = 6371000.0;
+    final latitudeDelta = _radians(to.latitude - from.latitude);
+    final longitudeDelta = _radians(to.longitude - from.longitude);
+    final startLatitude = _radians(from.latitude);
+    final endLatitude = _radians(to.latitude);
+    final haversine =
+        math.sin(latitudeDelta / 2) * math.sin(latitudeDelta / 2) +
+        math.cos(startLatitude) *
+            math.cos(endLatitude) *
+            math.sin(longitudeDelta / 2) *
+            math.sin(longitudeDelta / 2);
+    final boundedHaversine = haversine.clamp(0.0, 1.0).toDouble();
+    final angularDistance =
+        2 *
+        math.atan2(
+          math.sqrt(boundedHaversine),
+          math.sqrt(1 - boundedHaversine),
+        );
+    return earthRadiusMeters * angularDistance;
+  }
+
+  double _radians(double value) => value * math.pi / 180;
+
+  DateTime? _lastRouteTimestamp(List<RunningRoutePointModel> route) {
+    if (route.isEmpty) return null;
+    return DateTime.tryParse(route.last.timestamp);
+  }
+
+  void _resetLocationSegment({DateTime? lastTimestamp}) {
+    _lastAcceptedSample = null;
+    _lastAcceptedTimestamp = lastTimestamp;
+    _requiresLocationSegmentStart = true;
+  }
+
+  Future<void> _handleLocationStreamError(Object error) async {
+    _log('GPS perdido: $error');
+    await _stopGpsStream(status: RunningLocationStatus.unavailable);
   }
 
   RunningSessionModel _restoreElapsedTime(RunningSessionModel session) {
@@ -546,7 +568,7 @@ class RunningSessionService extends ChangeNotifier {
 
     await StorageService.limparCorridaAtiva();
     _session = null;
-    _lastAcceptedPosition = null;
+    _resetLocationSegment();
     if (persisted) unawaited(_syncRun(corrida));
     return corrida;
   }
@@ -620,10 +642,12 @@ class RunningSessionService extends ChangeNotifier {
     }
   }
 
-  Future<void> _stopGpsStream() async {
+  Future<void> _stopGpsStream({
+    RunningLocationStatus status = RunningLocationStatus.idle,
+  }) async {
     await _positionSubscription?.cancel();
     _positionSubscription = null;
-    _setGpsConnected(false);
+    _setLocationStatus(status);
   }
 
   Future<void> _addTotals(CorridaModel corrida) async {
@@ -646,11 +670,24 @@ class RunningSessionService extends ChangeNotifier {
     return speed * 3.6;
   }
 
-  void _setGpsConnected(bool value) {
-    if (_gpsConnected == value) return;
+  void _setLocationStatus(RunningLocationStatus value) {
+    final connected = value == RunningLocationStatus.available;
+    if (_locationStatus == value && _gpsConnected == connected) return;
 
-    _gpsConnected = value;
+    _locationStatus = value;
+    _gpsConnected = connected;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _countdownTimer?.cancel();
+    unawaited(_positionSubscription?.cancel() ?? Future<void>.value());
+    _positionSubscription = null;
+    _gpsConnected = false;
+    _locationStatus = RunningLocationStatus.idle;
+    super.dispose();
   }
 
   void _log(String message) {

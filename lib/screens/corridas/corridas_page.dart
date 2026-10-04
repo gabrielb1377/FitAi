@@ -6,6 +6,7 @@ import '../../design_system/fit_design_system.dart';
 import '../../models/coach_insight_model.dart';
 import '../../models/corrida_model.dart';
 import '../../services/coach_insight_service.dart';
+import '../../services/running_location_source.dart';
 import '../../services/running_session_service.dart';
 import '../perfil/widgets/coach_insights_card.dart';
 import '../widgets/activities/activities_navigation_header.dart';
@@ -252,9 +253,18 @@ class _CorridasPageState extends State<CorridasPage> {
     }
     if (_running.isPaused) return 'Corrida pausada. Retome quando quiser.';
     if (_running.hasActiveSession) {
-      return _running.gpsConnected
-          ? 'GPS conectado.'
-          : 'Buscando sinal de GPS.';
+      return switch (_running.locationStatus) {
+        RunningLocationStatus.available => 'GPS conectado.',
+        RunningLocationStatus.permissionDenied =>
+          'Permissão de localização necessária para registrar a rota.',
+        RunningLocationStatus.permissionDeniedForever =>
+          'Ative a permissão de localização nos ajustes do dispositivo.',
+        RunningLocationStatus.serviceDisabled =>
+          'Ative a localização do dispositivo para registrar a rota.',
+        RunningLocationStatus.unavailable =>
+          'GPS indisponível. A corrida continua salva neste dispositivo.',
+        RunningLocationStatus.idle => 'Buscando sinal de GPS.',
+      };
     }
     return 'Inicie, acompanhe ou retome sua corrida.';
   }
