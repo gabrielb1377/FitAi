@@ -296,6 +296,135 @@ void main() {
       );
     },
   );
+
+  test(
+    'AI-CATALOG-01: Elevacao lateral sem acento resolve a decisão editorial',
+    () {
+      final binding = binder.bindAi(
+        templateItemId: 'ai-lateral-plain',
+        remoteExerciseId: '',
+        exerciseName: 'Elevacao lateral',
+      );
+      expect(binding.canonicalExerciseId, 'ombros_003');
+      expect(binding.method, ExerciseCatalogBindingMethod.alias);
+    },
+  );
+
+  test(
+    'AI-CATALOG-02: Elevação lateral com acento resolve a decisão editorial',
+    () {
+      final binding = binder.bindAi(
+        templateItemId: 'ai-lateral-accent',
+        remoteExerciseId: '',
+        exerciseName: 'Elevação lateral',
+      );
+      expect(binding.canonicalExerciseId, 'ombros_003');
+    },
+  );
+
+  test('AI-CATALOG-03: normalização de caixa preserva o vínculo seguro', () {
+    for (final name in const ['elevação lateral', 'ELEVACAO LATERAL']) {
+      final binding = binder.bindAi(
+        templateItemId: 'ai-lateral-$name',
+        remoteExerciseId: '',
+        exerciseName: name,
+      );
+      expect(binding.canonicalExerciseId, 'ombros_003');
+    }
+  });
+
+  test('AI-CATALOG-04: ID canônico continua tendo precedência', () {
+    final binding = binder.bindAi(
+      templateItemId: 'ai-direct-id',
+      remoteExerciseId: 'remote-id',
+      canonicalExerciseId: 'ombros_003',
+      exerciseName: 'nome remoto divergente',
+    );
+    expect(binding.canonicalExerciseId, 'ombros_003');
+    expect(binding.method, ExerciseCatalogBindingMethod.canonical);
+  });
+
+  test('AI-CATALOG-05: alias único existente continua resolvendo', () {
+    final binding = binder.bindAi(
+      templateItemId: 'ai-unique-alias',
+      remoteExerciseId: '',
+      exerciseName: 'Puxada frontal',
+    );
+    expect(binding.canonicalExerciseId, 'costas_001');
+  });
+
+  test('AI-CATALOG-06: alias ambíguo não é escolhido automaticamente', () {
+    final synthetic = ExerciseCatalogBinder([
+      _exercise('first', 'Movimento A', tags: const ['apelido ambíguo']),
+      _exercise('second', 'Movimento B', tags: const ['apelido ambíguo']),
+    ]);
+    final binding = synthetic.bindAi(
+      templateItemId: 'ai-ambiguous',
+      remoteExerciseId: '',
+      exerciseName: 'apelido ambíguo',
+    );
+    expect(binding.isResolved, isFalse);
+  });
+
+  test('AI-CATALOG-07: nome desconhecido continua fail-closed', () {
+    final binding = binder.bindAi(
+      templateItemId: 'ai-unknown',
+      remoteExerciseId: '',
+      exerciseName: 'Exercício inexistente',
+    );
+    expect(binding.status, ExerciseCatalogBindingStatus.unresolved);
+  });
+
+  test('AI-CATALOG-08: resposta inválida não cria plano local', () async {
+    await expectLater(
+      _generateAiPlan([
+        {'id': 'ai-unknown', 'nome': 'Exercício inexistente'},
+      ]),
+      throwsA(isA<BackendAIException>()),
+    );
+    expect(await StorageService.carregarTreinos(), isEmpty);
+  });
+
+  test('AI-CATALOG-09: plano IA vinculado persiste o ID canônico', () async {
+    final boundary = LocalAccountDataBoundary();
+    await boundary.activate('ai-catalog-owner', claimUnownedData: true);
+    final treino = await _generateAiPlan([
+      {
+        'id': 'ai-lateral-canonical',
+        'canonicalExerciseId': 'ombros_003',
+        'nome': 'Elevacao lateral',
+      },
+    ]);
+
+    await StorageService.salvarTreino(
+      treino,
+      syncService: _offlineSyncFor('ai-catalog-owner'),
+    );
+
+    final restored = await StorageService.carregarTreinos();
+    expect(restored.single.exercicios.first.canonicalExerciseId, 'ombros_003');
+  });
+
+  test('AI-CATALOG-10: binding de template continua intacto', () {
+    final treino = ReadyPlanMapper.toTreino(
+      _readyPlan('Supino Reto com Barra'),
+      workoutId: 'template-catalog-audit',
+      source: 'ready_plan_offline',
+    );
+    expect(treino.exercicios.single.canonicalExerciseId, 'peito_001');
+  });
+
+  test('AI-CATALOG-AUDIT: todo catálogo resolve pelo próprio ID', () {
+    for (final exercise in bancoExercicios) {
+      final byId = binder.bindAi(
+        templateItemId: 'audit-id-${exercise.id}',
+        remoteExerciseId: '',
+        canonicalExerciseId: exercise.id,
+        exerciseName: exercise.nome,
+      );
+      expect(byId.canonicalExerciseId, exercise.id);
+    }
+  });
 }
 
 const _seedNames = [
@@ -361,7 +490,11 @@ ReadyPlanModel _readyPlan(String name, {String remoteExerciseId = ''}) =>
       ],
     });
 
-ExercicioModel _exercise(String id, String name) => ExercicioModel(
+ExercicioModel _exercise(
+  String id,
+  String name, {
+  List<String> tags = const [],
+}) => ExercicioModel(
   id: id,
   nome: name,
   categoria: 'Teste',
@@ -375,7 +508,7 @@ ExercicioModel _exercise(String id, String name) => ExercicioModel(
   objetivo: '',
   imagem: '',
   video: '',
-  tags: const [],
+  tags: tags,
   caloriasHora: 0,
 );
 

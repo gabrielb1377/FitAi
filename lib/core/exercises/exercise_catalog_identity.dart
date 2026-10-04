@@ -91,6 +91,17 @@ class ExerciseCatalogIdentity {
         _byAlias.putIfAbsent(alias, () => <ExerciseCatalogEntry>[]).add(entry);
       }
     }
+
+    // Catalog tags support discovery and may be shared by multiple entries.
+    // Verified aliases are editorial identity decisions, so they are resolved
+    // before the generic tag index and only when their target ID exists.
+    for (final entry in _verifiedAliases.entries) {
+      final alias = ExerciseIdentity.normalizeName(entry.key);
+      final target = _byId[entry.value];
+      if (alias.isNotEmpty && target != null) {
+        _byVerifiedAlias[alias] = target;
+      }
+    }
   }
 
   /// Verified legacy values observed in historical fixtures and routes.
@@ -113,12 +124,17 @@ class ExerciseCatalogIdentity {
     'pull up': 'costas_003',
     'pull-up': 'costas_003',
     'triceps corda': 'triceps_007',
+    // The backend's reviewed fallback uses this generic name for the
+    // conventional dumbbell movement, never the cable or band variations.
+    'elevacao lateral': 'ombros_003',
   };
 
   final Map<String, ExerciseCatalogEntry> _byId =
       <String, ExerciseCatalogEntry>{};
   final Map<String, List<ExerciseCatalogEntry>> _byAlias =
       <String, List<ExerciseCatalogEntry>>{};
+  final Map<String, ExerciseCatalogEntry> _byVerifiedAlias =
+      <String, ExerciseCatalogEntry>{};
   final Map<String, String> _legacyIdRedirects;
 
   List<ExerciseCatalogEntry> get entries =>
@@ -172,6 +188,14 @@ class ExerciseCatalogIdentity {
     }
 
     final alias = ExerciseIdentity.normalizeName(nameOrAlias ?? '');
+    final verifiedAlias = _byVerifiedAlias[alias];
+    if (verifiedAlias != null) {
+      return ExerciseCatalogResolution(
+        entry: verifiedAlias,
+        kind: ExerciseCatalogIdKind.canonical,
+        matchedValue: alias,
+      );
+    }
     final matches = _byAlias[alias];
     if (matches == null || matches.length != 1) return null;
     return ExerciseCatalogResolution(
