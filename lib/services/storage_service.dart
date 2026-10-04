@@ -1002,12 +1002,13 @@ class StorageService {
 
   static Future<void> removerCorrida(int index) async {
     final prefs = await SharedPreferences.getInstance();
-    final lista = prefs.getStringList('historicoCorridas') ?? [];
+    final corridas = _corridasDaLista(
+      prefs.getStringList('historicoCorridas') ?? const [],
+    );
 
-    if (index < 0 || index >= lista.length) return;
+    if (index < 0 || index >= corridas.length) return;
 
-    final removida = CorridaModel.fromJson(jsonDecode(lista[index]));
-    await _removerCorridaPorId(prefs, removida.id);
+    await _removerCorridaPorId(prefs, corridas[index].id);
   }
 
   /// Remove por ID para historicos paginados, sem depender da posicao de uma
@@ -1072,7 +1073,23 @@ class StorageService {
         debugPrint('Erro ao carregar corrida salva: $error');
       }
     }
+    // The base history remains the single source of data; every consumer gets
+    // the same deterministic newest-first order, independent of write order.
+    corridas.sort((first, second) {
+      final byDate = _dataOcorrenciaCorrida(
+        second,
+      ).compareTo(_dataOcorrenciaCorrida(first));
+      return byDate != 0 ? byDate : second.id.compareTo(first.id);
+    });
     return corridas;
+  }
+
+  static DateTime _dataOcorrenciaCorrida(CorridaModel corrida) {
+    for (final value in [corrida.endTime, corrida.data, corrida.startTime]) {
+      final parsed = DateTime.tryParse(value ?? '');
+      if (parsed != null) return parsed;
+    }
+    return DateTime.fromMillisecondsSinceEpoch(0);
   }
 
   @Deprecated(

@@ -345,6 +345,48 @@ class RunningSessionService extends ChangeNotifier {
   }
 
   void _handlePosition(Position position) {
+    _recordLocation(
+      latitude: position.latitude,
+      longitude: position.longitude,
+      accuracy: position.accuracy,
+      altitude: position.altitude,
+      speedMps: position.speed,
+      recordedAt: position.timestamp,
+    );
+  }
+
+  /// Test-only location seam for the local running core.
+  ///
+  /// Production samples are provided by Geolocator through [_handlePosition].
+  /// Keeping the metric update below independent of the plugin makes offline
+  /// recovery and invalid-point handling verifiable without a native device.
+  @visibleForTesting
+  void recordLocationForTesting({
+    required double latitude,
+    required double longitude,
+    required DateTime recordedAt,
+    double accuracy = 5,
+    double altitude = 0,
+    double speedMps = 0,
+  }) {
+    _recordLocation(
+      latitude: latitude,
+      longitude: longitude,
+      accuracy: accuracy,
+      altitude: altitude,
+      speedMps: speedMps,
+      recordedAt: recordedAt,
+    );
+  }
+
+  void _recordLocation({
+    required double latitude,
+    required double longitude,
+    required double accuracy,
+    required double altitude,
+    required double speedMps,
+    required DateTime recordedAt,
+  }) {
     final session = _session;
     if (session == null ||
         session.finished ||
@@ -353,28 +395,33 @@ class RunningSessionService extends ChangeNotifier {
       return;
     }
 
-    final now = _clock();
-    final currentSession = _advanceSessionTo(session, now);
-
-    if (position.accuracy > _maxAcceptedAccuracyMeters) {
+    if (!latitude.isFinite ||
+        !longitude.isFinite ||
+        !accuracy.isFinite ||
+        !altitude.isFinite ||
+        !speedMps.isFinite ||
+        latitude.abs() > 90 ||
+        longitude.abs() > 180 ||
+        accuracy < 0 ||
+        accuracy > _maxAcceptedAccuracyMeters) {
       return;
     }
 
+    final now = _clock();
+    final currentSession = _advanceSessionTo(session, now);
+
     var distanceKm = currentSession.distanceKm;
-    var currentSpeed = _speedMpsToKmh(position.speed);
+    var currentSpeed = _speedMpsToKmh(speedMps);
     final previous = _lastAcceptedPosition;
 
     if (previous != null) {
       final meters = Geolocator.distanceBetween(
         previous.latitude,
         previous.longitude,
-        position.latitude,
-        position.longitude,
+        latitude,
+        longitude,
       );
-      final seconds = position.timestamp
-          .difference(previous.timestamp)
-          .inSeconds
-          .abs();
+      final seconds = recordedAt.difference(previous.timestamp).inSeconds.abs();
       final segmentSpeed = seconds <= 0 ? 0.0 : (meters / seconds) * 3.6;
 
       if (meters < 0 || segmentSpeed > _maxAcceptedSpeedKmh) {
@@ -389,14 +436,25 @@ class RunningSessionService extends ChangeNotifier {
       }
     }
 
-    _lastAcceptedPosition = position;
+    _lastAcceptedPosition = Position(
+      longitude: longitude,
+      latitude: latitude,
+      timestamp: recordedAt,
+      accuracy: accuracy,
+      altitude: altitude,
+      altitudeAccuracy: 0,
+      heading: 0,
+      headingAccuracy: 0,
+      speed: speedMps,
+      speedAccuracy: 0,
+    );
     final route = [
       ...currentSession.route,
       RunningRoutePointModel(
-        latitude: position.latitude,
-        longitude: position.longitude,
-        accuracy: position.accuracy,
-        altitude: position.altitude,
+        latitude: latitude,
+        longitude: longitude,
+        accuracy: accuracy,
+        altitude: altitude,
         speed: currentSpeed,
         timestamp: now.toIso8601String(),
       ),
