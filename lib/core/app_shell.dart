@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 
 import '../core/config/dev_data.dart';
 import '../core/config/dev_fixtures.dart';
+import '../core/auth/local_account_data_boundary.dart';
 import '../core/widgets/dev_mode_banner.dart';
 import '../features/core_journey/presentation/core_journey_controller.dart';
 import '../features/core_journey/presentation/core_journey_scope.dart';
+import '../features/progression/progression.dart';
 import '../services/running_session_service.dart';
 import '../services/steps_service.dart';
 import '../services/storage_service.dart';
@@ -37,6 +39,7 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   final runningSession = RunningSessionService.instance;
   final stepsService = StepsService.instance;
+  final progressionEngine = ProgressionEngine.instance;
 
   late final NavigationController _navigationController;
   late final bool _ownsNavigationController;
@@ -68,6 +71,7 @@ class _AppShellState extends State<AppShell> {
         widget.navigationController ?? NavigationController();
     runningSession.addListener(_onRunningSessionChanged);
     stepsService.addListener(_onStepsChanged);
+    AccountSessionLifecycle.revision.addListener(_onAccountChanged);
     unawaited(runningSession.initialize());
     unawaited(stepsService.initialize());
     unawaited(carregarDados());
@@ -83,15 +87,15 @@ class _AppShellState extends State<AppShell> {
   void dispose() {
     runningSession.removeListener(_onRunningSessionChanged);
     stepsService.removeListener(_onStepsChanged);
+    AccountSessionLifecycle.revision.removeListener(_onAccountChanged);
     if (_ownsNavigationController) _navigationController.dispose();
     super.dispose();
   }
 
   Future<void> carregarDados() async {
     _devData = await const DevDataService().resolve();
-    final savedXp = await StorageService.carregarXp();
-    final savedLevel = await StorageService.carregarNivel();
-    _applyProgress(savedXp, savedLevel);
+    final progression = await progressionEngine.load();
+    _applyProgress(progression.balance);
 
     final perfil = await StorageService.carregarPerfilUsuario();
     if (_devData.useFakeUser) {
@@ -127,15 +131,16 @@ class _AppShellState extends State<AppShell> {
     unawaited(_refreshStepsAndProgress());
   }
 
+  void _onAccountChanged() => unawaited(carregarDados());
+
   Future<void> _refreshStepsAndProgress() async {
-    final novoXp = await StorageService.carregarXp();
-    final novoNivel = await StorageService.carregarNivel();
+    final progression = await progressionEngine.load();
 
     if (!mounted) return;
 
     setState(() {
       passos = _effectiveSteps(stepsService.stepsToday);
-      _applyProgress(novoXp, novoNivel);
+      _applyProgress(progression.balance);
     });
   }
 
@@ -151,14 +156,15 @@ class _AppShellState extends State<AppShell> {
     }
   }
 
-  void _applyProgress(int savedXp, int savedLevel) {
-    if (_devData.useFakeProgress && savedXp <= 0 && savedLevel <= 1) {
+  void _applyProgress(XpBalance balance) {
+    final value = AppShellProgression.fromBalance(balance);
+    if (_devData.useFakeProgress && value.xp <= 0 && value.level <= 1) {
       xp = DevFixtures.user.xp;
       nivel = DevFixtures.user.level;
       return;
     }
-    xp = savedXp;
-    nivel = savedLevel;
+    xp = value.xp;
+    nivel = value.level;
   }
 
   int _effectiveSteps(int realSteps) {
@@ -224,6 +230,23 @@ class _AppShellState extends State<AppShell> {
     // A shell oficial nunca recebe controles que alterem sua composicao visual.
     return DevModeBanner(child: scopedShell);
   }
+}
+
+/// Presentation projection derived exclusively from the canonical balance.
+///
+/// Home still receives XP within the current level for visual compatibility,
+/// while Profile consumes the complete [XpBalance] from the same snapshot.
+class AppShellProgression {
+  const AppShellProgression({required this.xp, required this.level});
+
+  final int xp;
+  final int level;
+
+  factory AppShellProgression.fromBalance(XpBalance balance) =>
+      AppShellProgression(
+        xp: balance.xpIntoCurrentLevel,
+        level: balance.currentLevel,
+      );
 }
 
 /// Adapter compatível para consumidores da shell anterior.

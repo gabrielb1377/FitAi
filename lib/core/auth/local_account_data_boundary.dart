@@ -62,6 +62,12 @@ class LocalAccountDataBoundary {
     return preferences.getString(_ownerKey);
   });
 
+  /// Retorna o mesmo escopo seguro usado para identificar o dono local.
+  ///
+  /// Consumidores que migram dados legados podem comparar este valor com
+  /// [activeOwner] sem replicar a normalizacao do identificador de conta.
+  static String scopeForUser(String userId) => _scope(userId);
+
   Future<void> _archiveAndClear(
     SharedPreferences preferences,
     String scope,

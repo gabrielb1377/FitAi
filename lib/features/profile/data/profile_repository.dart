@@ -162,7 +162,11 @@ class ProfileRepository {
       }
     }
 
-    final runs = runsRead.value;
+    // Profile history never includes an open running snapshot. The core only
+    // persists finalized runs, and this preserves that rule for legacy data.
+    final runs = runsRead.value
+        .where((run) => run.finished)
+        .toList(growable: false);
     final steps = stepsRead.value;
     final favorites = favoritesRead.value;
     final progressionRead = await _read(

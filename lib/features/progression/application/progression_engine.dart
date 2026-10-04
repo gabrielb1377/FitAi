@@ -10,6 +10,7 @@ import '../domain/progression_rules.dart';
 typedef LegacyProgressionReader = Future<LegacyProgression> Function();
 typedef LegacyProgressionWriter = Future<void> Function(XpBalance balance);
 typedef ProgressionUserIdResolver = Future<String> Function();
+typedef LegacyProgressionMigrationPolicy = Future<bool> Function(String userId);
 
 class LegacyProgression {
   const LegacyProgression({required this.level, required this.xpIntoLevel});
@@ -28,16 +29,18 @@ class ProgressionEngine {
     required this.store,
     LegacyProgressionReader? legacyReader,
     LegacyProgressionWriter? legacyWriter,
+    LegacyProgressionMigrationPolicy? legacyMigrationPolicy,
     DateTime Function()? clock,
     this.userIdResolver,
     this.allowDebugEvents = true,
   }) : _legacyReader = legacyReader ?? _readLegacyProgression,
        _legacyWriter = legacyWriter ?? _writeLegacyProgression,
+       _legacyMigrationPolicy = legacyMigrationPolicy ?? _allowLegacyMigration,
        _clock = clock ?? DateTime.now;
 
   factory ProgressionEngine.production() => ProgressionEngine(
     store: SharedPreferencesProgressionStore(),
-    allowDebugEvents: false,
+    legacyMigrationPolicy: _allowOwnedProductionLegacyMigration,
     userIdResolver: _resolveCurrentUserId,
   );
 
@@ -46,6 +49,7 @@ class ProgressionEngine {
   final ProgressionLocalStore store;
   final LegacyProgressionReader _legacyReader;
   final LegacyProgressionWriter _legacyWriter;
+  final LegacyProgressionMigrationPolicy _legacyMigrationPolicy;
   final DateTime Function() _clock;
   final ProgressionUserIdResolver? userIdResolver;
   final bool allowDebugEvents;
@@ -347,6 +351,15 @@ class ProgressionEngine {
   Future<ProgressionSnapshot> _loadOrMigrate(String userId) async {
     final stored = await store.load(userId);
     if (stored != null) return stored;
+
+    if (!await _legacyMigrationPolicy(userId)) {
+      final snapshot = ProgressionSnapshot.empty(userId: userId);
+      // An account that does not own the old projection must never import it.
+      // Its user-scoped document starts empty without rewriting legacy keys.
+      await store.save(snapshot);
+      return snapshot;
+    }
+
     final legacy = await _legacyReader();
     final level = legacy.level < 1 ? 1 : legacy.level;
     final total =
@@ -371,6 +384,22 @@ class ProgressionEngine {
     final userId = AccountSessionLifecycle.activeUserId;
     if (userId != null) return userId;
     return DevConfig.enabled && DevConfig.fakeUser ? 'debug-gabriel' : 'local';
+  }
+
+  static Future<bool> _allowLegacyMigration(String userId) async => true;
+
+  /// The v1 projection has no owner of its own. In production it migrates
+  /// only after the authentication boundary confirms the requested owner.
+  static Future<bool> _allowOwnedProductionLegacyMigration(
+    String userId,
+  ) async {
+    final activeUserId = AccountSessionLifecycle.activeUserId;
+    if (activeUserId == null) {
+      return userId == 'local' || userId == 'debug-gabriel';
+    }
+    if (activeUserId != userId) return false;
+    final owner = await LocalAccountDataBoundary().activeOwner();
+    return owner == LocalAccountDataBoundary.scopeForUser(userId);
   }
 
   Future<void> _persist(ProgressionSnapshot snapshot) async {
