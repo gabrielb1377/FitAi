@@ -5,6 +5,7 @@ enum ExerciseProgressionAction {
   reduceWeight,
   deload,
   insufficientData,
+  noRecommendation,
 }
 
 enum ExerciseProgressionConfidence { low, medium, high }
@@ -15,6 +16,7 @@ class ExerciseProgressionConfig {
   final int restSeconds;
   final String goal;
   final String level;
+  final double? loadIncrementKg;
 
   const ExerciseProgressionConfig({
     required this.sets,
@@ -22,6 +24,7 @@ class ExerciseProgressionConfig {
     required this.restSeconds,
     required this.goal,
     required this.level,
+    this.loadIncrementKg,
   });
 
   Map<String, dynamic> toJson() => {
@@ -30,6 +33,7 @@ class ExerciseProgressionConfig {
     'restSeconds': restSeconds,
     'goal': goal,
     'level': level,
+    'loadIncrementKg': loadIncrementKg,
   };
 
   factory ExerciseProgressionConfig.fromJson(Map<String, dynamic> json) {
@@ -39,6 +43,7 @@ class ExerciseProgressionConfig {
       restSeconds: _int(json['restSeconds'], fallback: 60),
       goal: json['goal']?.toString() ?? 'hipertrofia',
       level: json['level']?.toString() ?? 'intermediario',
+      loadIncrementKg: _nullableDouble(json['loadIncrementKg']),
     );
   }
 }
@@ -60,6 +65,10 @@ class ExerciseProgressionModel {
   final ExerciseProgressionConfidence confidence;
   final int basedOnSessions;
   final DateTime generatedAt;
+  final String? sourceSessionId;
+  final double? sourceWeight;
+  final int? sourceRepetitions;
+  final String ruleCode;
 
   const ExerciseProgressionModel({
     required this.exerciseId,
@@ -78,6 +87,10 @@ class ExerciseProgressionModel {
     required this.confidence,
     required this.basedOnSessions,
     required this.generatedAt,
+    this.sourceSessionId,
+    this.sourceWeight,
+    this.sourceRepetitions,
+    this.ruleCode = 'legacy',
   });
 
   bool get isActionable =>
@@ -93,6 +106,7 @@ class ExerciseProgressionModel {
     ExerciseProgressionAction.reduceWeight => 'Reduzir carga',
     ExerciseProgressionAction.deload => 'Deload sugerido',
     ExerciseProgressionAction.insufficientData => 'Dados insuficientes',
+    ExerciseProgressionAction.noRecommendation => 'Sem sugestão de carga',
   };
 
   String get actionCode => switch (action) {
@@ -102,6 +116,7 @@ class ExerciseProgressionModel {
     ExerciseProgressionAction.reduceWeight => 'reduce_weight',
     ExerciseProgressionAction.deload => 'deload',
     ExerciseProgressionAction.insufficientData => 'insufficient_data',
+    ExerciseProgressionAction.noRecommendation => 'no_recommendation',
   };
 
   String get confidenceLabel => switch (confidence) {
@@ -127,6 +142,10 @@ class ExerciseProgressionModel {
     'confidence': confidence.name,
     'basedOnSessions': basedOnSessions,
     'generatedAt': generatedAt.toIso8601String(),
+    'sourceSessionId': sourceSessionId,
+    'sourceWeight': sourceWeight,
+    'sourceRepetitions': sourceRepetitions,
+    'ruleCode': ruleCode,
   };
 
   factory ExerciseProgressionModel.fromJson(Map<String, dynamic> json) {
@@ -152,6 +171,12 @@ class ExerciseProgressionModel {
       generatedAt:
           DateTime.tryParse(json['generatedAt']?.toString() ?? '') ??
           DateTime.now(),
+      sourceSessionId: json['sourceSessionId']?.toString(),
+      sourceWeight: _nullableDouble(json['sourceWeight']),
+      sourceRepetitions: json['sourceRepetitions'] == null
+          ? null
+          : _int(json['sourceRepetitions']),
+      ruleCode: json['ruleCode']?.toString() ?? 'legacy',
     );
   }
 }
@@ -164,6 +189,8 @@ ExerciseProgressionAction _actionFromJson(String? value) => switch (value) {
   'deload' => ExerciseProgressionAction.deload,
   'insufficient_data' ||
   'insufficientData' => ExerciseProgressionAction.insufficientData,
+  'no_recommendation' ||
+  'noRecommendation' => ExerciseProgressionAction.noRecommendation,
   _ => ExerciseProgressionAction.maintain,
 };
 
@@ -176,3 +203,9 @@ double _double(dynamic value) {
   if (value is num) return value.toDouble();
   return double.tryParse(value?.toString().replaceAll(',', '.') ?? '') ?? 0;
 }
+
+double? _nullableDouble(dynamic value) => value is num
+    ? value.toDouble()
+    : (value == null
+          ? null
+          : double.tryParse(value.toString().replaceAll(',', '.')));

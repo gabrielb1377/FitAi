@@ -17,11 +17,13 @@ class WorkoutExerciseHistoryPanel extends StatefulWidget {
     required this.exercise,
     required this.history,
     this.sessionSeries = const [],
+    this.currentSessionId,
   });
 
   final ExercicioModel exercise;
   final Future<ExerciseHistorySnapshot> history;
   final List<HistoricoSerieTreinoModel> sessionSeries;
+  final String? currentSessionId;
 
   @override
   State<WorkoutExerciseHistoryPanel> createState() =>
@@ -38,6 +40,12 @@ class _WorkoutExerciseHistoryPanelState
       future: widget.history,
       builder: (context, snapshot) {
         final executions = _mergeExecutions(snapshot.data);
+        final previousExecutions = executions
+            .where((execution) => execution.id != _currentSessionId)
+            .toList(growable: false);
+        final previousPerformance = previousExecutions.isEmpty
+            ? null
+            : previousExecutions.first;
         final loading =
             snapshot.connectionState == ConnectionState.waiting &&
             !snapshot.hasData;
@@ -77,6 +85,10 @@ class _WorkoutExerciseHistoryPanelState
             else ...[
               _HistorySummary(executions: executions),
               const SizedBox(height: FitSpacing.s12),
+              if (previousPerformance != null) ...[
+                _PreviousPerformance(execution: previousPerformance),
+                const SizedBox(height: FitSpacing.s12),
+              ],
               for (var index = 0; index < executions.length; index++) ...[
                 _ExecutionCard(
                   execution: executions[index],
@@ -101,6 +113,8 @@ class _WorkoutExerciseHistoryPanelState
   }
 
   String get _currentSessionId {
+    final explicit = widget.currentSessionId?.trim() ?? '';
+    if (explicit.isNotEmpty) return explicit;
     if (widget.sessionSeries.isEmpty) return '';
     return widget.sessionSeries.first.sessaoTreinoId;
   }
@@ -131,6 +145,35 @@ class _WorkoutExerciseHistoryPanelState
       ...persisted.where((execution) => execution.id != sessionId),
     ];
   }
+}
+
+class _PreviousPerformance extends StatelessWidget {
+  const _PreviousPerformance({required this.execution});
+
+  final ExerciseExecution execution;
+
+  @override
+  Widget build(BuildContext context) => FitCard(
+    variant: FitCardVariant.outlined,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Performance anterior · ${_date(execution.date)}',
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+        const SizedBox(height: FitSpacing.s8),
+        for (var index = 0; index < execution.sets.length; index++) ...[
+          Text(
+            'Série ${index + 1}  ·  ${_number(execution.sets[index].peso)} kg × ${execution.sets[index].repeticoes} reps',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          if (index < execution.sets.length - 1)
+            const SizedBox(height: FitSpacing.s4),
+        ],
+      ],
+    ),
+  );
 }
 
 class _ExerciseIdentity extends StatelessWidget {

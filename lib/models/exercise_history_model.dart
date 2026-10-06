@@ -1,4 +1,5 @@
 import 'historico_serie_treino_model.dart';
+import '../features/plans/domain/workout_strength_metrics.dart';
 
 class ExerciseExecution {
   final String id;
@@ -21,7 +22,11 @@ class ExerciseExecution {
     required this.sets,
   });
 
-  double get volume => sets.fold(0, (total, set) => total + set.volume);
+  double get volume => sets.fold(
+    0,
+    (total, set) =>
+        total + WorkoutStrengthMetrics.setVolume(set.peso, set.repeticoes),
+  );
 
   HistoricoSerieTreinoModel? get bestSet {
     if (sets.isEmpty) return null;
@@ -37,9 +42,16 @@ class ExerciseExecution {
   }
 
   double get estimatedOneRepMax {
-    final best = bestSet;
-    if (best == null || best.peso <= 0 || best.repeticoes <= 0) return 0;
-    return best.peso * (1 + best.repeticoes / 30);
+    return sets.fold<double>(0, (best, set) {
+      if (set.peso <= 0 ||
+          !set.peso.isFinite ||
+          set.repeticoes < 1 ||
+          set.repeticoes > 10) {
+        return best;
+      }
+      final estimate = set.peso * (1 + set.repeticoes / 30);
+      return estimate > best ? estimate : best;
+    });
   }
 }
 

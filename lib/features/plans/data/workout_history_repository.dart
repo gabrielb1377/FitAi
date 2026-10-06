@@ -1,4 +1,5 @@
 import '../domain/workout_history_models.dart';
+import '../domain/workout_strength_metrics.dart';
 import '../../workout_vertical_slice/data/workout_vertical_local_store.dart';
 import '../../workout_vertical_slice/domain/workout_vertical_models.dart';
 import '../../../models/historico_serie_treino_model.dart';
@@ -117,13 +118,69 @@ class WorkoutHistoryRepository {
 
     return PlanWorkoutHistorySnapshot(
       workouts: newestFirst,
-      summaries: newestFirst.map((workout) => workout.summary).toList(),
+      summaries: newestFirst
+          .map((workout) => _summary(workout, chronological, personalRecords))
+          .toList(growable: false),
       exercisePrs: exercisePrs,
       personalRecords: personalRecords.reversed.toList(growable: false),
       timeline: timeline.reversed.toList(growable: false),
       calendar: calendar,
       streak: streak,
     );
+  }
+
+  WorkoutSummary _summary(
+    WorkoutHistory workout,
+    List<WorkoutHistory> chronological,
+    List<PersonalRecord> records,
+  ) {
+    final currentIndex = chronological.indexWhere(
+      (candidate) => candidate.id == workout.id,
+    );
+    WorkoutHistory? previous;
+    for (var index = currentIndex - 1; index >= 0; index -= 1) {
+      final candidate = chronological[index];
+      if (candidate.planId == workout.planId &&
+          candidate.workoutId == workout.workoutId &&
+          _sameExerciseIdentitySet(candidate, workout)) {
+        previous = candidate;
+        break;
+      }
+    }
+    final previousVolume = previous?.metrics.totalVolume;
+    final comparableVolume =
+        previousVolume != null &&
+        previousVolume > 0 &&
+        workout.metrics.totalVolume > 0;
+    final volumeChangePercent = comparableVolume
+        ? ((workout.metrics.totalVolume - previousVolume) / previousVolume) *
+              100
+        : null;
+    return WorkoutSummary(
+      sessionId: workout.id,
+      title: workout.workoutName ?? workout.planName ?? 'Treino',
+      completedAt: workout.finishedAt,
+      metrics: workout.metrics,
+      syncStatus: workout.syncStatus,
+      calories: workout.calories,
+      personalRecordCount: records
+          .where((record) => record.sessionId == workout.id)
+          .length,
+      previousVolume: comparableVolume ? previousVolume : null,
+      volumeChangePercent: volumeChangePercent,
+    );
+  }
+
+  bool _sameExerciseIdentitySet(WorkoutHistory left, WorkoutHistory right) {
+    final leftIds = left.exercises
+        .map((exercise) => exercise.exerciseId)
+        .toSet();
+    final rightIds = right.exercises
+        .map((exercise) => exercise.exerciseId)
+        .toSet();
+    return leftIds.isNotEmpty &&
+        leftIds.length == rightIds.length &&
+        leftIds.containsAll(rightIds);
   }
 
   Future<List<HistoricoTreinoModel>> _loadLegacyHistory() async {
@@ -317,10 +374,7 @@ class WorkoutHistoryRepository {
         .map((entry) => _buildExercise(entry.key, entry.value))
         .toList(growable: false);
     final duration = session.finishedAt!.difference(session.startedAt);
-    final totalVolume = sets.fold<double>(
-      0,
-      (total, set) => total + set.weight * set.reps,
-    );
+    final totalVolume = WorkoutStrengthMetrics.journalVolume(sets);
     final totalLoad = sets.fold<double>(0, (total, set) => total + set.weight);
     return WorkoutHistory(
       id: session.id,
@@ -368,6 +422,7 @@ class WorkoutHistoryRepository {
     final rpes = completed
         .map((set) => set.rpe)
         .whereType<double>()
+        .where((rpe) => rpe.isFinite && rpe >= 1 && rpe <= 10)
         .toList(growable: false);
     final notes = completed
         .map((set) => set.notes?.trim())
@@ -430,7 +485,7 @@ class WorkoutHistoryRepository {
           type: PersonalRecordType.exerciseVolume,
           value: exercise.volume,
           unit: 'kg',
-          title: 'Maior volume em ${exercise.name}',
+          title: 'Maior volume no exercício ${exercise.name}',
         );
         _addRecordIfImproved(
           records: records,

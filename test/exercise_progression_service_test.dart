@@ -64,16 +64,39 @@ void main() {
     level: 'intermediario',
   );
 
-  test('aumenta somente a carga no topo da faixa em duas sessoes', () {
+  test('nao inventa incremento de equipamento ausente', () {
     final result = service.calculate(
       exercise: exercise,
       config: config,
       executions: [session(12, day: 2), session(12)],
     );
 
-    expect(result.action, ExerciseProgressionAction.increaseWeight);
-    expect(result.suggestedWeight, greaterThan(80));
+    expect(result.action, ExerciseProgressionAction.noRecommendation);
+    expect(result.suggestedWeight, 80);
+    expect(result.ruleCode, 'top_range_without_equipment_increment');
+    expect(result.sourceSessionId, 'sessao_2');
+    expect(result.sourceWeight, 80);
+    expect(result.sourceRepetitions, 12);
     expect(result.suggestedSets, 3);
+  });
+
+  test('aplica incremento explicitamente configurado para o equipamento', () {
+    final result = service.calculate(
+      exercise: exercise,
+      config: const ExerciseProgressionConfig(
+        sets: 3,
+        repRange: '6-12',
+        restSeconds: 90,
+        goal: 'hipertrofia',
+        level: 'intermediario',
+        loadIncrementKg: 1.25,
+      ),
+      executions: [session(12, day: 2), session(12)],
+    );
+
+    expect(result.action, ExerciseProgressionAction.increaseWeight);
+    expect(result.suggestedWeight, 81.25);
+    expect(result.ruleCode, 'two_sessions_at_top_with_configured_increment');
   });
 
   test('aumenta repeticoes para desempenho consistente na faixa', () {

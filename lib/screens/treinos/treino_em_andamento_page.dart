@@ -9,6 +9,8 @@ import '../../design_system/fit_design_system.dart';
 import '../../features/core_journey/presentation/core_journey_controller.dart';
 import '../../features/plans/workout_execution/widgets/workout_history_panel.dart';
 import '../../features/plans/workout_execution/widgets/workout_execution_stages.dart';
+import '../../features/plans/domain/workout_strength_metrics.dart';
+import '../../features/plans/domain/workout_history_models.dart';
 import '../../features/progression/progression.dart';
 import '../../features/workout_vertical_slice/domain/workout_vertical_models.dart';
 import '../../models/coach_insight_model.dart';
@@ -1156,6 +1158,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
         exercise: exercicio,
         history: widget.exerciseHistoryService.loadExerciseHistory(exercicio),
         sessionSeries: sessionSeries,
+        currentSessionId: _usesCanonicalSession ? _sessaoTreinoId : null,
       ),
     );
   }
@@ -1322,7 +1325,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
 
   double _volumeSerie(_HistoricoSerieLocal entry) {
     final peso = double.tryParse(entry.peso.replaceAll(',', '.')) ?? 0;
-    return peso * entry.repeticoes;
+    return WorkoutStrengthMetrics.setVolume(peso, entry.repeticoes);
   }
 
   String _formatarVolume(double value) {
@@ -1434,6 +1437,7 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
     if (_finalizacaoEmAndamento) return;
 
     _finalizacaoEmAndamento = true;
+    PlanWorkoutHistorySnapshot? canonicalHistory;
     if (_usesCanonicalSession) {
       final completed = await widget.sessionController!.finishWorkout(
         _sessaoTreinoId,
@@ -1447,6 +1451,12 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
         );
         return;
       }
+      try {
+        canonicalHistory = await widget.sessionController!
+            .loadPlanWorkoutHistory();
+      } on Object {
+        // A finalizacao local permanece valida mesmo se a projecao falhar.
+      }
     }
     _treinoTimer?.cancel();
     _descansoTimer?.cancel();
@@ -1459,9 +1469,26 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
       );
     }
 
-    final seriesConcluidas = _seriesConcluidasTotal();
-    final exerciciosConcluidos = _exerciciosConcluidosTotal();
-    final volumeTotal = _volumeSessaoTotal();
+    var seriesConcluidas = _seriesConcluidasTotal();
+    var exerciciosConcluidos = _exerciciosConcluidosTotal();
+    var volumeTotal = _volumeSessaoTotal();
+    var recordesBatidos = 0;
+    WorkoutHistory? canonicalWorkout;
+    for (final workout in canonicalHistory?.workouts ?? const []) {
+      if (workout.id == _sessaoTreinoId) {
+        canonicalWorkout = workout;
+        break;
+      }
+    }
+    if (canonicalWorkout != null) {
+      seriesConcluidas = canonicalWorkout.metrics.setCount;
+      exerciciosConcluidos = canonicalWorkout.metrics.exerciseCount;
+      volumeTotal = canonicalWorkout.metrics.totalVolume;
+      final canonicalWorkoutId = canonicalWorkout.id;
+      recordesBatidos = canonicalHistory!.personalRecords
+          .where((record) => record.sessionId == canonicalWorkoutId)
+          .length;
+    }
     final xpGanho = ProgressionRules.workoutCompletionXp;
     final calorias = _caloriasEstimadas(
       seriesConcluidas: seriesConcluidas,
@@ -1482,10 +1509,8 @@ class _TreinoEmAndamentoPageState extends State<TreinoEmAndamentoPage> {
       nivel: 'FITAI',
       seriesConcluidas: seriesConcluidas,
       volumeTotal: volumeTotal,
-      recordesBatidos: 0,
+      recordesBatidos: recordesBatidos,
     );
-
-    var recordesBatidos = 0;
 
     if (_usesCanonicalSession) {
       try {
@@ -3776,7 +3801,7 @@ class _HistoryCard extends StatelessWidget {
 
   static double _volume(_HistoricoSerieLocal entry) {
     final peso = double.tryParse(entry.peso.replaceAll(',', '.')) ?? 0;
-    return peso * entry.repeticoes;
+    return WorkoutStrengthMetrics.setVolume(peso, entry.repeticoes);
   }
 
   static String _formatarNumero(double value) {
@@ -4283,7 +4308,7 @@ class _CoachFitiaCard extends StatelessWidget {
   }
 
   static double _volume(_HistoricoSerieLocal entry) {
-    return _peso(entry) * entry.repeticoes;
+    return WorkoutStrengthMetrics.setVolume(_peso(entry), entry.repeticoes);
   }
 
   static String _formatarNumero(double value) {
@@ -4489,7 +4514,7 @@ class _PerformanceCard extends StatelessWidget {
   }
 
   static double _volume(_HistoricoSerieLocal entry) {
-    return _peso(entry) * entry.repeticoes;
+    return WorkoutStrengthMetrics.setVolume(_peso(entry), entry.repeticoes);
   }
 
   static String _formatarNumero(double value) {
@@ -4653,7 +4678,7 @@ class _EvolutionComparison extends StatelessWidget {
   }
 
   static double _volume(_HistoricoSerieLocal entry) {
-    return _peso(entry) * entry.repeticoes;
+    return WorkoutStrengthMetrics.setVolume(_peso(entry), entry.repeticoes);
   }
 
   static Color _color(double value) {

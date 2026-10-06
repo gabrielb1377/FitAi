@@ -72,6 +72,7 @@ class ExerciseProgressionService {
     ExerciseProgressionModel build({
       required ExerciseProgressionAction action,
       required String reason,
+      required String ruleCode,
       double? suggestedWeight,
       int? suggestedSets,
       String? suggestedRepRange,
@@ -94,6 +95,10 @@ class ExerciseProgressionService {
         confidence: confidence,
         basedOnSessions: recent.length,
         generatedAt: DateTime.now(),
+        sourceSessionId: latest?.id,
+        sourceWeight: latest?.bestSet?.peso,
+        sourceRepetitions: latest?.bestSet?.repeticoes,
+        ruleCode: ruleCode,
       );
     }
 
@@ -101,6 +106,7 @@ class ExerciseProgressionService {
       return build(
         action: ExerciseProgressionAction.insufficientData,
         reason: 'Registre de 3 a 6 sessoes para receber uma sugestao segura.',
+        ruleCode: 'insufficient_history',
       );
     }
 
@@ -115,6 +121,7 @@ class ExerciseProgressionService {
     if (lastThreeBelow) {
       return build(
         action: ExerciseProgressionAction.deload,
+        ruleCode: 'three_sessions_below_rep_range',
         suggestedWeight: _roundWeight(currentWeight * .90),
         suggestedSets: (targetSets - 1).clamp(2, 4).toInt(),
         suggestedRestSeconds: _safeRest(
@@ -130,6 +137,7 @@ class ExerciseProgressionService {
     if (latestBelowRange && previousBelowRange) {
       return build(
         action: ExerciseProgressionAction.reduceWeight,
+        ruleCode: 'two_sessions_below_rep_range',
         suggestedWeight: _roundWeight(currentWeight * .95),
         suggestedRestSeconds: _safeRest(
           exercise,
@@ -147,14 +155,23 @@ class ExerciseProgressionService {
         _reachedMaximum(recent[1], range.max) &&
         currentWeight > 0;
     if (reachedTopTwice) {
-      final increment = _loadIncrement(exercise, currentWeight);
+      final increment = config.loadIncrementKg;
+      if (increment == null || !increment.isFinite || increment <= 0) {
+        return build(
+          action: ExerciseProgressionAction.noRecommendation,
+          reason:
+              'O topo da faixa foi atingido em duas sessoes, mas nao ha incremento de carga configurado para este equipamento.',
+          ruleCode: 'top_range_without_equipment_increment',
+        );
+      }
       return build(
         action: ExerciseProgressionAction.increaseWeight,
-        suggestedWeight: _roundWeight(currentWeight + increment),
+        suggestedWeight: currentWeight + increment,
         suggestedRepRange: '${range.min}-${range.max - 1}',
         suggestedRestSeconds: _safeRest(exercise, targetRest),
         reason:
             'Voce atingiu o topo da faixa em duas sessoes. Aumente apenas a carga na proxima execucao.',
+        ruleCode: 'two_sessions_at_top_with_configured_increment',
       );
     }
 
@@ -166,6 +183,7 @@ class ExerciseProgressionService {
             '${range.min}-${nextMax.clamp(range.min, range.max)}',
         reason:
             'A ultima execucao ficou consistente na faixa alvo. Busque uma repeticao a mais antes de subir a carga.',
+        ruleCode: 'latest_session_in_rep_range_add_one_rep',
       );
     }
 
@@ -173,6 +191,7 @@ class ExerciseProgressionService {
       action: ExerciseProgressionAction.maintain,
       reason:
           'Mantenha a configuracao atual e registre mais sessoes para uma recomendacao mais confiavel.',
+      ruleCode: 'maintain_pending_more_evidence',
     );
   }
 
@@ -235,14 +254,6 @@ class ExerciseProgressionService {
       execution.sets.every(
         (set) => set.repeticoes >= range.min && set.repeticoes <= range.max,
       );
-
-  double _loadIncrement(ExercicioModel exercise, double currentWeight) {
-    final equipment = exercise.equipamentos.join(' ').toLowerCase();
-    final isMachine =
-        equipment.contains('maquina') || equipment.contains('machine');
-    final base = isMachine ? 5.0 : 2.0;
-    return (currentWeight * .025).clamp(base, currentWeight * .10).toDouble();
-  }
 
   double _roundWeight(double value) {
     if (value <= 0) return 0;

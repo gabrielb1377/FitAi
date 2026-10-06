@@ -112,7 +112,9 @@ class _Content extends StatelessWidget {
             style: Theme.of(context).textTheme.bodySmall,
           ),
           if (progression.action !=
-              ExerciseProgressionAction.insufficientData) ...[
+                  ExerciseProgressionAction.insufficientData &&
+              progression.action !=
+                  ExerciseProgressionAction.noRecommendation) ...[
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,

@@ -109,7 +109,11 @@ class WorkoutVerticalRepository {
     double? rpe,
     String? notes,
   }) => _serial(() async {
-    if (weight < 0 || reps <= 0 || setIndex < 0) {
+    if (weight < 0 ||
+        !weight.isFinite ||
+        reps <= 0 ||
+        setIndex < 0 ||
+        (rpe != null && (!rpe.isFinite || rpe < 1 || rpe > 10))) {
       throw ArgumentError('Carga, repeticoes ou indice da serie invalidos.');
     }
     final snapshot = await load();

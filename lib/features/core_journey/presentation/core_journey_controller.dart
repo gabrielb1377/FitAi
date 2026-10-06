@@ -10,6 +10,7 @@ import '../../../core/config/dev_fixtures.dart';
 import '../../../features/auth/data/auth_service.dart';
 import '../../plans/data/workout_history_repository.dart';
 import '../../plans/domain/workout_history_models.dart';
+import '../../plans/domain/workout_strength_metrics.dart';
 import '../../../features/workout_vertical_slice/data/workout_vertical_local_store.dart';
 import '../../../features/workout_vertical_slice/data/workout_vertical_log.dart';
 import '../../../features/workout_vertical_slice/data/workout_vertical_repository.dart';
@@ -153,9 +154,8 @@ class CoreJourneyController extends ChangeNotifier {
       .where((item) => item.sessionId == sessionId)
       .toList(growable: false);
 
-  double volumeFor(String sessionId) => setsFor(
-    sessionId,
-  ).fold<double>(0, (total, item) => total + item.weight * item.reps);
+  double volumeFor(String sessionId) =>
+      WorkoutStrengthMetrics.journalVolume(setsFor(sessionId));
 
   /// Leitura do historico de musculacao de Planos sem armazenamento paralelo.
   /// O repositorio projeta as sessoes finalizadas e series do mesmo journal

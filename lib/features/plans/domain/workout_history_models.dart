@@ -62,6 +62,9 @@ class WorkoutSummary {
     required this.metrics,
     required this.syncStatus,
     this.calories,
+    this.personalRecordCount = 0,
+    this.previousVolume,
+    this.volumeChangePercent,
   });
 
   final String sessionId;
@@ -70,6 +73,9 @@ class WorkoutSummary {
   final WorkoutMetrics metrics;
   final WorkoutSyncStatus syncStatus;
   final double? calories;
+  final int personalRecordCount;
+  final double? previousVolume;
+  final double? volumeChangePercent;
 }
 
 class WorkoutMetrics {
@@ -184,7 +190,9 @@ class CompletedSet {
 
   double get volume => weight * repetitions;
   double get estimatedOneRepMax =>
-      weight <= 0 || repetitions <= 0 ? 0 : weight * (1 + repetitions / 30);
+      weight <= 0 || !weight.isFinite || repetitions < 1 || repetitions > 10
+      ? 0
+      : weight * (1 + repetitions / 30);
 
   Map<String, dynamic> toJson() => {
     'id': id,

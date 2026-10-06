@@ -10,6 +10,7 @@ import '../features/workout_vertical_slice/data/workout_vertical_local_store.dar
 import '../models/exercicio_model.dart';
 import '../models/exercise_history_model.dart';
 import '../models/historico_serie_treino_model.dart';
+import '../models/progresso_exercicio_model.dart';
 import 'storage_service.dart';
 
 typedef ExercisePlanHistoryLoader =
@@ -50,7 +51,10 @@ class ExerciseHistoryService {
       return deduplicateHistory(matched);
     }
 
-    final legacy = (await StorageService.carregarProgressos())
+    final legacyProgress = exercise.canonicalExerciseId.trim().isEmpty
+        ? await StorageService.carregarProgressos()
+        : const <ProgressoExercicioModel>[];
+    final legacy = legacyProgress
         .where(
           (entry) =>
               ExerciseIdentity.normalizeName(entry.nomeExercicio) ==
@@ -118,51 +122,58 @@ class ExerciseHistoryService {
   Future<List<HistoricoSerieTreinoModel>> _loadCanonicalExerciseSeries(
     ExercicioModel exercise,
   ) async {
-    try {
-      final history = await (historyLoader ?? _loadLocalPlanHistory)();
-      final series = <HistoricoSerieTreinoModel>[];
-      for (final workout in history.workouts) {
-        for (final executed in workout.exercises) {
-          if (!ExerciseIdentity.matchesExercise(
-            storedExerciseId: executed.exerciseId,
-            storedExerciseKey: ExerciseIdentity.buildExerciseKey(
-              exerciseId: executed.exerciseId,
-              exerciseName: executed.name,
-            ),
-            storedExerciseName: executed.name,
-            exercise: exercise,
-          )) {
-            continue;
-          }
-          for (final set in executed.sets) {
-            series.add(
-              HistoricoSerieTreinoModel(
-                id: set.id,
-                treinoId: workout.workoutId,
-                sessaoTreinoId: workout.id,
-                nomeTreino: workout.workoutName ?? workout.planName ?? 'Treino',
-                exercicioId: executed.exerciseId,
-                exerciseKey: ExerciseIdentity.buildExerciseKey(
+    final history = await (historyLoader ?? _loadLocalPlanHistory)();
+    final canonicalId = ExerciseIdentity.canonicalIdFor(exercise);
+    final requiresCanonicalMatch = exercise.canonicalExerciseId
+        .trim()
+        .isNotEmpty;
+    final hasCanonicalIdentity = history.workouts.any(
+      (workout) => workout.exercises.any(
+        (executed) => executed.exerciseId == canonicalId,
+      ),
+    );
+    final series = <HistoricoSerieTreinoModel>[];
+    for (final workout in history.workouts) {
+      for (final executed in workout.exercises) {
+        final exactCanonicalMatch = executed.exerciseId == canonicalId;
+        if (requiresCanonicalMatch || hasCanonicalIdentity
+            ? !exactCanonicalMatch
+            : !ExerciseIdentity.matchesExercise(
+                storedExerciseId: executed.exerciseId,
+                storedExerciseKey: ExerciseIdentity.buildExerciseKey(
                   exerciseId: executed.exerciseId,
                   exerciseName: executed.name,
                 ),
-                nomeExercicio: executed.name,
-                serieNumero: set.index + 1,
-                peso: set.weight,
-                repeticoes: set.repetitions,
-                descansoSegundos: set.restSeconds ?? 0,
-                comentario: set.notes ?? '',
-                dataHora: set.completedAt,
+                storedExerciseName: executed.name,
+                exercise: exercise,
+              )) {
+          continue;
+        }
+        for (final set in executed.sets) {
+          series.add(
+            HistoricoSerieTreinoModel(
+              id: set.id,
+              treinoId: workout.workoutId,
+              sessaoTreinoId: workout.id,
+              nomeTreino: workout.workoutName ?? workout.planName ?? 'Treino',
+              exercicioId: executed.exerciseId,
+              exerciseKey: ExerciseIdentity.buildExerciseKey(
+                exerciseId: executed.exerciseId,
+                exerciseName: executed.name,
               ),
-            );
-          }
+              nomeExercicio: executed.name,
+              serieNumero: set.index + 1,
+              peso: set.weight,
+              repeticoes: set.repetitions,
+              descansoSegundos: set.restSeconds ?? 0,
+              comentario: set.notes ?? '',
+              dataHora: set.completedAt,
+            ),
+          );
         }
       }
-      return series;
-    } on Object {
-      // Dados anteriores ao journal permanecem legiveis pelo fallback abaixo.
-      return const [];
     }
+    return series;
   }
 
   Future<PlanWorkoutHistorySnapshot> _loadLocalPlanHistory() async {
@@ -188,14 +199,18 @@ class ExerciseHistoryService {
     List<HistoricoSerieTreinoModel> saved,
     ExercicioModel exercise,
   ) => saved
-      .where(
-        (entry) => ExerciseIdentity.matchesExercise(
+      .where((entry) {
+        if (exercise.canonicalExerciseId.trim().isNotEmpty) {
+          return entry.exercicioId.trim() ==
+              exercise.canonicalExerciseId.trim();
+        }
+        return ExerciseIdentity.matchesExercise(
           storedExerciseId: entry.exercicioId,
           storedExerciseKey: entry.exerciseKey,
           storedExerciseName: entry.nomeExercicio,
           exercise: exercise,
-        ),
-      )
+        );
+      })
       .toList(growable: false);
 
   List<ExerciseExecution> _groupExecutions(
