@@ -5,10 +5,11 @@ import 'package:flutter/foundation.dart';
 
 import '../models/corrida_model.dart';
 import '../models/running_session_model.dart';
+import '../core/auth/local_account_data_boundary.dart';
+import '../features/activities/data/activity_sync_service.dart';
 import '../features/progression/progression.dart';
 import 'running_location_source.dart';
 import 'storage_service.dart';
-import 'sync_service.dart';
 
 class RunningSessionService extends ChangeNotifier {
   RunningSessionService._({
@@ -115,6 +116,7 @@ class RunningSessionService extends ChangeNotifier {
 
     _initialized = true;
     _initializing = false;
+    ActivitySyncService.instance.registerUser(_ownerUserId);
     notifyListeners();
     unawaited(_syncPendingRuns());
   }
@@ -555,7 +557,10 @@ class RunningSessionService extends ChangeNotifier {
   Future<CorridaModel> _commitFinalization(
     RunningSessionModel finalizingSession,
   ) async {
-    final corrida = CorridaModel.fromSession(finalizingSession);
+    final corrida = CorridaModel.fromSession(
+      finalizingSession,
+      userId: _ownerUserId,
+    );
     var persisted = false;
     if (corrida.segundos > 0 || corrida.distancia > 0) {
       persisted = true;
@@ -610,10 +615,9 @@ class RunningSessionService extends ChangeNotifier {
   }
 
   Future<void> _syncPendingRuns() async {
-    final pending = await StorageService.carregarCorridasPendentes();
-    for (final corrida in pending) {
-      await _syncRun(corrida);
-    }
+    ActivitySyncService.instance.registerUser(_ownerUserId);
+    await ActivitySyncService.instance.syncUser(_ownerUserId);
+    await _progressionEngine.syncRemote();
   }
 
   Future<void> _syncRun(CorridaModel corrida) async {
@@ -621,15 +625,19 @@ class RunningSessionService extends ChangeNotifier {
 
     try {
       await StorageService.atualizarCorrida(
-        corrida.copyWith(syncStatus: RunningSyncStatus.syncing),
+        corrida.copyWith(syncStatus: RunningSyncStatus.queued),
       );
-      final result = await SyncService.instance.syncRunning([corrida.toJson()]);
-      final status = result == RunningSyncDispatchResult.delivered
-          ? RunningSyncStatus.synced
-          : RunningSyncStatus.queued;
-      await StorageService.atualizarCorrida(
-        corrida.copyWith(syncStatus: status),
-      );
+      await ActivitySyncService.instance.syncUser(corrida.userId);
+      final current = (await StorageService.carregarCorridas(
+        userId: corrida.userId,
+        includeDeleted: true,
+      )).where((item) => item.id == corrida.id);
+      final status = current.isEmpty
+          ? RunningSyncStatus.queued
+          : current.first.syncStatus;
+      if (status == RunningSyncStatus.synced) {
+        await _progressionEngine.syncRemote();
+      }
       _log('corrida ${corrida.id} sincronizacao=${status.storageValue}');
     } catch (error) {
       await StorageService.atualizarCorrida(
@@ -641,6 +649,8 @@ class RunningSessionService extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  String get _ownerUserId => AccountSessionLifecycle.activeUserId ?? 'local';
 
   Future<void> _stopGpsStream({
     RunningLocationStatus status = RunningLocationStatus.idle,

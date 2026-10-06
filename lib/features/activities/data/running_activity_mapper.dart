@@ -37,4 +37,5 @@ ActivitySyncStatus _activitySyncStatus(RunningSyncStatus status) =>
       RunningSyncStatus.syncing => ActivitySyncStatus.syncing,
       RunningSyncStatus.queued => ActivitySyncStatus.queued,
       RunningSyncStatus.synced => ActivitySyncStatus.synced,
+      RunningSyncStatus.conflict => ActivitySyncStatus.conflict,
     };

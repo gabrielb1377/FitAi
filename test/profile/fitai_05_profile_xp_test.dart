@@ -244,7 +244,7 @@ void main() {
       final boundary = LocalAccountDataBoundary();
       await boundary.activate('profile-a', claimUnownedData: true);
       AccountSessionLifecycle.setActiveUser('profile-a');
-      await _saveLocalRun(_run('profile-run-a'));
+      await _saveLocalRun(_run('profile-run-a', userId: 'profile-a'));
 
       final profileA = await _localProfile().load();
       await boundary.activate('profile-b');
@@ -372,14 +372,16 @@ Future<PlanWorkoutHistorySnapshot> _history(DateTime completedAt) async =>
       streak: const WorkoutStreak(currentDays: 1, longestDays: 1),
     );
 
-CorridaModel _run(String id, {bool finished = true}) => CorridaModel(
-  id: id,
-  distancia: 1.5,
-  segundos: 600,
-  data: '2026-10-04T10:00:00.000Z',
-  endTime: '2026-10-04T10:00:00.000Z',
-  finished: finished,
-);
+CorridaModel _run(String id, {bool finished = true, String userId = 'local'}) =>
+    CorridaModel(
+      id: id,
+      userId: userId,
+      distancia: 1.5,
+      segundos: 600,
+      data: '2026-10-04T10:00:00.000Z',
+      endTime: '2026-10-04T10:00:00.000Z',
+      finished: finished,
+    );
 
 ProfileRepository _localProfile() => ProfileRepository(
   planHistoryLoader: _emptyHistory,

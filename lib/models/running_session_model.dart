@@ -1,4 +1,4 @@
-enum RunningSyncStatus { local, syncing, queued, synced }
+enum RunningSyncStatus { local, syncing, queued, synced, conflict }
 
 /// Proveniência obrigatória para uma métrica calórica de corrida.
 ///

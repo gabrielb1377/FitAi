@@ -2,6 +2,7 @@ import 'running_session_model.dart';
 
 class CorridaModel {
   final String id;
+  final String userId;
   final double distancia;
   final int segundos;
   final String data;
@@ -17,9 +18,14 @@ class CorridaModel {
   final List<RunningRoutePointModel> route;
   final bool paused;
   final bool finished;
+  final int version;
+  final String remoteRevision;
+  final String updatedAt;
+  final String? deletedAt;
 
   CorridaModel({
     String? id,
+    this.userId = 'local',
     required this.distancia,
     required this.segundos,
     required this.data,
@@ -35,19 +41,30 @@ class CorridaModel {
     this.route = const [],
     this.paused = false,
     this.finished = true,
+    this.version = 1,
+    this.remoteRevision = '0',
+    String? updatedAt,
+    this.deletedAt,
   }) : id = id ?? _buildId(startTime ?? data),
        startTime = startTime ?? data,
+       updatedAt = updatedAt ?? endTime ?? data,
        averageSpeed =
            averageSpeed ?? _calculateAverageSpeed(distancia, segundos),
        pace = pace ?? _calculatePace(distancia, segundos);
 
   bool get hasReliableCalories => calories != null && caloriesSource != null;
+  bool get isDeleted => deletedAt != null;
+  String get mutationId => 'run:$id:v$version';
 
-  factory CorridaModel.fromSession(RunningSessionModel session) {
+  factory CorridaModel.fromSession(
+    RunningSessionModel session, {
+    String userId = 'local',
+  }) {
     final endTime = session.endTime ?? DateTime.now();
 
     return CorridaModel(
       id: session.id,
+      userId: userId,
       distancia: session.distanceKm,
       segundos: session.elapsedSeconds,
       data: endTime.toIso8601String(),
@@ -63,12 +80,14 @@ class CorridaModel {
       route: session.route,
       paused: session.paused,
       finished: true,
+      updatedAt: endTime.toIso8601String(),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'userId': userId,
       'distancia': distancia,
       'segundos': segundos,
       'data': data,
@@ -88,6 +107,10 @@ class CorridaModel {
       'route': route.map((point) => point.toJson()).toList(),
       'paused': paused,
       'finished': finished,
+      'version': version,
+      'remoteRevision': remoteRevision,
+      'updatedAt': updatedAt,
+      'deletedAt': deletedAt,
     };
   }
 
@@ -99,6 +122,9 @@ class CorridaModel {
 
     return CorridaModel(
       id: json['id']?.toString(),
+      userId: json['userId']?.toString().trim().isNotEmpty == true
+          ? json['userId'].toString().trim()
+          : 'local',
       distancia: distancia,
       segundos: segundos,
       data:
@@ -128,6 +154,13 @@ class CorridaModel {
       finished: json.containsKey('finished')
           ? _boolFromJson(json['finished'])
           : true,
+      version: _intFromJson(json['version']).clamp(1, 1 << 30).toInt(),
+      remoteRevision: json['remoteRevision']?.toString() ?? '0',
+      updatedAt:
+          json['updatedAt']?.toString() ??
+          json['endTime']?.toString() ??
+          json['data']?.toString(),
+      deletedAt: json['deletedAt']?.toString(),
     );
   }
 
@@ -179,6 +212,7 @@ class CorridaModel {
   }
 
   CorridaModel copyWith({
+    String? userId,
     String? endTime,
     double? averageSpeed,
     double? currentSpeed,
@@ -190,9 +224,15 @@ class CorridaModel {
     int? steps,
     List<RunningRoutePointModel>? route,
     RunningSyncStatus? syncStatus,
+    int? version,
+    String? remoteRevision,
+    String? updatedAt,
+    String? deletedAt,
+    bool clearDeletedAt = false,
   }) {
     return CorridaModel(
       id: id,
+      userId: userId ?? this.userId,
       distancia: distancia,
       segundos: segundos,
       data: data,
@@ -210,6 +250,10 @@ class CorridaModel {
       paused: paused,
       finished: finished,
       syncStatus: syncStatus ?? this.syncStatus,
+      version: version ?? this.version,
+      remoteRevision: remoteRevision ?? this.remoteRevision,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: clearDeletedAt ? null : deletedAt ?? this.deletedAt,
     );
   }
 

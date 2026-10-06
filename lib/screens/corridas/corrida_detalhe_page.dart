@@ -116,6 +116,11 @@ class CorridaDetalhePage extends StatelessWidget {
         icon: Icons.sync_rounded,
       ),
       RunningSyncStatus.queued => const FitBadge.offline(),
+      RunningSyncStatus.conflict => const FitBadge(
+        label: 'Conflito local',
+        tone: FitBadgeTone.warning,
+        icon: Icons.sync_problem_outlined,
+      ),
       RunningSyncStatus.local => const FitBadge(
         label: 'Local',
         tone: FitBadgeTone.neutral,

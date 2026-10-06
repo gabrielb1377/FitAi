@@ -2,41 +2,59 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../core/auth/local_account_data_boundary.dart';
 import '../core/config/dev_config.dart';
 import '../core/config/dev_fixtures.dart';
+import '../features/activities/domain/steps_day_policy.dart';
 import '../features/activities/domain/steps_data_source.dart';
 import '../features/activities/domain/steps_metrics.dart';
+import '../features/activities/data/activity_sync_service.dart';
 import '../features/progression/progression.dart';
 import '../models/daily_steps_model.dart';
 import '../models/passos_diarios_model.dart';
+import 'health_steps_reader.dart';
 import 'storage_service.dart';
-import 'sync_service.dart';
 
-/// Fonte única local-first para o agregado diário de passos.
-///
-/// Integrações de sensor e plataformas de saúde não são acionadas por este
-/// serviço nesta etapa. Registros já persistidos continuam legíveis e exibem
-/// sua origem corretamente.
+typedef StepsUserIdResolver = Future<String> Function();
+
+/// Fonte unica local-first para o agregado diario de passos.
 class StepsService extends ChangeNotifier {
   StepsService._({
     DateTime Function()? now,
     StepsDataSource? seedDataSource,
+    StepsHealthSource? healthSource,
+    StepsDayPolicy? dayPolicy,
+    StepsUserIdResolver? userIdResolver,
     bool? seedEnabled,
     this._allowSync = true,
+    bool listenAccountChanges = false,
     ProgressionEngine? progressionEngine,
   }) : _now = now ?? DateTime.now,
        _seedDataSource =
            seedDataSource ??
            const SeedStepsDataSource(steps: DevFixtures.steps),
+       _healthSource = healthSource ?? PlatformStepsHealthSource(),
+       _dayPolicy = dayPolicy ?? const StepsDayPolicy(),
+       _userIdResolver = userIdResolver ?? _resolveCurrentUserId,
        _seedEnabled = seedEnabled ?? (DevConfig.enabled && DevConfig.fakeSteps),
-       _progressionEngine = progressionEngine ?? ProgressionEngine.instance;
+       _progressionEngine = progressionEngine ?? ProgressionEngine.instance {
+    _listenAccountChanges = listenAccountChanges;
+    if (_listenAccountChanges) {
+      AccountSessionLifecycle.revision.addListener(_onAccountChanged);
+    }
+  }
 
-  static final StepsService instance = StepsService._();
+  static final StepsService instance = StepsService._(
+    listenAccountChanges: true,
+  );
 
   @visibleForTesting
   factory StepsService.forTesting({
     DateTime Function()? now,
     StepsDataSource? seedDataSource,
+    StepsHealthSource? healthSource,
+    StepsDayPolicy? dayPolicy,
+    StepsUserIdResolver? userIdResolver,
     bool seedEnabled = false,
     bool allowSync = false,
     ProgressionEngine? progressionEngine,
@@ -44,6 +62,10 @@ class StepsService extends ChangeNotifier {
     return StepsService._(
       now: now,
       seedDataSource: seedDataSource,
+      healthSource: healthSource,
+      dayPolicy: dayPolicy,
+      userIdResolver:
+          userIdResolver ?? () async => DailyStepsModel.defaultUserId,
       seedEnabled: seedEnabled,
       allowSync: allowSync,
       progressionEngine: progressionEngine,
@@ -55,26 +77,45 @@ class StepsService extends ChangeNotifier {
 
   final DateTime Function() _now;
   final StepsDataSource _seedDataSource;
+  final StepsHealthSource _healthSource;
+  final StepsDayPolicy _dayPolicy;
+  final StepsUserIdResolver _userIdResolver;
   final bool _seedEnabled;
   final bool _allowSync;
+  late final bool _listenAccountChanges;
   final ProgressionEngine _progressionEngine;
 
   bool _initialized = false;
-  bool _initializing = false;
   bool _syncing = false;
+  bool _lastHealthReadSucceeded = false;
   String _statusMessage = 'Carregando dados locais de passos.';
+  String _ownerUserId = DailyStepsModel.defaultUserId;
   List<DailyStepsModel> _history = const [];
   int _dailyGoal = 10000;
   int _weeklyGoal = 70000;
   int _monthlyGoal = 300000;
+  StepsHealthStatus _healthStatus = const StepsHealthStatus.notSupported();
+  Future<void> _initializationQueue = Future<void>.value();
+  Future<StepsHealthReadResult>? _healthRefresh;
 
   bool get initialized => _initialized;
   bool get syncing => _syncing;
-  bool get platformSupported => false;
-  bool get healthConnectAvailable => false;
-  bool get permissionGranted => false;
+  String get ownerUserId => _ownerUserId;
+  StepsHealthStatus get healthStatus => _healthStatus;
+  bool get platformSupported => _healthStatus.platformSupported;
+  bool get healthConnectAvailable =>
+      _healthStatus.provider == StepsHealthProvider.healthConnect &&
+      _healthStatus.available;
+  bool get healthKitAvailable =>
+      _healthStatus.provider == StepsHealthProvider.healthKit &&
+      _healthStatus.available;
+  bool get permissionGranted =>
+      _healthStatus.permission == StepsHealthPermissionState.granted ||
+      _lastHealthReadSucceeded;
   bool get usingHealthConnect =>
       todayRecord?.sourceKind == DailyStepsSource.healthConnect;
+  bool get usingHealthKit =>
+      todayRecord?.sourceKind == DailyStepsSource.healthKit;
   bool get isOffline => _history.any(
     (record) =>
         record.syncStatus == DailyStepsSyncStatus.pending ||
@@ -96,7 +137,7 @@ class StepsService extends ChangeNotifier {
   DailyStepsModel get today {
     return todayRecord ??
         DailyStepsModel(
-          userId: DailyStepsModel.defaultUserId,
+          userId: _ownerUserId,
           date: _dateKey(_now()),
           steps: 0,
           goal: _dailyGoal,
@@ -155,43 +196,66 @@ class StepsService extends ChangeNotifier {
     to: _day(_now()),
   );
 
-  Future<void> initialize() async {
-    if (_initialized || _initializing) return;
-    _initializing = true;
-    try {
-      final goals = await StorageService.carregarMetasPassos();
-      _dailyGoal = _validDailyGoal(goals['diaria'] ?? _dailyGoal);
-      _weeklyGoal = _validWeeklyGoal(goals['semanal'] ?? _weeklyGoal);
-      _monthlyGoal = _validMonthlyGoal(goals['mensal'] ?? _monthlyGoal);
-      _history = await _loadLocalHistory();
-
-      if (_history.isEmpty && _seedEnabled) {
-        final seeded = await _seedDataSource.read(
-          StepsDataQuery(
-            from: _day(_now()).subtract(const Duration(days: 6)),
-            to: _day(_now()),
-            userId: DailyStepsModel.defaultUserId,
-            goal: _dailyGoal,
-          ),
-        );
-        _history = await StorageService.salvarDailyStepsHistory(seeded);
-        _statusMessage = 'Dados de demonstração ativos somente no debug.';
-      } else if (_history.isEmpty) {
-        _statusMessage = 'Nenhum dado de passos disponível neste dispositivo.';
-      } else {
-        _statusMessage = '${today.sourceLabel} atualizados localmente.';
-      }
-
-      _initialized = true;
-      notifyListeners();
-      if (_allowSync) unawaited(_syncPendingRecords());
-    } finally {
-      _initializing = false;
-    }
+  Future<void> initialize() {
+    final result = _initializationQueue.then((_) => _initializeCurrentOwner());
+    _initializationQueue = result.then<void>((_) {}, onError: (_, _) {});
+    return result;
   }
 
-  /// Atualiza somente o cache local. Não solicita permissões nem ativa uma
-  /// integração de plataforma.
+  Future<void> _initializeCurrentOwner() async {
+    final owner = await _userIdResolver();
+    final normalizedOwner = owner.trim().isEmpty
+        ? DailyStepsModel.defaultUserId
+        : owner.trim();
+    if (_initialized && normalizedOwner == _ownerUserId) return;
+    _ownerUserId = normalizedOwner;
+    _history = const [];
+    final goals = await StorageService.carregarMetasPassos(
+      userId: _ownerUserId,
+    );
+    _dailyGoal = _validDailyGoal(goals['diaria'] ?? _dailyGoal);
+    _weeklyGoal = _validWeeklyGoal(goals['semanal'] ?? _weeklyGoal);
+    _monthlyGoal = _validMonthlyGoal(goals['mensal'] ?? _monthlyGoal);
+    _history = await _loadLocalHistory();
+
+    if (_history.isEmpty && _seedEnabled) {
+      final seeded = await _seedDataSource.read(
+        StepsDataQuery(
+          from: _day(_now()).subtract(const Duration(days: 6)),
+          to: _day(_now()),
+          userId: _ownerUserId,
+          goal: _dailyGoal,
+        ),
+      );
+      _history = _onlyCurrentOwner(
+        await StorageService.salvarDailyStepsHistory(seeded),
+      );
+      _statusMessage = 'Dados de demonstração ativos somente no debug.';
+    } else if (_history.isEmpty) {
+      _statusMessage = 'Nenhum dado de passos disponível neste dispositivo.';
+    } else {
+      _statusMessage = '${today.sourceLabel} atualizados localmente.';
+    }
+
+    try {
+      _healthStatus = await _healthSource.checkStatus();
+    } on Object {
+      _healthStatus = const StepsHealthStatus(
+        provider: StepsHealthProvider.none,
+        platformSupported: false,
+        available: false,
+        permission: StepsHealthPermissionState.unavailable,
+        message:
+            'Fonte de saude indisponivel. Os dados locais foram preservados.',
+      );
+    }
+
+    _initialized = true;
+    notifyListeners();
+    if (_allowSync) unawaited(_syncPendingRecords());
+  }
+
+  /// Atualiza somente o cache local, sem solicitar permissao nativa.
   Future<void> refreshLocal() async {
     await initialize();
     _history = await _loadLocalHistory();
@@ -201,11 +265,97 @@ class StepsService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Mantém a assinatura legada sem acionar Health Connect. A sincronização
-  /// de registros reais/manuais usa a outbox já existente quando habilitada.
   Future<void> syncNow({bool requestPermission = false}) async {
     await initialize();
+    await refreshFromHealth(requestPermission: requestPermission);
     await _syncPendingRecords();
+  }
+
+  /// Imports the provider's absolute total for the current local day.
+  /// Repeated imports replace the snapshot and never add deltas.
+  Future<StepsHealthReadResult> refreshFromHealth({
+    bool requestPermission = false,
+  }) {
+    final inFlight = _healthRefresh;
+    if (inFlight != null) return inFlight;
+
+    final refresh = () async {
+      await initialize();
+      return _readHealthSnapshot(requestPermission: requestPermission);
+    }();
+    _healthRefresh = refresh;
+    return refresh.whenComplete(() {
+      if (identical(_healthRefresh, refresh)) _healthRefresh = null;
+    });
+  }
+
+  Future<StepsHealthReadResult> _readHealthSnapshot({
+    required bool requestPermission,
+  }) async {
+    final range = _dayPolicy.rangeFor(_now());
+    StepsHealthReadResult result;
+    try {
+      result = await _healthSource.readDailyTotal(
+        start: range.start,
+        end: range.end,
+        requestPermission: requestPermission,
+      );
+    } on Object {
+      result = StepsHealthReadResult(
+        status: StepsHealthStatus(
+          provider: _healthStatus.provider,
+          platformSupported: _healthStatus.platformSupported,
+          available: _healthStatus.available,
+          permission: _healthStatus.permission,
+          message:
+              'Falha temporaria ao ler passos. O ultimo valor foi mantido.',
+        ),
+        readAt: _now(),
+      );
+    }
+
+    _healthStatus = result.status;
+    if (!result.hasSnapshot) {
+      _lastHealthReadSucceeded = false;
+      _statusMessage = result.status.message;
+      notifyListeners();
+      return result;
+    }
+
+    _lastHealthReadSucceeded = true;
+    final total = result.totalSteps!.clamp(0, 1 << 30).toInt();
+    final source = switch (result.status.provider) {
+      StepsHealthProvider.healthConnect => DailyStepsModel.sourceHealthConnect,
+      StepsHealthProvider.healthKit => DailyStepsModel.sourceHealthKit,
+      StepsHealthProvider.none => DailyStepsModel.sourceDevice,
+    };
+    final current = _recordFor(range.dayKey);
+    if (current != null && current.steps == total && current.source == source) {
+      _statusMessage = '${current.sourceLabel} atualizados localmente.';
+      notifyListeners();
+      return result;
+    }
+
+    final now = _now();
+    await _save(
+      DailyStepsModel(
+        id: current?.recordId,
+        userId: _ownerUserId,
+        date: range.dayKey,
+        steps: total,
+        goal: current?.goal ?? _dailyGoal,
+        source: source,
+        estimatedDistanceMeters: current?.estimatedDistanceMeters,
+        estimatedCalories: current?.estimatedCalories,
+        recordedAt: current?.recordedAt ?? result.readAt,
+        updatedAt: now,
+        syncStatus: DailyStepsSyncStatus.pending,
+        version: (current?.version ?? 0) + 1,
+      ),
+    );
+    _statusMessage = '${today.sourceLabel} atualizados localmente.';
+    notifyListeners();
+    return result;
   }
 
   Future<void> updateDailyGoal(int daily) {
@@ -237,6 +387,8 @@ class StepsService extends ChangeNotifier {
       diaria: _dailyGoal,
       semanal: _weeklyGoal,
       mensal: _monthlyGoal,
+      userId: _ownerUserId,
+      syncRemote: _allowSync,
     );
     final today = todayRecord;
     if (today != null) {
@@ -258,7 +410,7 @@ class StepsService extends ChangeNotifier {
   Future<void> recordManualSteps({
     required int steps,
     DateTime? date,
-    String userId = DailyStepsModel.defaultUserId,
+    String? userId,
   }) async {
     if (steps < 0) {
       throw ArgumentError.value(
@@ -268,12 +420,18 @@ class StepsService extends ChangeNotifier {
       );
     }
     await initialize();
+    final owner = userId?.trim().isNotEmpty == true
+        ? userId!.trim()
+        : _ownerUserId;
+    if (owner != _ownerUserId) {
+      throw StateError('Nao e permitido registrar passos para outra conta.');
+    }
     final now = _now();
     final key = _dateKey(date ?? now);
-    final current = _recordFor(key, userId: userId);
+    final current = _recordFor(key, userId: owner);
     final record = DailyStepsModel(
       id: current?.recordId,
-      userId: userId,
+      userId: owner,
       date: key,
       steps: steps,
       goal: current?.goal ?? _dailyGoal,
@@ -297,6 +455,9 @@ class StepsService extends ChangeNotifier {
     bool requestPermission = false,
   }) async {
     await initialize();
+    if (requestPermission) {
+      await refreshFromHealth(requestPermission: true);
+    }
     return _history
         .where((record) => _isInRange(record, from, to))
         .toList(growable: false);
@@ -310,13 +471,15 @@ class StepsService extends ChangeNotifier {
         DailyStepsModel.sourceSeed,
       );
     }
+    records = _onlyCurrentOwner(records);
     if (records.isNotEmpty) return records;
 
+    if (!await _canImportLegacyForOwner()) return const [];
     final legacySteps = await StorageService.carregarPassos();
     if (legacySteps <= 0) return const [];
     final now = _now();
     final imported = DailyStepsModel(
-      userId: DailyStepsModel.defaultUserId,
+      userId: _ownerUserId,
       date: _dateKey(now),
       steps: legacySteps,
       goal: _dailyGoal,
@@ -325,11 +488,15 @@ class StepsService extends ChangeNotifier {
       updatedAt: now,
       syncStatus: DailyStepsSyncStatus.local,
     );
-    return StorageService.salvarDailyStepsHistory([imported]);
+    return _onlyCurrentOwner(
+      await StorageService.salvarDailyStepsHistory([imported]),
+    );
   }
 
   Future<void> _save(DailyStepsModel record) async {
-    _history = await StorageService.salvarDailyStepsHistory([record]);
+    _history = _onlyCurrentOwner(
+      await StorageService.salvarDailyStepsHistory([record]),
+    );
     if (record.sourceKind != DailyStepsSource.seed) {
       await _awardDailyGoalXpIfNeeded(_recordFor(record.date) ?? record);
     }
@@ -337,39 +504,20 @@ class StepsService extends ChangeNotifier {
 
   Future<void> _syncPendingRecords() async {
     if (_syncing || !_allowSync) return;
-    final pending = _history
-        .where(
-          (record) =>
-              record.sourceKind != DailyStepsSource.seed &&
-              record.syncStatus != DailyStepsSyncStatus.synced,
-        )
-        .toList(growable: false);
-    if (pending.isEmpty) return;
-
     _syncing = true;
     notifyListeners();
     try {
-      for (final record in pending) {
-        final syncingRecord = record.copyWith(
-          syncStatus: DailyStepsSyncStatus.syncing,
-          updatedAt: _now(),
-        );
-        await _saveWithoutXp(syncingRecord);
-        final result = await SyncService.instance.syncSteps([
-          syncingRecord.toJson(),
-        ]);
-        final now = _now();
-        final synced = result == StepsSyncDispatchResult.delivered;
-        await _saveWithoutXp(
-          syncingRecord.copyWith(
-            syncStatus: synced
-                ? DailyStepsSyncStatus.synced
-                : DailyStepsSyncStatus.pending,
-            syncedAt: synced ? now : null,
-            clearSyncedAt: !synced,
-            updatedAt: now,
-          ),
-        );
+      ActivitySyncService.instance.registerUser(_ownerUserId);
+      await ActivitySyncService.instance.syncUser(_ownerUserId);
+      _history = _onlyCurrentOwner(
+        await StorageService.carregarDailyStepsHistory(),
+      );
+      if (!_history.any(
+        (record) =>
+            record.sourceKind != DailyStepsSource.seed &&
+            record.syncStatus != DailyStepsSyncStatus.synced,
+      )) {
+        await _progressionEngine.syncRemote();
       }
       _statusMessage = isOffline
           ? 'Dados locais aguardando sincronização.'
@@ -384,7 +532,9 @@ class StepsService extends ChangeNotifier {
   }
 
   Future<void> _saveWithoutXp(DailyStepsModel record) async {
-    _history = await StorageService.salvarDailyStepsHistory([record]);
+    _history = _onlyCurrentOwner(
+      await StorageService.salvarDailyStepsHistory([record]),
+    );
   }
 
   Future<void> _awardDailyGoalXpIfNeeded(DailyStepsModel current) async {
@@ -408,7 +558,7 @@ class StepsService extends ChangeNotifier {
   ProgressionStepsSource _toProgressionSteps(DailyStepsModel record) =>
       ProgressionStepsSource(
         userId: record.userId,
-        date: DateTime.tryParse(record.date)?.toLocal() ?? record.recordedAt,
+        date: _dayPolicy.dateForDayKey(record.date),
         steps: record.steps,
         goal: record.goal,
         isSeed: record.sourceKind == DailyStepsSource.seed,
@@ -416,7 +566,7 @@ class StepsService extends ChangeNotifier {
 
   DailyStepsModel? _recordFor(String date, {String? userId}) {
     final key = DailyStepsModel.normalizeDateKey(date, fallback: _now());
-    final owner = userId ?? DailyStepsModel.defaultUserId;
+    final owner = userId ?? _ownerUserId;
     for (final record in _history) {
       if (record.date == key && record.userId == owner) return record;
     }
@@ -449,13 +599,52 @@ class StepsService extends ChangeNotifier {
     );
   }
 
-  String _dateKey(DateTime value) => DailyStepsModel.normalizeDateKey(
-    value.toIso8601String(),
-    fallback: value,
-  );
+  @visibleForTesting
+  String dayKeyFor(DateTime value) => _dateKey(value);
+
+  String _dateKey(DateTime value) => _dayPolicy.dayKey(value);
 
   DateTime _day(DateTime value) {
-    final local = value.toLocal();
-    return DateTime(local.year, local.month, local.day);
+    return _dayPolicy.dateForDayKey(_dayPolicy.dayKey(value));
+  }
+
+  List<DailyStepsModel> _onlyCurrentOwner(Iterable<DailyStepsModel> records) =>
+      records
+          .where((record) => record.userId == _ownerUserId)
+          .toList(growable: false);
+
+  Future<bool> _canImportLegacyForOwner() async {
+    if (_ownerUserId == DailyStepsModel.defaultUserId ||
+        _ownerUserId == 'debug-gabriel') {
+      return true;
+    }
+    if (AccountSessionLifecycle.activeUserId != _ownerUserId) return false;
+    final owner = await LocalAccountDataBoundary().activeOwner();
+    return owner == LocalAccountDataBoundary.scopeForUser(_ownerUserId);
+  }
+
+  void _onAccountChanged() {
+    _initialized = false;
+    _history = const [];
+    _ownerUserId = DailyStepsModel.defaultUserId;
+    _statusMessage = 'Carregando dados locais de passos.';
+    notifyListeners();
+  }
+
+  static Future<String> _resolveCurrentUserId() async {
+    final active = AccountSessionLifecycle.activeUserId;
+    if (active != null) return active;
+    return DevConfig.enabled && DevConfig.fakeUser
+        ? 'debug-gabriel'
+        : DailyStepsModel.defaultUserId;
+  }
+
+  @override
+  void dispose() {
+    if (_listenAccountChanges) {
+      AccountSessionLifecycle.revision.removeListener(_onAccountChanged);
+    }
+    unawaited(_healthSource.dispose());
+    super.dispose();
   }
 }

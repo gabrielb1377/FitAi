@@ -2,7 +2,7 @@
 ///
 /// A origem é preservada para que a interface não apresente uma leitura seed,
 /// manual ou legada como se tivesse vindo de um sensor.
-enum DailyStepsSource { local, manual, seed, device, healthConnect }
+enum DailyStepsSource { local, manual, seed, device, healthConnect, healthKit }
 
 extension DailyStepsSourceStorage on DailyStepsSource {
   String get storageValue => switch (this) {
@@ -11,6 +11,7 @@ extension DailyStepsSourceStorage on DailyStepsSource {
     DailyStepsSource.seed => 'seed',
     DailyStepsSource.device => 'device',
     DailyStepsSource.healthConnect => 'health_connect',
+    DailyStepsSource.healthKit => 'health_kit',
   };
 
   String get label => switch (this) {
@@ -19,6 +20,7 @@ extension DailyStepsSourceStorage on DailyStepsSource {
     DailyStepsSource.seed => 'Dados de demonstração',
     DailyStepsSource.device => 'Dispositivo',
     DailyStepsSource.healthConnect => 'Health Connect',
+    DailyStepsSource.healthKit => 'Apple Health',
   };
 
   static DailyStepsSource fromStorage(Object? value) {
@@ -29,6 +31,9 @@ extension DailyStepsSourceStorage on DailyStepsSource {
       'health_connect' ||
       'healthconnect' ||
       'health' => DailyStepsSource.healthConnect,
+      'health_kit' ||
+      'healthkit' ||
+      'apple_health' => DailyStepsSource.healthKit,
       _ => DailyStepsSource.local,
     };
   }
@@ -68,6 +73,7 @@ class DailyStepsModel {
     this.syncedAt,
     this.syncStatus = DailyStepsSyncStatus.local,
     this.version = 1,
+    this.remoteRevision = '0',
   }) : date = normalizeDateKey(date, fallback: recordedAt),
        userId = userId.trim().isEmpty ? defaultUserId : userId.trim(),
        steps = steps < 0 ? 0 : steps,
@@ -78,6 +84,7 @@ class DailyStepsModel {
 
   static const String defaultUserId = 'local';
   static const String sourceHealthConnect = 'health_connect';
+  static const String sourceHealthKit = 'health_kit';
   static const String sourceLocal = 'local';
   static const String sourceManual = 'manual';
   static const String sourceSeed = 'seed';
@@ -97,6 +104,9 @@ class DailyStepsModel {
   final DateTime? syncedAt;
   final DailyStepsSyncStatus syncStatus;
   final int version;
+  final String remoteRevision;
+
+  String get mutationId => 'steps:$date:v$version';
 
   String get recordId => id?.trim().isNotEmpty == true
       ? id!.trim()
@@ -136,6 +146,7 @@ class DailyStepsModel {
     DateTime? updatedAt,
     DailyStepsSyncStatus? syncStatus,
     int? version,
+    String? remoteRevision,
   }) {
     return DailyStepsModel(
       id: id ?? this.id,
@@ -155,6 +166,7 @@ class DailyStepsModel {
       updatedAt: updatedAt ?? this.updatedAt,
       syncStatus: syncStatus ?? this.syncStatus,
       version: version ?? this.version,
+      remoteRevision: remoteRevision ?? this.remoteRevision,
     );
   }
 
@@ -173,6 +185,7 @@ class DailyStepsModel {
       'syncedAt': syncedAt?.toIso8601String(),
       'syncStatus': syncStatus.storageValue,
       'version': version,
+      'remoteRevision': remoteRevision,
     };
   }
 
@@ -217,6 +230,7 @@ class DailyStepsModel {
         json['version'],
         fallback: 1,
       ).clamp(1, 1 << 30).toInt(),
+      remoteRevision: json['remoteRevision']?.toString() ?? '0',
     );
   }
 

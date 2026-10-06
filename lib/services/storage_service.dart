@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/exercises/exercise_identity.dart';
+import '../core/auth/local_account_data_boundary.dart';
 import '../core/xp/xp_config.dart';
 import '../features/activities/domain/activity_query.dart';
 import '../models/agenda_treino_override_model.dart';
@@ -47,6 +48,7 @@ class StorageService {
   static const String _runningActivityIndexKey = 'activitiesRunningIndexV1';
   static const String _dailyStepsActivityIndexKey =
       'activitiesDailyStepsIndexV1';
+  static const String _activitySyncCursorPrefix = 'activitySyncCursorV2:';
   static const int _activitiesIndexSchemaVersion = 2;
   static const String _localActivitiesUserId = DailyStepsModel.defaultUserId;
   static const String _exerciseHistorySchemaVersionKey =
@@ -499,41 +501,69 @@ class StorageService {
     required int diaria,
     required int semanal,
     required int mensal,
+    String? userId,
+    bool syncRemote = true,
   }) async {
     final prefs = await SharedPreferences.getInstance();
+    final scoped = _stepsGoalScope(userId);
+    await prefs.setInt('$scoped.daily', diaria);
+    await prefs.setInt('$scoped.weekly', semanal);
+    await prefs.setInt('$scoped.monthly', mensal);
+
+    // Keep the legacy projection for consumers not migrated to the canonical
+    // StepsService yet. The canonical read below never uses it across owners.
     await prefs.setInt('metaPassosDiaria', diaria);
     await prefs.setInt('metaPassosSemanal', semanal);
     await prefs.setInt('metaPassosMensal', mensal);
 
-    unawaited(
-      SyncService.instance.syncGoals([
-        _metaPassosToJson(
-          'meta_passos_diaria',
-          'Meta diaria de passos',
-          diaria,
-        ),
-        _metaPassosToJson(
-          'meta_passos_semanal',
-          'Meta semanal de passos',
-          semanal,
-        ),
-        _metaPassosToJson(
-          'meta_passos_mensal',
-          'Meta mensal de passos',
-          mensal,
-        ),
-      ]),
-    );
+    if (syncRemote) {
+      unawaited(
+        SyncService.instance.syncGoals([
+          _metaPassosToJson(
+            'meta_passos_diaria',
+            'Meta diaria de passos',
+            diaria,
+          ),
+          _metaPassosToJson(
+            'meta_passos_semanal',
+            'Meta semanal de passos',
+            semanal,
+          ),
+          _metaPassosToJson(
+            'meta_passos_mensal',
+            'Meta mensal de passos',
+            mensal,
+          ),
+        ]),
+      );
+    }
   }
 
-  static Future<Map<String, int>> carregarMetasPassos() async {
+  static Future<Map<String, int>> carregarMetasPassos({String? userId}) async {
     final prefs = await SharedPreferences.getInstance();
+    final scoped = _stepsGoalScope(userId);
+
+    if (userId != null && userId.trim().isNotEmpty) {
+      return {
+        'diaria': prefs.getInt('$scoped.daily') ?? 10000,
+        'semanal': prefs.getInt('$scoped.weekly') ?? 70000,
+        'mensal': prefs.getInt('$scoped.monthly') ?? 300000,
+      };
+    }
 
     return {
       'diaria': prefs.getInt('metaPassosDiaria') ?? 10000,
       'semanal': prefs.getInt('metaPassosSemanal') ?? 70000,
       'mensal': prefs.getInt('metaPassosMensal') ?? 300000,
     };
+  }
+
+  static String _stepsGoalScope(String? userId) {
+    final normalized = userId?.trim().toLowerCase() ?? '';
+    final safe = normalized.isEmpty
+        ? DailyStepsModel.defaultUserId
+        : normalized.replaceAll(RegExp(r'[^a-z0-9._-]'), '_');
+    return 'fitia.steps.goals.v1.user.$safe';
   }
 
   static Future<void> salvarHistoricoPassos(PassosDiariosModel registro) async {
@@ -636,7 +666,11 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
 
     final lista = prefs.getStringList('historicoCorridas') ?? <String>[];
-    final index = _indiceCorridaPorId(lista, corrida.id);
+    final index = _indiceCorridaPorId(
+      lista,
+      corrida.id,
+      userId: corrida.userId,
+    );
     final inserted = index < 0;
 
     if (inserted) {
@@ -658,7 +692,11 @@ class StorageService {
   static Future<bool> atualizarCorrida(CorridaModel corrida) async {
     final prefs = await SharedPreferences.getInstance();
     final lista = prefs.getStringList('historicoCorridas') ?? <String>[];
-    final index = _indiceCorridaPorId(lista, corrida.id);
+    final index = _indiceCorridaPorId(
+      lista,
+      corrida.id,
+      userId: corrida.userId,
+    );
     if (index < 0) return false;
 
     lista[index] = jsonEncode(corrida.toJson());
@@ -932,12 +970,19 @@ class StorageService {
     await prefs.setDouble('velocidadeMedia', 0);
   }
 
-  static Future<List<CorridaModel>> carregarCorridas() async {
+  static Future<List<CorridaModel>> carregarCorridas({
+    String? userId,
+    bool includeDeleted = false,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
-
+    final owner = _activitiesOwner(userId);
     return _corridasDaLista(
-      prefs.getStringList('historicoCorridas') ?? const [],
-    );
+          prefs.getStringList('historicoCorridas') ?? const [],
+        )
+        .where((run) {
+          return run.userId == owner && (includeDeleted || !run.isDeleted);
+        })
+        .toList(growable: false);
   }
 
   /// Consulta Corridas em ordem decrescente por data/hora usando um indice
@@ -945,15 +990,16 @@ class StorageService {
   static Future<ActivityStoragePage<CorridaModel>> carregarCorridasPaginadas({
     ActivityTimelineCursor? cursor,
     int limit = 20,
-    String userId = _localActivitiesUserId,
+    String? userId,
     RunningSyncStatus? syncStatus,
   }) async {
     assert(limit > 0);
     final prefs = await SharedPreferences.getInstance();
     await _ensureActivitiesIndexes(prefs);
+    final owner = _activitiesOwner(userId);
     final entries = _runningIndexEntries(prefs)
         .where((entry) {
-          if (entry.userId != userId) {
+          if (entry.userId != owner) {
             return false;
           }
           if (syncStatus != null && entry.syncStatus != syncStatus) {
@@ -978,14 +1024,15 @@ class StorageService {
   static Future<List<CorridaModel>> carregarCorridasNoIntervalo({
     required DateTime from,
     required DateTime to,
-    String userId = _localActivitiesUserId,
+    String? userId,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await _ensureActivitiesIndexes(prefs);
+    final owner = _activitiesOwner(userId);
     final entries = _runningIndexEntries(prefs)
         .where(
           (entry) =>
-              entry.userId == userId &&
+              entry.userId == owner &&
               !entry.occurredAt.isBefore(from) &&
               !entry.occurredAt.isAfter(to),
         )
@@ -993,8 +1040,13 @@ class StorageService {
     return _runsForIds(prefs, entries.map((entry) => entry.id));
   }
 
-  static Future<List<CorridaModel>> carregarCorridasPendentes() async {
-    final corridas = await carregarCorridas();
+  static Future<List<CorridaModel>> carregarCorridasPendentes({
+    String? userId,
+  }) async {
+    final corridas = await carregarCorridas(
+      userId: userId,
+      includeDeleted: true,
+    );
     return corridas
         .where((corrida) => corrida.syncStatus != RunningSyncStatus.synced)
         .toList();
@@ -1023,10 +1075,22 @@ class StorageService {
     String id,
   ) async {
     final lista = prefs.getStringList('historicoCorridas') ?? [];
-    final index = _indiceCorridaPorId(lista, id);
+    final owner = _activitiesOwner(null);
+    final index = _indiceCorridaPorId(lista, id, userId: owner);
     if (index < 0) return;
     final removida = CorridaModel.fromJson(jsonDecode(lista[index]));
-    lista.removeAt(index);
+    if (removida.isDeleted) return;
+    final now = DateTime.now().toIso8601String();
+    lista[index] = jsonEncode(
+      removida
+          .copyWith(
+            deletedAt: now,
+            updatedAt: now,
+            version: removida.version + 1,
+            syncStatus: RunningSyncStatus.queued,
+          )
+          .toJson(),
+    );
     await prefs.setStringList('historicoCorridas', lista);
     await _refreshActivitiesIndexes(prefs);
 
@@ -1045,11 +1109,23 @@ class StorageService {
     await prefs.setInt('totalCorridas', (totalAtual - 1).clamp(0, totalAtual));
   }
 
-  static int _indiceCorridaPorId(List<String> lista, String id) {
+  static int _indiceCorridaPorId(
+    List<String> lista,
+    String id, {
+    String? userId,
+  }) {
     for (var index = 0; index < lista.length; index++) {
       try {
         final decoded = jsonDecode(lista[index]);
-        if (decoded is Map && decoded['id']?.toString() == id) return index;
+        if (decoded is Map &&
+            decoded['id']?.toString() == id &&
+            (userId == null ||
+                (decoded['userId']?.toString().trim().isNotEmpty == true
+                        ? decoded['userId'].toString().trim()
+                        : _localActivitiesUserId) ==
+                    userId)) {
+          return index;
+        }
       } catch (error) {
         debugPrint('Erro ao ler corrida salva: $error');
       }
@@ -1082,6 +1158,63 @@ class StorageService {
       return byDate != 0 ? byDate : second.id.compareTo(first.id);
     });
     return corridas;
+  }
+
+  /// Materializa estado remoto sem disparar XP. O contrato de Progression e
+  /// reconciliado separadamente pelo ProgressionSyncContract/v1.
+  static Future<void> salvarCorridaRemota(CorridaModel corrida) async {
+    final prefs = await SharedPreferences.getInstance();
+    final lista = prefs.getStringList('historicoCorridas') ?? <String>[];
+    final index = _indiceCorridaPorId(
+      lista,
+      corrida.id,
+      userId: corrida.userId,
+    );
+    if (index < 0) {
+      lista.add(jsonEncode(corrida.toJson()));
+    } else {
+      lista[index] = jsonEncode(corrida.toJson());
+    }
+    await prefs.setStringList('historicoCorridas', lista);
+    await _refreshActivitiesIndexes(prefs);
+  }
+
+  /// Substitui o snapshot diário pela revisão autoritativa do servidor.
+  /// Deliberadamente não usa a reconciliação local por versão/fonte, pois uma
+  /// correção remota pode reduzir o total (por exemplo, 6200 -> 5900).
+  static Future<void> salvarDailyStepsRemoto(DailyStepsModel registro) async {
+    final prefs = await SharedPreferences.getInstance();
+    final records = await carregarDailyStepsHistory();
+    final updated = <DailyStepsModel>[
+      for (final item in records)
+        if (item.recordId != registro.recordId) item,
+      registro,
+    ]..sort((a, b) => b.date.compareTo(a.date));
+    await prefs.setStringList(
+      _dailyStepsHistoryKey,
+      updated.map((item) => jsonEncode(item.toJson())).toList(),
+    );
+    await _refreshActivitiesIndexes(prefs);
+  }
+
+  static Future<String> carregarActivitySyncCursor(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('$_activitySyncCursorPrefix$userId') ?? '0';
+  }
+
+  static Future<void> salvarActivitySyncCursor(
+    String userId,
+    String revision,
+  ) async {
+    if (!RegExp(r'^\d+$').hasMatch(revision)) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('$_activitySyncCursorPrefix$userId', revision);
+  }
+
+  static String _activitiesOwner(String? userId) {
+    final explicit = userId?.trim() ?? '';
+    if (explicit.isNotEmpty) return explicit;
+    return AccountSessionLifecycle.activeUserId ?? _localActivitiesUserId;
   }
 
   static DateTime _dataOcorrenciaCorrida(CorridaModel corrida) {
@@ -1945,6 +2078,7 @@ class StorageService {
     return switch (_normalizarFontePassos(source)) {
       DailyStepsModel.sourceManual => 4,
       DailyStepsModel.sourceHealthConnect => 3,
+      DailyStepsModel.sourceHealthKit => 3,
       DailyStepsModel.sourceDevice => 3,
       DailyStepsModel.sourceLocal => 2,
       DailyStepsModel.sourceSeed => 1,
@@ -1958,6 +2092,11 @@ class StorageService {
         normalized == 'healthconnect' ||
         normalized == 'health') {
       return DailyStepsModel.sourceHealthConnect;
+    }
+    if (normalized == DailyStepsModel.sourceHealthKit ||
+        normalized == 'healthkit' ||
+        normalized == 'apple_health') {
+      return DailyStepsModel.sourceHealthKit;
     }
     if (normalized == DailyStepsModel.sourceManual) {
       return DailyStepsModel.sourceManual;
@@ -2189,7 +2328,7 @@ class _RunningActivityIndexEntry {
   factory _RunningActivityIndexEntry.fromRun(CorridaModel run) {
     return _RunningActivityIndexEntry(
       id: run.id,
-      userId: DailyStepsModel.defaultUserId,
+      userId: run.userId,
       startedAt:
           DateTime.tryParse(run.startTime)?.toLocal() ??
           DateTime.tryParse(run.data)?.toLocal() ??
