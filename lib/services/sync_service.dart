@@ -36,6 +36,7 @@ class SyncService {
 
   final NetworkService _networkService;
   final AuthService _authService;
+  final Map<String, Future<void> Function()> _domainFlushers = {};
   Timer? _timer;
   bool _flushing = false;
 
@@ -50,6 +51,16 @@ class SyncService {
   void stopAutoSync() {
     _timer?.cancel();
     _timer = null;
+  }
+
+  /// Registra uma fila de dominio que ja possui persistencia canonica propria.
+  /// O callback nao cria outra outbox; ele apenas tenta drenar itens pendentes.
+  void registerDomainFlusher(String key, Future<void> Function() flusher) {
+    _domainFlushers[key] = flusher;
+  }
+
+  void unregisterDomainFlusher(String key) {
+    _domainFlushers.remove(key);
   }
 
   Future<void> syncProfile(Map<String, dynamic> profile) {
@@ -159,36 +170,36 @@ class SyncService {
 
     try {
       final queue = await _loadQueue();
-      if (queue.isEmpty) return;
+      if (queue.isNotEmpty) {
+        final available = await _networkService.isBackendAvailable();
+        if (!available) {
+          _debugLog('Backend offline. ${queue.length} itens pendentes.');
+        } else {
+          final remaining = <Map<String, dynamic>>[];
 
-      final available = await _networkService.isBackendAvailable();
-      if (!available) {
-        _debugLog('Backend offline. ${queue.length} itens pendentes.');
-        return;
-      }
+          for (final item in queue) {
+            final sent = await _trySendQueued(item);
 
-      final remaining = <Map<String, dynamic>>[];
+            if (!sent) {
+              final attempts = _int(item['attempts']) + 1;
+              remaining.add({
+                ...item,
+                'attempts': attempts,
+                'lastAttemptAt': DateTime.now().toIso8601String(),
+              });
+            }
+          }
 
-      for (final item in queue) {
-        final sent = await _trySendQueued(item);
+          await _saveQueue(remaining);
 
-        if (!sent) {
-          final attempts = _int(item['attempts']) + 1;
-          remaining.add({
-            ...item,
-            'attempts': attempts,
-            'lastAttemptAt': DateTime.now().toIso8601String(),
-          });
+          if (remaining.isEmpty) {
+            _debugLog('Fila sincronizada.');
+          } else {
+            _debugLog('${remaining.length} itens continuam pendentes.');
+          }
         }
       }
-
-      await _saveQueue(remaining);
-
-      if (remaining.isEmpty) {
-        _debugLog('Fila sincronizada.');
-      } else {
-        _debugLog('${remaining.length} itens continuam pendentes.');
-      }
+      await _flushDomains();
     } finally {
       _flushing = false;
     }
@@ -199,6 +210,47 @@ class SyncService {
   }
 
   Future<String> getClientId() => _clientId();
+
+  /// Transporte autenticado para dominios que precisam consumir o ACK.
+  /// Retorna `null` sem enviar quando a sessao nao existe ou pertence a outra
+  /// conta. O chamador mantem sua propria mutacao local pendente.
+  Future<Map<String, dynamic>?> postAuthenticatedJsonForUser({
+    required String userId,
+    required String path,
+    required Map<String, dynamic> payload,
+    Duration timeout = const Duration(seconds: 8),
+  }) async {
+    final session = await _authService.restoreSession();
+    if (session == null || session.userId != userId) return null;
+    final clientId = await _clientId();
+    return _networkService.postJson(
+      path,
+      payload,
+      headers: {
+        'Authorization': 'Bearer ${session.token}',
+        'X-FitIA-Client-Id': clientId,
+      },
+      timeout: timeout,
+    );
+  }
+
+  Future<Map<String, dynamic>?> getAuthenticatedJsonForUser({
+    required String userId,
+    required String path,
+    Duration timeout = const Duration(seconds: 8),
+  }) async {
+    final session = await _authService.restoreSession();
+    if (session == null || session.userId != userId) return null;
+    final clientId = await _clientId();
+    return _networkService.getJson(
+      path,
+      headers: {
+        'Authorization': 'Bearer ${session.token}',
+        'X-FitIA-Client-Id': clientId,
+      },
+      timeout: timeout,
+    );
+  }
 
   Future<void> _sendOrQueue({
     required String type,
@@ -263,6 +315,14 @@ class SyncService {
       return true;
     }
 
+    if (_isLegacyActivityPath(path)) {
+      _debugLog(
+        'Replay legado de Atividades retido; ActivitySyncContract/v2 e a '
+        'unica trilha ativa.',
+      );
+      return false;
+    }
+
     final ownerUserId = item['ownerUserId']?.toString().trim();
     final session = await _authService.restoreSession();
 
@@ -320,11 +380,100 @@ class SyncService {
     _debugLog('Item marcado como pendente: ${item['type']}');
   }
 
+  Future<void> _flushDomains() async {
+    for (final entry in [..._domainFlushers.entries]) {
+      try {
+        await entry.value();
+      } on Object catch (error) {
+        _debugLog('Sync de dominio pendente (${entry.key}): $error');
+      }
+    }
+  }
+
   Future<void> _removeQueuedById(String id) async {
     final queue = await _loadQueue();
     final remaining = queue.where((entry) => entry['id'] != id).toList();
     if (remaining.length != queue.length) await _saveQueue(remaining);
   }
+
+  /// Removes only legacy activity items whose canonical v2 identity has been
+  /// acknowledged. Unmatched/ambiguous payloads remain preserved for review.
+  Future<int> acknowledgeLegacyActivityQueue({
+    required String userId,
+    Set<String> runningIds = const <String>{},
+    Set<String> stepDayKeys = const <String>{},
+  }) async {
+    final owner = userId.trim();
+    if (owner.isEmpty || (runningIds.isEmpty && stepDayKeys.isEmpty)) return 0;
+
+    final queue = await _loadQueue();
+    final remaining = <Map<String, dynamic>>[];
+    var removedItems = 0;
+
+    for (final entry in queue) {
+      if (entry['ownerUserId']?.toString().trim() != owner) {
+        remaining.add(entry);
+        continue;
+      }
+
+      final path = entry['path']?.toString() ?? '';
+      final isRunning = path == '/sync/running' && runningIds.isNotEmpty;
+      final isSteps = path == '/steps/sync' && stepDayKeys.isNotEmpty;
+      if (!isRunning && !isSteps) {
+        remaining.add(entry);
+        continue;
+      }
+
+      final payload = _map(entry['payload']);
+      final rawItems = payload['items'];
+      if (rawItems is! List) {
+        final item = _map(payload['item']);
+        final matched = isRunning
+            ? runningIds.contains(_legacyRunId(item))
+            : stepDayKeys.contains(_legacyStepDay(item));
+        if (matched) {
+          removedItems++;
+        } else {
+          remaining.add(entry);
+        }
+        continue;
+      }
+
+      final kept = <Object?>[];
+      for (final rawItem in rawItems) {
+        final item = _map(rawItem);
+        final matched = isRunning
+            ? runningIds.contains(_legacyRunId(item))
+            : stepDayKeys.contains(_legacyStepDay(item));
+        if (matched) {
+          removedItems++;
+        } else {
+          kept.add(rawItem);
+        }
+      }
+
+      if (kept.isNotEmpty) {
+        remaining.add({
+          ...entry,
+          'payload': {...payload, 'items': kept},
+        });
+      } else if (rawItems.isEmpty) {
+        remaining.add(entry);
+      }
+    }
+
+    if (removedItems > 0) await _saveQueue(remaining);
+    return removedItems;
+  }
+
+  bool _isLegacyActivityPath(String path) =>
+      path == '/sync/running' || path == '/steps/sync';
+
+  String _legacyRunId(Map<String, dynamic> item) =>
+      (item['id'] ?? item['syncId'])?.toString().trim() ?? '';
+
+  String _legacyStepDay(Map<String, dynamic> item) =>
+      (item['date'] ?? item['dayKey'])?.toString().trim() ?? '';
 
   Future<List<Map<String, dynamic>>> _loadQueue() async {
     final prefs = await SharedPreferences.getInstance();

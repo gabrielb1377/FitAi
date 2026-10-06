@@ -17,23 +17,33 @@ class RunningSessionService extends ChangeNotifier {
     this._trackGps = true,
     ProgressionEngine? progressionEngine,
     RunningLocationSource? locationSource,
+    bool listenAccountChanges = false,
   }) : _clock = clock ?? DateTime.now,
        _progressionEngine = progressionEngine ?? ProgressionEngine.instance,
        _locationSource =
-           locationSource ?? const GeolocatorRunningLocationSource();
+           locationSource ?? const GeolocatorRunningLocationSource() {
+    _listenAccountChanges = listenAccountChanges;
+    if (_listenAccountChanges) {
+      AccountSessionLifecycle.revision.addListener(_onAccountChanged);
+    }
+  }
 
-  static final RunningSessionService instance = RunningSessionService._();
+  static final RunningSessionService instance = RunningSessionService._(
+    listenAccountChanges: true,
+  );
 
   @visibleForTesting
   factory RunningSessionService.forTesting({
     DateTime Function()? clock,
     ProgressionEngine? progressionEngine,
     RunningLocationSource? locationSource,
+    bool listenAccountChanges = false,
   }) => RunningSessionService._(
     clock: clock,
     trackGps: locationSource != null,
     progressionEngine: progressionEngine,
     locationSource: locationSource,
+    listenAccountChanges: listenAccountChanges,
   );
 
   static const int _defaultCountdownSeconds = 3;
@@ -44,13 +54,17 @@ class RunningSessionService extends ChangeNotifier {
   final bool _trackGps;
   final ProgressionEngine _progressionEngine;
   final RunningLocationSource _locationSource;
+  late final bool _listenAccountChanges;
   final Set<String> _syncingRunIds = <String>{};
   Timer? _timer;
   Timer? _countdownTimer;
   StreamSubscription<RunningLocationSample>? _positionSubscription;
   RunningSessionModel? _session;
+  String? _sessionOwnerUserId;
   bool _initialized = false;
   bool _initializing = false;
+  int _accountRevision = 0;
+  int _initializationToken = 0;
   bool _saving = false;
   bool _gpsConnected = false;
   bool _startingGpsStream = false;
@@ -86,39 +100,50 @@ class RunningSessionService extends ChangeNotifier {
   List<RunningRoutePointModel> get route => _session?.route ?? const [];
 
   Future<void> initialize() async {
-    if (_initialized || _initializing) return;
+    final owner = _ownerUserId;
+    if (_initialized && _sessionOwnerUserId == owner) return;
+    if (_initializing) return;
 
     _initializing = true;
+    final revision = _accountRevision;
+    final token = ++_initializationToken;
 
-    final restored = await StorageService.carregarRunningSessionAtiva();
+    try {
+      final restored = await StorageService.carregarRunningSessionAtiva();
+      if (revision != _accountRevision || owner != _ownerUserId) return;
+      _sessionOwnerUserId = owner;
 
-    if (restored != null && !restored.finished) {
-      _session = _restoreElapsedTime(restored);
-      _resetLocationSegment(
-        lastTimestamp: _lastRouteTimestamp(_session!.route),
-      );
+      if (restored != null && !restored.finished) {
+        _session = _restoreElapsedTime(restored);
+        _resetLocationSegment(
+          lastTimestamp: _lastRouteTimestamp(_session!.route),
+        );
 
-      if (_session!.finalizing) {
-        try {
-          await _commitFinalization(_session!);
-          _log('finalizacao recuperada');
-        } catch (error) {
-          _log('finalizacao pendente: $error');
+        if (_session!.finalizing) {
+          try {
+            await _commitFinalization(_session!, owner);
+            _log('finalizacao recuperada');
+          } catch (error) {
+            _log('finalizacao pendente: $error');
+          }
+        } else if (!_session!.paused) {
+          _ensureTimer();
+          unawaited(_ensureGpsStream());
+          await _persistSession();
         }
-      } else if (!_session!.paused) {
-        _ensureTimer();
-        unawaited(_ensureGpsStream());
-        await _persistSession();
+
+        _log('sessao restaurada');
       }
 
-      _log('sessao restaurada');
+      if (revision != _accountRevision || owner != _ownerUserId) return;
+      _initialized = true;
+      ActivitySyncService.instance.registerUser(owner);
+      notifyListeners();
+      unawaited(_syncPendingRuns(owner));
+    } finally {
+      if (token == _initializationToken) _initializing = false;
+      if (revision != _accountRevision) unawaited(initialize());
     }
-
-    _initialized = true;
-    _initializing = false;
-    ActivitySyncService.instance.registerUser(_ownerUserId);
-    notifyListeners();
-    unawaited(_syncPendingRuns());
   }
 
   Future<void> startWithCountdown({
@@ -162,6 +187,7 @@ class RunningSessionService extends ChangeNotifier {
       id: 'run_${now.microsecondsSinceEpoch}',
       startTime: now,
     );
+    _sessionOwnerUserId = _ownerUserId;
     if (!await StorageService.carregarPrimeiraCorrida()) {
       await StorageService.salvarPrimeiraCorrida(true);
     }
@@ -231,7 +257,14 @@ class RunningSessionService extends ChangeNotifier {
     if (_saving) return null;
 
     final session = _session;
-    if (session == null || session.finished || session.finalizing) return null;
+    final owner = _sessionOwnerUserId;
+    if (session == null ||
+        owner == null ||
+        owner != _ownerUserId ||
+        session.finished ||
+        session.finalizing) {
+      return null;
+    }
 
     _saving = true;
     notifyListeners();
@@ -257,7 +290,7 @@ class RunningSessionService extends ChangeNotifier {
       );
       _session = finalizingSession;
       await _persistSession();
-      return await _commitFinalization(finalizingSession);
+      return await _commitFinalization(finalizingSession, owner);
     } finally {
       _saving = false;
       notifyListeners();
@@ -265,6 +298,9 @@ class RunningSessionService extends ChangeNotifier {
   }
 
   Future<void> discardActiveSession() async {
+    if (_sessionOwnerUserId != null && _sessionOwnerUserId != _ownerUserId) {
+      return;
+    }
     if (_session?.finalizing == true) {
       _log('cancelamento ignorado: finalizacao pendente');
       return;
@@ -276,6 +312,7 @@ class RunningSessionService extends ChangeNotifier {
     await _stopGpsStream();
     await StorageService.limparCorridaAtiva();
     _session = null;
+    _sessionOwnerUserId = null;
     _resetLocationSegment();
     notifyListeners();
   }
@@ -546,7 +583,7 @@ class RunningSessionService extends ChangeNotifier {
 
   Future<void> _persistSession() async {
     final session = _session;
-    if (session == null) return;
+    if (session == null || _sessionOwnerUserId != _ownerUserId) return;
 
     await StorageService.salvarRunningSessionAtiva(session);
   }
@@ -556,10 +593,11 @@ class RunningSessionService extends ChangeNotifier {
   /// mesmo identificador, e o upsert evita duplicar a corrida.
   Future<CorridaModel> _commitFinalization(
     RunningSessionModel finalizingSession,
+    String ownerUserId,
   ) async {
     final corrida = CorridaModel.fromSession(
       finalizingSession,
-      userId: _ownerUserId,
+      userId: ownerUserId,
     );
     var persisted = false;
     if (corrida.segundos > 0 || corrida.distancia > 0) {
@@ -573,6 +611,7 @@ class RunningSessionService extends ChangeNotifier {
 
     await StorageService.limparCorridaAtiva();
     _session = null;
+    _sessionOwnerUserId = null;
     _resetLocationSegment();
     if (persisted) unawaited(_syncRun(corrida));
     return corrida;
@@ -580,7 +619,9 @@ class RunningSessionService extends ChangeNotifier {
 
   Future<void> _updateProgressionWithoutBlocking(CorridaModel corrida) async {
     try {
-      final history = await StorageService.carregarCorridas();
+      final history = await StorageService.carregarCorridas(
+        userId: corrida.userId,
+      );
       await _progressionEngine.recordRunCompletion(
         runId: corrida.id,
         completedAt: _runCompletedAt(corrida),
@@ -614,10 +655,10 @@ class RunningSessionService extends ChangeNotifier {
     return _clock().toLocal();
   }
 
-  Future<void> _syncPendingRuns() async {
-    ActivitySyncService.instance.registerUser(_ownerUserId);
-    await ActivitySyncService.instance.syncUser(_ownerUserId);
-    await _progressionEngine.syncRemote();
+  Future<void> _syncPendingRuns(String ownerUserId) async {
+    ActivitySyncService.instance.registerUser(ownerUserId);
+    await ActivitySyncService.instance.syncUser(ownerUserId);
+    await _progressionEngine.syncRemote(userId: ownerUserId);
   }
 
   Future<void> _syncRun(CorridaModel corrida) async {
@@ -651,6 +692,23 @@ class RunningSessionService extends ChangeNotifier {
   }
 
   String get _ownerUserId => AccountSessionLifecycle.activeUserId ?? 'local';
+
+  void _onAccountChanged() {
+    _accountRevision++;
+    _initializationToken++;
+    _initialized = false;
+    _initializing = false;
+    _session = null;
+    _sessionOwnerUserId = null;
+    _timer?.cancel();
+    _timer = null;
+    _countdownTimer?.cancel();
+    _countdownTimer = null;
+    _countdownActive = false;
+    _resetLocationSegment();
+    unawaited(_stopGpsStream());
+    notifyListeners();
+  }
 
   Future<void> _stopGpsStream({
     RunningLocationStatus status = RunningLocationStatus.idle,
@@ -691,6 +749,9 @@ class RunningSessionService extends ChangeNotifier {
 
   @override
   void dispose() {
+    if (_listenAccountChanges) {
+      AccountSessionLifecycle.revision.removeListener(_onAccountChanged);
+    }
     _timer?.cancel();
     _countdownTimer?.cancel();
     unawaited(_positionSubscription?.cancel() ?? Future<void>.value());

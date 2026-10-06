@@ -101,6 +101,72 @@ void main() {
       expect(onlineClient.postRequests, isEmpty);
     },
   );
+
+  test('fila antiga de corrida/passos nao regrava o estado v2', () async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('fitaiSyncQueue', [
+      jsonEncode({
+        'id': 'user-a_running_old',
+        'type': 'running',
+        'path': '/sync/running',
+        'ownerUserId': 'user-a',
+        'payload': {
+          'clientId': 'device-a',
+          'items': [
+            {'id': 'run-acked'},
+            {'id': 'run-unknown'},
+          ],
+        },
+      }),
+      jsonEncode({
+        'id': 'user-a_steps_old',
+        'type': 'steps',
+        'path': '/steps/sync',
+        'ownerUserId': 'user-a',
+        'payload': {
+          'clientId': 'device-a',
+          'items': [
+            {'date': '2026-10-05', 'steps': 6200},
+          ],
+        },
+      }),
+    ]);
+    final store = InMemoryAuthSessionStore();
+    await store.write(
+      jsonEncode(
+        AuthSession(
+          userId: 'user-a',
+          name: 'Conta A',
+          email: 'a@fitia.test',
+          token: _validToken(),
+        ).toJson(),
+      ),
+    );
+    final client = _HealthAndCaptureClient();
+    final service = SyncService.forTesting(
+      networkService: NetworkService(client: client),
+      authService: AuthService(sessionStore: store),
+    );
+
+    await service.flushPending();
+    expect(client.postRequests, isEmpty);
+    expect(await service.pendingCount(), 2);
+
+    final pruned = await service.acknowledgeLegacyActivityQueue(
+      userId: 'user-a',
+      runningIds: {'run-acked'},
+      stepDayKeys: {'2026-10-05'},
+    );
+    expect(pruned, 2);
+    final remaining = prefs.getStringList('fitaiSyncQueue') ?? const [];
+    expect(remaining, hasLength(1));
+    final remainingPayload =
+        jsonDecode(remaining.single) as Map<String, dynamic>;
+    expect(
+      ((remainingPayload['payload'] as Map)['items'] as List).single['id'],
+      'run-unknown',
+    );
+  });
 }
 
 String _validToken() {

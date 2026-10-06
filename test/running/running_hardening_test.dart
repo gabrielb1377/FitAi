@@ -1,4 +1,5 @@
 import 'package:fitai/features/activities/data/running_activity_mapper.dart';
+import 'package:fitai/core/auth/local_account_data_boundary.dart';
 import 'package:fitai/models/corrida_model.dart';
 import 'package:fitai/models/running_session_model.dart';
 import 'package:fitai/services/running_session_service.dart';
@@ -68,6 +69,45 @@ void main() {
       expect(service.elapsedSeconds, 300);
       expect(service.session?.lastUpdatedAt, now);
       await service.discardActiveSession();
+    },
+  );
+
+  test(
+    'troca de conta isola sessão em memória e preserva recovery do dono',
+    () async {
+      var now = DateTime(2026, 10, 5, 18);
+      final boundary = LocalAccountDataBoundary();
+      final service = RunningSessionService.forTesting(
+        clock: () => now,
+        listenAccountChanges: true,
+      );
+
+      await boundary.activate('account-a', claimUnownedData: true);
+      AccountSessionLifecycle.setActiveUser('account-a');
+      await service.start();
+      now = now.add(const Duration(minutes: 2));
+      expect(service.hasActiveSession, isTrue);
+      expect(service.session?.id, startsWith('run_'));
+
+      await boundary.activate('account-b');
+      AccountSessionLifecycle.setActiveUser('account-b');
+      expect(service.hasActiveSession, isFalse);
+      await service.initialize();
+      expect(service.hasActiveSession, isFalse);
+      expect(
+        await StorageService.carregarCorridas(userId: 'account-b'),
+        isEmpty,
+      );
+      expect(await service.finish(), isNull);
+
+      await boundary.activate('account-a');
+      AccountSessionLifecycle.setActiveUser('account-a');
+      await service.initialize();
+      expect(service.hasActiveSession, isTrue);
+      expect(service.session?.id, startsWith('run_'));
+
+      service.dispose();
+      AccountSessionLifecycle.setActiveUser(null);
     },
   );
 

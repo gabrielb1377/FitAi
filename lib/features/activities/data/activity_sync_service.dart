@@ -74,9 +74,34 @@ class ActivitySyncService {
       if (response == null) return;
       await _applyAck(owner, response['ack']);
       await _applyState(owner, response['state']);
+      await _acknowledgeLegacyQueue(owner);
     } finally {
       _syncingUsers.remove(owner);
     }
+  }
+
+  Future<void> _acknowledgeLegacyQueue(String userId) async {
+    final runs = await StorageService.carregarCorridas(
+      userId: userId,
+      includeDeleted: true,
+    );
+    final steps = await StorageService.carregarDailyStepsHistory();
+    await _transport.acknowledgeLegacyActivityQueue(
+      userId: userId,
+      runningIds: {
+        for (final run in runs)
+          if (run.syncStatus == RunningSyncStatus.synced &&
+              _revision(run.remoteRevision) > 0)
+            run.id,
+      },
+      stepDayKeys: {
+        for (final record in steps)
+          if (record.userId == userId &&
+              record.syncStatus == DailyStepsSyncStatus.synced &&
+              _revision(record.remoteRevision) > 0)
+            record.date,
+      },
+    );
   }
 
   Map<String, dynamic> _runPayload(CorridaModel run) => {
@@ -162,6 +187,11 @@ class ActivitySyncService {
           local = candidate;
           break;
         }
+      }
+      if (local?.isDeleted == true && !remote.isDeleted) continue;
+      if (local != null &&
+          _revision(local.remoteRevision) > _revision(remote.remoteRevision)) {
+        continue;
       }
       if (local != null &&
           local.syncStatus != RunningSyncStatus.synced &&
