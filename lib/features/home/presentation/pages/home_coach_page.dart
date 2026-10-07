@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../../design_system/fit_design_system.dart';
 import '../../../../models/coach_insight_model.dart';
 import '../../../../services/ia_evolutiva_service.dart';
+import '../../../ai_chat/presentation/ai_chat_page.dart';
 import '../widgets/home_detail_scaffold.dart';
 import '../widgets/home_official_components.dart';
 
@@ -57,6 +58,10 @@ class _HomeCoachPageState extends State<HomeCoachPage> {
     }
   }
 
+  void _openChat() => Navigator.of(
+    context,
+  ).push<void>(MaterialPageRoute(builder: (_) => const AiChatPage()));
+
   @override
   Widget build(BuildContext context) {
     return HomeDetailScaffold(
@@ -66,10 +71,19 @@ class _HomeCoachPageState extends State<HomeCoachPage> {
         FitIconButton(
           icon: FitIcons.more,
           tooltip: 'Mais opções do Coach',
-          onPressed: () => const FitSnackBar(
-            message: 'O chat completo do Coach ainda não está disponível.',
-            tone: FitSnackBarTone.info,
-          ).show(context),
+          onPressed: () => FitActionSheet.show<void>(
+            context: context,
+            items: [
+              FitActionSheetItem(
+                label: 'Conversar com Coach',
+                icon: Icons.chat_bubble_outline_rounded,
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _openChat();
+                },
+              ),
+            ],
+          ),
         ),
       ],
       child: RefreshIndicator(
@@ -88,6 +102,15 @@ class _HomeCoachPageState extends State<HomeCoachPage> {
             if (!_loading && _error != null)
               FitErrorState(error: _error!, onRetry: () => _reload()),
             if (!_loading && _error == null) _content(),
+            if (_insights.isEmpty || _error != null) ...[
+              const SizedBox(height: FitSpacing.s12),
+              FitPrimaryButton(
+                label: 'Conversar com Coach',
+                icon: Icons.chat_bubble_outline_rounded,
+                fullWidth: true,
+                onPressed: _openChat,
+              ),
+            ],
           ],
         ),
       ),
@@ -201,10 +224,7 @@ class _HomeCoachPageState extends State<HomeCoachPage> {
           label: 'Conversar com Coach',
           icon: Icons.chat_bubble_outline_rounded,
           fullWidth: true,
-          onPressed: () => const FitSnackBar(
-            message: 'O chat completo do Coach ainda não está disponível.',
-            tone: FitSnackBarTone.info,
-          ).show(context),
+          onPressed: _openChat,
         ),
       ],
     );
