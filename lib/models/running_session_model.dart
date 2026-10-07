@@ -36,6 +36,11 @@ class RunningRoutePointModel {
   final double speed;
   final String timestamp;
 
+  /// Progress accepted by the running core, never recomputed from coordinates.
+  final double? cumulativeDistanceKm;
+  final int? activeElapsedSeconds;
+  final bool? startsSegment;
+
   const RunningRoutePointModel({
     required this.latitude,
     required this.longitude,
@@ -43,6 +48,9 @@ class RunningRoutePointModel {
     required this.altitude,
     required this.speed,
     required this.timestamp,
+    this.cumulativeDistanceKm,
+    this.activeElapsedSeconds,
+    this.startsSegment,
   });
 
   Map<String, dynamic> toJson() {
@@ -53,6 +61,11 @@ class RunningRoutePointModel {
       'altitude': altitude,
       'speed': speed,
       'timestamp': timestamp,
+      if (cumulativeDistanceKm != null)
+        'cumulativeDistanceKm': cumulativeDistanceKm,
+      if (activeElapsedSeconds != null)
+        'activeElapsedSeconds': activeElapsedSeconds,
+      if (startsSegment != null) 'startsSegment': startsSegment,
     };
   }
 
@@ -64,6 +77,15 @@ class RunningRoutePointModel {
       altitude: _doubleFromJson(json['altitude']),
       speed: _doubleFromJson(json['speed']),
       timestamp: json['timestamp']?.toString() ?? '',
+      cumulativeDistanceKm: json['cumulativeDistanceKm'] is num
+          ? (json['cumulativeDistanceKm'] as num).toDouble()
+          : null,
+      activeElapsedSeconds: json['activeElapsedSeconds'] is int
+          ? json['activeElapsedSeconds'] as int
+          : null,
+      startsSegment: json['startsSegment'] is bool
+          ? json['startsSegment'] as bool
+          : null,
     );
   }
 

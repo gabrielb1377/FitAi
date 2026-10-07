@@ -13,6 +13,7 @@ import '../widgets/activities/activities_navigation_header.dart';
 import '../widgets/activities/activity_page_entrance.dart';
 import '../widgets/activities/running_session_overview.dart';
 import 'historico_corridas_page.dart';
+import 'widgets/running_insights_panel.dart';
 
 class CorridasPage extends StatefulWidget {
   final RunningSessionService? runningService;
@@ -28,6 +29,7 @@ class _CorridasPageState extends State<CorridasPage> {
   late Future<List<CoachInsightModel>> _coachFuture;
   var _loading = true;
   var _hasError = false;
+  CorridaModel? _lastFinishedRun;
 
   @override
   void initState() {
@@ -75,6 +77,7 @@ class _CorridasPageState extends State<CorridasPage> {
     }
     if (!mounted || run == null) return;
     setState(() {
+      _lastFinishedRun = run;
       _coachFuture = const CoachInsightService().gerarInsightsPorTipo(
         'corrida',
       );
@@ -198,6 +201,10 @@ class _CorridasPageState extends State<CorridasPage> {
               ),
               const SizedBox(height: FitSpacing.s24),
               _buildCoach(),
+              if (_lastFinishedRun case final run?) ...[
+                const SizedBox(height: FitSpacing.s24),
+                RunningInsightsPanel(run: run, showSummary: true),
+              ],
               const SizedBox(height: FitSpacing.s24),
               FitButton(
                 label: 'Ver historico',

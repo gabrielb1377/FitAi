@@ -25,6 +25,8 @@ void main() {
                 altitude: 0,
                 speed: 3,
                 timestamp: '2026-08-02T08:00:00.000',
+                cumulativeDistanceKm: 0,
+                activeElapsedSeconds: 0,
               ),
               RunningRoutePointModel(
                 latitude: 0,
@@ -33,6 +35,8 @@ void main() {
                 altitude: 0,
                 speed: 3,
                 timestamp: '2026-08-02T08:05:00.000',
+                cumulativeDistanceKm: 1.01,
+                activeElapsedSeconds: 300,
               ),
             ],
           ),

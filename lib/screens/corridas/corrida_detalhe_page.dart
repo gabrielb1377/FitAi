@@ -5,6 +5,7 @@ import '../../models/corrida_model.dart';
 import '../../models/running_session_model.dart';
 import '../../models/running_split_model.dart';
 import '../../services/storage_service.dart';
+import 'widgets/running_insights_panel.dart';
 import '../widgets/activities/activities_navigation_header.dart';
 
 /// Detalhe local de uma corrida finalizada. A rota GPS e opcional.
@@ -15,7 +16,7 @@ class CorridaDetalhePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final splits = RunningSplitModel.fromRoute(corrida.route);
+    final splits = RunningSplitModel.fromRun(corrida);
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -51,7 +52,9 @@ class CorridaDetalhePage extends StatelessWidget {
             FitSectionHeader(
               title: 'Parciais',
               badge: FitBadge(
-                label: splits.isEmpty ? 'Sem GPS' : '${splits.length} km',
+                label: splits.isEmpty
+                    ? 'Indisponíveis'
+                    : '${splits.length} trechos',
                 tone: splits.isEmpty
                     ? FitBadgeTone.neutral
                     : FitBadgeTone.success,
@@ -65,7 +68,7 @@ class CorridaDetalhePage extends StatelessWidget {
               const FitCard(
                 variant: FitCardVariant.outlined,
                 child: Text(
-                  'As parciais aparecem quando a corrida possui pontos GPS suficientes.',
+                  'Parciais indisponíveis: faltam distância aceita e tempo ativo na rota salva.',
                 ),
               )
             else
@@ -75,7 +78,9 @@ class CorridaDetalhePage extends StatelessWidget {
                   children: [
                     for (final split in splits) ...[
                       FitSplitRow(
-                        label: 'Km ${split.kilometer}',
+                        label: split.isPartial
+                            ? '${split.distanceKm.toStringAsFixed(2)} km parcial'
+                            : 'Km ${split.kilometer}',
                         durationLabel: _timeLabel(split.elapsedSeconds),
                         paceLabel: _paceLabel(split.paceMinutesPerKm),
                       ),
@@ -84,6 +89,8 @@ class CorridaDetalhePage extends StatelessWidget {
                   ],
                 ),
               ),
+            const SizedBox(height: FitSpacing.s24),
+            RunningInsightsPanel(run: corrida),
             const SizedBox(height: FitSpacing.s24),
             FitCard(
               variant: FitCardVariant.outlined,
@@ -207,12 +214,15 @@ class _MetricsGrid extends StatelessWidget {
     final metrics = [
       (
         label: 'Ritmo medio',
-        value: CorridaDetalhePage._paceLabel(corrida.pace),
+        value: CorridaDetalhePage._paceLabel(
+          corrida.distancia > 0 ? corrida.segundos / 60 / corrida.distancia : 0,
+        ),
         icon: Icons.route_outlined,
       ),
       (
         label: 'Velocidade media',
-        value: '${corrida.averageSpeed.toStringAsFixed(1)} km/h',
+        value:
+            '${(corrida.segundos > 0 ? corrida.distancia * 3600 / corrida.segundos : 0).toStringAsFixed(1)} km/h',
         icon: Icons.speed_outlined,
       ),
       if (corrida.hasReliableCalories)

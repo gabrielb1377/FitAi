@@ -66,6 +66,7 @@ class RunningSessionService extends ChangeNotifier {
   int _accountRevision = 0;
   int _initializationToken = 0;
   bool _saving = false;
+  bool _disposed = false;
   bool _gpsConnected = false;
   bool _startingGpsStream = false;
   bool _countdownActive = false;
@@ -435,6 +436,16 @@ class RunningSessionService extends ChangeNotifier {
       }
     }
 
+    final startsSegment = _requiresLocationSegmentStart;
+    // A session recovered from an older build cannot reconstruct past active
+    // samples. Keep its route legacy rather than publish a partial timeline.
+    final hasCanonicalProgress =
+        (currentSession.route.isNotEmpty || currentSession.distanceKm == 0) &&
+        currentSession.route.every(
+          (point) =>
+              point.cumulativeDistanceKm != null &&
+              point.activeElapsedSeconds != null,
+        );
     _lastAcceptedSample = sample;
     _lastAcceptedTimestamp = sample.timestamp;
     _requiresLocationSegmentStart = false;
@@ -447,6 +458,11 @@ class RunningSessionService extends ChangeNotifier {
         altitude: sample.altitude ?? 0,
         speed: currentSpeed,
         timestamp: sample.timestamp.toIso8601String(),
+        cumulativeDistanceKm: hasCanonicalProgress ? distanceKm : null,
+        activeElapsedSeconds: hasCanonicalProgress
+            ? currentSession.elapsedSeconds
+            : null,
+        startsSegment: hasCanonicalProgress ? startsSegment : null,
       ),
     ];
 
@@ -464,7 +480,8 @@ class RunningSessionService extends ChangeNotifier {
 
   bool get _canTrackLocation {
     final session = _session;
-    return session != null &&
+    return !_disposed &&
+        session != null &&
         !session.finished &&
         !session.paused &&
         !session.finalizing;
@@ -748,7 +765,13 @@ class RunningSessionService extends ChangeNotifier {
   }
 
   @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
+  @override
   void dispose() {
+    _disposed = true;
     if (_listenAccountChanges) {
       AccountSessionLifecycle.revision.removeListener(_onAccountChanged);
     }

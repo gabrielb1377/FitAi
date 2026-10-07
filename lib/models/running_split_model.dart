@@ -1,85 +1,119 @@
-import 'dart:math' as math;
-
+import 'corrida_model.dart';
 import 'running_session_model.dart';
 
-/// Parcial derivada localmente de uma rota GPS. Nao depende de mapa nem rede.
+/// Kilometer splits projected from accepted distance and active time.
 class RunningSplitModel {
   const RunningSplitModel({
     required this.kilometer,
     required this.elapsedSeconds,
+    this.distanceKm = 1,
+    this.isPartial = false,
   });
 
   final int kilometer;
   final int elapsedSeconds;
+  final double distanceKm;
+  final bool isPartial;
 
-  double get paceMinutesPerKm => elapsedSeconds / 60;
+  double get paceMinutesPerKm =>
+      distanceKm > 0 ? elapsedSeconds / 60 / distanceKm : 0;
 
+  /// Legacy points lack pause/accepted-distance metadata: fail closed.
   static List<RunningSplitModel> fromRoute(List<RunningRoutePointModel> route) {
-    if (route.length < 2) return const [];
+    if (route.isEmpty) return const [];
+    return _derive(
+      route,
+      route.last.cumulativeDistanceKm,
+      route.last.activeElapsedSeconds,
+    );
+  }
 
-    final points = [...route]
-      ..sort((a, b) => _timestamp(a).compareTo(_timestamp(b)));
-    final splits = <RunningSplitModel>[];
-    var accumulatedMeters = 0.0;
-    var accumulatedSeconds = 0.0;
-    var kilometer = 1;
+  static List<RunningSplitModel> fromRun(CorridaModel run) {
+    if (!run.finished || run.isDeleted) return const [];
+    return _derive(run.route, run.distancia, run.segundos);
+  }
 
-    for (var index = 1; index < points.length; index++) {
-      final previous = points[index - 1];
-      final current = points[index];
-      var remainingMeters = _metersBetween(previous, current);
-      var remainingSeconds = _timestamp(
-        current,
-      ).difference(_timestamp(previous)).inSeconds.clamp(0, 3600).toDouble();
+  static List<RunningSplitModel> _derive(
+    List<RunningRoutePointModel> route,
+    double? finalDistance,
+    int? finalSeconds,
+  ) {
+    if (route.length < 2 ||
+        finalDistance == null ||
+        !finalDistance.isFinite ||
+        finalDistance <= 0 ||
+        finalSeconds == null ||
+        finalSeconds <= 0) {
+      return const [];
+    }
+    var previousDistance = 0.0;
+    var previousSeconds = 0;
+    DateTime? previousTimestamp;
+    for (final point in route) {
+      final distance = point.cumulativeDistanceKm;
+      final seconds = point.activeElapsedSeconds;
+      final timestamp = DateTime.tryParse(point.timestamp);
+      if (distance == null ||
+          !distance.isFinite ||
+          distance < previousDistance ||
+          distance > finalDistance + 1e-9 ||
+          seconds == null ||
+          seconds < previousSeconds ||
+          seconds > finalSeconds ||
+          timestamp == null ||
+          (previousTimestamp != null &&
+              !timestamp.isAfter(previousTimestamp)) ||
+          (distance - previousDistance >
+              (seconds - previousSeconds + 1) / 100) ||
+          (point.startsSegment == true && distance != previousDistance)) {
+        return const [];
+      }
+      previousDistance = distance;
+      previousSeconds = seconds;
+      previousTimestamp = timestamp;
+    }
+    // No missing distance may be extrapolated before/after tracking.
+    if (route.first.cumulativeDistanceKm != 0 ||
+        (previousDistance - finalDistance).abs() > 1e-9) {
+      return const [];
+    }
 
-      while (remainingMeters > 0) {
-        final metersToSplit = 1000 - accumulatedMeters;
-        if (remainingMeters < metersToSplit) {
-          accumulatedMeters += remainingMeters;
-          accumulatedSeconds += remainingSeconds;
-          break;
-        }
-
-        final ratio = metersToSplit / remainingMeters;
-        accumulatedSeconds += remainingSeconds * ratio;
-        splits.add(
+    final result = <RunningSplitModel>[];
+    var boundary = 1;
+    var lastBoundarySeconds = 0;
+    previousDistance = 0;
+    previousSeconds = 0;
+    for (final point in route) {
+      final distance = point.cumulativeDistanceKm!;
+      final seconds = point.activeElapsedSeconds!;
+      while (distance + 1e-9 >= boundary && distance > previousDistance) {
+        final ratio =
+            ((boundary - previousDistance) / (distance - previousDistance))
+                .clamp(0.0, 1.0);
+        final crossing = (previousSeconds + (seconds - previousSeconds) * ratio)
+            .round();
+        result.add(
           RunningSplitModel(
-            kilometer: kilometer++,
-            elapsedSeconds: accumulatedSeconds.round(),
+            kilometer: boundary++,
+            elapsedSeconds: crossing - lastBoundarySeconds,
           ),
         );
-        remainingMeters -= metersToSplit;
-        remainingSeconds -= remainingSeconds * ratio;
-        accumulatedMeters = 0;
-        accumulatedSeconds = 0;
+        lastBoundarySeconds = crossing;
       }
+      previousDistance = distance;
+      previousSeconds = seconds;
     }
-    return splits;
+    final remainder = finalDistance - (boundary - 1);
+    if (remainder > 1e-9) {
+      result.add(
+        RunningSplitModel(
+          kilometer: boundary,
+          elapsedSeconds: finalSeconds - lastBoundarySeconds,
+          distanceKm: remainder,
+          isPartial: true,
+        ),
+      );
+    }
+    return List.unmodifiable(result);
   }
-
-  static DateTime _timestamp(RunningRoutePointModel point) =>
-      DateTime.tryParse(point.timestamp) ??
-      DateTime.fromMillisecondsSinceEpoch(0);
-
-  static double _metersBetween(
-    RunningRoutePointModel first,
-    RunningRoutePointModel second,
-  ) {
-    const earthRadiusMeters = 6371000.0;
-    final latitudeDelta = _radians(second.latitude - first.latitude);
-    final longitudeDelta = _radians(second.longitude - first.longitude);
-    final firstLatitude = _radians(first.latitude);
-    final secondLatitude = _radians(second.latitude);
-    final value =
-        math.sin(latitudeDelta / 2) * math.sin(latitudeDelta / 2) +
-        math.cos(firstLatitude) *
-            math.cos(secondLatitude) *
-            math.sin(longitudeDelta / 2) *
-            math.sin(longitudeDelta / 2);
-    return earthRadiusMeters *
-        2 *
-        math.atan2(math.sqrt(value), math.sqrt(1 - value));
-  }
-
-  static double _radians(double value) => value * math.pi / 180;
 }
