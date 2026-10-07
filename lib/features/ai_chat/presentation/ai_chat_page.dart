@@ -6,11 +6,17 @@ import '../../../design_system/fit_design_system.dart';
 import '../application/ai_chat_controller.dart';
 import '../data/ai_chat_gateway.dart';
 import '../data/ai_chat_repository.dart';
+import '../application/ai_action_controller.dart';
+import '../application/ai_action_executor.dart';
+import '../data/ai_action_gateway.dart';
+import 'ai_action_card.dart';
+import 'ai_chat_message_bubble.dart';
 
-/// Minimal authenticated Coach surface. Fitness actions remain read-only.
+/// Minimal authenticated Coach surface with separate, explicitly confirmed actions.
 class AiChatPage extends StatefulWidget {
-  const AiChatPage({super.key, this.controller});
+  const AiChatPage({super.key, this.controller, this.actionController});
   final AiChatController? controller;
+  final AiActionController? actionController;
 
   @override
   State<AiChatPage> createState() => _AiChatPageState();
@@ -19,6 +25,8 @@ class AiChatPage extends StatefulWidget {
 class _AiChatPageState extends State<AiChatPage> {
   late final AiChatController _controller;
   HttpAiChatGateway? _gateway;
+  HttpAiActionGateway? _actionGateway;
+  late final AiActionController _actions;
   final _input = TextEditingController();
   final _scroll = ScrollController();
   final _focus = FocusNode();
@@ -32,6 +40,14 @@ class _AiChatPageState extends State<AiChatPage> {
           repository: AiChatRepository(gateway: _gateway = HttpAiChatGateway()),
         );
     _controller.addListener(_changed);
+    _actions =
+        widget.actionController ??
+        AiActionController(
+          gateway: _actionGateway = HttpAiActionGateway(),
+          executor: CanonicalAiActionExecutor(),
+          onChanged: _controller.updateAction,
+        );
+    _actions.addListener(_changed);
     unawaited(_controller.initialize());
   }
 
@@ -61,6 +77,9 @@ class _AiChatPageState extends State<AiChatPage> {
   @override
   void dispose() {
     _controller.removeListener(_changed);
+    _actions.removeListener(_changed);
+    if (widget.actionController == null) _actions.dispose();
+    _actionGateway?.dispose();
     if (widget.controller == null) _controller.dispose();
     _gateway?.dispose();
     _input.dispose();
@@ -79,7 +98,8 @@ class _AiChatPageState extends State<AiChatPage> {
           FitIconButton(
             icon: Icons.add_comment_outlined,
             tooltip: 'Nova conversa',
-            onPressed: _controller.ready && !_controller.loading
+            onPressed:
+                _controller.ready && !_controller.loading && !_actions.busy
                 ? () => unawaited(_controller.newConversation())
                 : null,
           ),
@@ -102,7 +122,7 @@ class _AiChatPageState extends State<AiChatPage> {
                               icon: Icons.chat_bubble_outline,
                               title: 'Converse sobre seu treino',
                               description:
-                                  'O Coach usa seus dados sincronizados. As orientacoes nao alteram planos ou metas.',
+                                  'O Coach usa seus dados sincronizados. Sugestoes para a ficha exigem sua confirmacao.',
                             ),
                           ),
                         )
@@ -119,38 +139,22 @@ class _AiChatPageState extends State<AiChatPage> {
                                 : messages[index].content;
                             final user =
                                 pending || messages[index].role == 'user';
-                            return Padding(
-                              padding: const EdgeInsets.only(
-                                bottom: FitSpacing.s12,
-                              ),
-                              child: Semantics(
-                                label: user ? 'Voce' : 'Coach FitIA',
-                                liveRegion: !user,
-                                child: FitCard(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        user ? 'Voce' : 'Coach FitIA',
-                                        style: context.textTheme.labelLarge,
-                                      ),
-                                      const SizedBox(height: FitSpacing.s8),
-                                      SelectableText(
-                                        content,
-                                        style: context.textTheme.bodyLarge,
-                                      ),
-                                      if (pending)
-                                        Text(
-                                          _controller.loading
-                                              ? 'Aguardando resposta'
-                                              : 'Mensagem pendente',
-                                          style: context.textTheme.bodySmall,
-                                        ),
-                                    ],
-                                  ),
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                AiChatMessageBubble(
+                                  content: content,
+                                  user: user,
+                                  pending: pending,
+                                  loading: _controller.loading,
                                 ),
-                              ),
+                                if (!pending)
+                                  for (final action in messages[index].actions)
+                                    AiActionCard(
+                                      proposal: action,
+                                      controller: _actions,
+                                    ),
+                              ],
                             );
                           },
                         ),

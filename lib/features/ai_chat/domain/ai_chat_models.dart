@@ -1,4 +1,6 @@
-/// Versioned, read-only chat contract. No fitness mutation is represented here.
+import 'ai_action_models.dart';
+
+/// Versioned chat; structured actions require a separate confirmation boundary.
 abstract final class AiChatContract {
   static const version = 'AiChatContract/v1';
 }
@@ -8,11 +10,18 @@ class AiChatMessage {
     required this.id,
     required this.role,
     required this.content,
+    this.actions = const [],
   });
   final String id;
   final String role;
   final String content;
-  Map<String, dynamic> toJson() => {'id': id, 'role': role, 'content': content};
+  final List<AiActionProposal> actions;
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'role': role,
+    'content': content,
+    if (actions.isNotEmpty) 'actions': actions.map((a) => a.json).toList(),
+  };
   factory AiChatMessage.fromJson(Map<String, dynamic> json) {
     if (json['id'] is! String ||
         !['user', 'assistant'].contains(json['role']) ||
@@ -23,6 +32,7 @@ class AiChatMessage {
       id: json['id'] as String,
       role: json['role'] as String,
       content: json['content'] as String,
+      actions: _actions(json['actions']),
     );
   }
 }
@@ -40,11 +50,13 @@ class AiChatReply {
     required this.userMessageId,
     required this.messageId,
     required this.content,
+    this.actions = const [],
   });
   final String conversationId;
   final String userMessageId;
   final String messageId;
   final String content;
+  final List<AiActionProposal> actions;
   factory AiChatReply.fromJson(Map<String, dynamic> json) {
     if (json['contractVersion'] != AiChatContract.version ||
         json['capabilities'] is! List ||
@@ -62,6 +74,19 @@ class AiChatReply {
       userMessageId: json['userMessageId'] as String,
       messageId: json['messageId'] as String,
       content: json['content'] as String,
+      actions: _actions(json['actions']),
     );
   }
+}
+
+List<AiActionProposal> _actions(Object? value) {
+  if (value == null) return const [];
+  if (value is! List || value.length > 2) {
+    throw const FormatException('Invalid actions.');
+  }
+  return value
+      .map(
+        (a) => AiActionProposal.fromJson(Map<String, dynamic>.from(a as Map)),
+      )
+      .toList();
 }

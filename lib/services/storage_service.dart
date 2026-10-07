@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import '../core/exercises/plan_mutation_guard.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -1854,10 +1855,50 @@ class StorageService {
   static Future<void> salvarTreino(
     TreinoModel treino, {
     SyncService? syncService,
+    PlanMutationGuard? mutationGuard,
   }) => _serializePlanMutation(() async {
     final prefs = await SharedPreferences.getInstance();
 
     final lista = prefs.getStringList("treinos") ?? [];
+    Map<String, dynamic>? previous;
+    for (final raw in lista) {
+      try {
+        final item = jsonDecode(raw);
+        if (item is Map<String, dynamic> && item['id'] == treino.id) {
+          previous = item;
+        }
+      } on FormatException {
+        /* Preserve unrelated legacy entries below. */
+      }
+    }
+    final receipts = List<Map<String, dynamic>>.from(
+      (previous?['_aiActionReceipts'] as List? ?? const []).map(
+        (e) => Map<String, dynamic>.from(e as Map),
+      ),
+    );
+    if (mutationGuard != null) {
+      mutationGuard.assertOwner();
+      if (receipts.any(
+        (r) =>
+            r['id'] == mutationGuard.actionId &&
+            r['owner'] == mutationGuard.owner,
+      )) {
+        throw PlanActionAlreadyApplied(TreinoModel.fromJson(previous!));
+      }
+      if (receipts.length >= 256) {
+        throw StateError(
+          'Limite de recibos da ficha atingido. Nenhuma alteracao foi salva.',
+        );
+      }
+      mutationGuard.validate(
+        previous == null ? null : TreinoModel.fromJson(previous),
+        treino,
+      );
+      receipts.add({
+        'id': mutationGuard.actionId,
+        'owner': mutationGuard.owner,
+      });
+    }
     final atualizados = lista.where((item) {
       try {
         final json = jsonDecode(item);
@@ -1874,9 +1915,17 @@ class StorageService {
       return true;
     }).toList();
 
-    atualizados.add(jsonEncode(treino.toJson()));
+    atualizados.add(
+      jsonEncode({
+        ...treino.toJson(),
+        if (receipts.isNotEmpty) '_aiActionReceipts': receipts,
+      }),
+    );
 
-    await prefs.setStringList("treinos", atualizados);
+    mutationGuard?.assertOwner();
+    if (!await prefs.setStringList("treinos", atualizados)) {
+      throw StateError('Nao foi possivel persistir a ficha neste dispositivo.');
+    }
 
     unawaited(
       (syncService ?? SyncService.instance).syncWorkouts([treino.toJson()]),
@@ -1930,6 +1979,24 @@ class StorageService {
     return lista.map((item) {
       return TreinoModel.fromJson(jsonDecode(item));
     }).toList();
+  }
+
+  /// Reads the receipt stored atomically with the plan, scoped by authenticated owner.
+  static Future<TreinoModel?> carregarPlanoComAcao(
+    String owner,
+    String actionId,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    for (final raw in prefs.getStringList('treinos') ?? const <String>[]) {
+      final json = jsonDecode(raw) as Map<String, dynamic>;
+      final receipts = json['_aiActionReceipts'] as List? ?? const [];
+      if (receipts.any(
+        (r) => r is Map && r['id'] == actionId && r['owner'] == owner,
+      )) {
+        return TreinoModel.fromJson(json);
+      }
+    }
+    return null;
   }
 
   static Future<void> apagarTreinos() async {

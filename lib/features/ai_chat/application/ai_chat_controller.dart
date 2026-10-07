@@ -4,6 +4,7 @@ import '../../../core/auth/local_account_data_boundary.dart';
 import '../../auth/data/auth_service.dart';
 import '../data/ai_chat_repository.dart';
 import '../domain/ai_chat_models.dart';
+import '../domain/ai_action_models.dart';
 
 /// Owns one active conversation; retries reuse the same persisted logical request.
 class AiChatController extends ChangeNotifier {
@@ -130,6 +131,7 @@ class AiChatController extends ChangeNotifier {
             id: reply.messageId,
             role: 'assistant',
             content: reply.content,
+            actions: reply.actions,
           ),
         ]);
         if (_messages.length > 40) {
@@ -178,6 +180,32 @@ class AiChatController extends ChangeNotifier {
         _notify();
       }
     }
+  }
+
+  Future<void> updateAction(AiActionProposal action) async {
+    if (_owner == null || _disposed) return;
+    final epoch = _epoch, owner = _owner!;
+    for (var i = 0; i < _messages.length; i++) {
+      final message = _messages[i];
+      if (message.actions.any((a) => a.id == action.id)) {
+        _messages[i] = AiChatMessage(
+          id: message.id,
+          role: message.role,
+          content: message.content,
+          actions: message.actions
+              .map((a) => a.id == action.id ? action : a)
+              .toList(),
+        );
+      }
+    }
+    if (!_valid(epoch)) return;
+    await repository.save(
+      owner,
+      conversationId: _conversationId,
+      messages: _messages,
+      pending: _pending,
+    );
+    if (_valid(epoch)) _notify();
   }
 
   void _accountChanged() {

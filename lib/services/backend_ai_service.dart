@@ -229,6 +229,13 @@ class BackendAIService {
     return treino;
   }
 
+  /// Reuses the canonical AI binder for a persisted, validated action artifact.
+  TreinoModel mapValidatedWorkout(Map<String, dynamic> json) =>
+      _treinoFromBackendJson(json, request: const {'divisao': 'Full Body'});
+
+  /// Releases transport resources after mapping a persisted action artifact.
+  void dispose() => _client.close();
+
   ExercicioModel _exercicioFromBackendJson(
     Map<String, dynamic> json, {
     required String fallbackItemId,

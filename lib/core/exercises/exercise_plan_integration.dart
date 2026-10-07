@@ -2,6 +2,7 @@ import '../../models/exercicio_model.dart';
 import '../../models/treino_model.dart';
 import '../../services/treino_service.dart';
 import 'exercise_identity.dart';
+import 'plan_mutation_guard.dart';
 
 /// A local command to insert a canonical exercise into an existing plan.
 class ExercisePlanInsertion {
@@ -45,11 +46,13 @@ class ExercisePlanIntegration {
     TreinoService? treinoService,
     this.loadPlans,
     this.savePlan,
+    this.mutationGuard,
   }) : _treinoService = treinoService ?? TreinoService.instance;
 
   final TreinoService _treinoService;
   final Future<List<TreinoModel>> Function()? loadPlans;
   final Future<void> Function(TreinoModel plan)? savePlan;
+  final PlanMutationGuard? mutationGuard;
 
   Future<List<TreinoModel>> availablePlans() async {
     final loadPlans = this.loadPlans;
@@ -235,7 +238,10 @@ class ExercisePlanIntegration {
     if (savePlan != null) {
       await savePlan(plan);
     } else {
-      await _treinoService.adicionarTreinoComPersistencia(plan);
+      await _treinoService.adicionarTreinoComPersistencia(
+        plan,
+        mutationGuard: mutationGuard,
+      );
     }
   }
 

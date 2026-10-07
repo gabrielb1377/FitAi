@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/treino_model.dart';
 import 'storage_service.dart';
+import '../core/exercises/plan_mutation_guard.dart';
 
 class TreinoService extends ChangeNotifier {
   TreinoService._();
@@ -44,10 +45,13 @@ class TreinoService extends ChangeNotifier {
     unawaited(adicionarTreinoComPersistencia(treino));
   }
 
-  Future<void> adicionarTreinoComPersistencia(TreinoModel treino) async {
+  Future<void> adicionarTreinoComPersistencia(
+    TreinoModel treino, {
+    PlanMutationGuard? mutationGuard,
+  }) async {
     // The device is the source of truth for creation; remote delivery is queued
     // by StorageService only after this durable local write completes.
-    await StorageService.salvarTreino(treino);
+    await StorageService.salvarTreino(treino, mutationGuard: mutationGuard);
 
     _initialized = true;
     _loadError = null;
