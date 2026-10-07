@@ -14,6 +14,7 @@ import '../widgets/activities/activity_page_entrance.dart';
 import '../widgets/activities/running_session_overview.dart';
 import 'historico_corridas_page.dart';
 import 'widgets/running_insights_panel.dart';
+import 'widgets/running_live_map.dart';
 
 class CorridasPage extends StatefulWidget {
   final RunningSessionService? runningService;
@@ -178,6 +179,10 @@ class _CorridasPageState extends State<CorridasPage> {
                       onCancel: _cancel,
                     ),
                     const SizedBox(height: FitSpacing.s24),
+                    if (_running.hasActiveSession) ...[
+                      RunningLiveMap(service: _running),
+                      const SizedBox(height: FitSpacing.s24),
+                    ],
                     FitMetricRail(
                       items: [
                         FitMetricRailItem(

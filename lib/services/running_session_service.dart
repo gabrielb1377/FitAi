@@ -363,7 +363,7 @@ class RunningSessionService extends ChangeNotifier {
         _setLocationStatus(RunningLocationStatus.available);
         _log('GPS conectado');
       } on Object catch (error) {
-        _log('GPS perdido: $error');
+        _log('GPS perdido: ${error.runtimeType}');
         _setLocationStatus(RunningLocationStatus.unavailable);
       } finally {
         _startingGpsStream = false;
@@ -546,7 +546,7 @@ class RunningSessionService extends ChangeNotifier {
   }
 
   Future<void> _handleLocationStreamError(Object error) async {
-    _log('GPS perdido: $error');
+    _log('GPS perdido: ${error.runtimeType}');
     await _stopGpsStream(status: RunningLocationStatus.unavailable);
   }
 
