@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../features/auth/data/auth_service.dart';
+import '../core/auth/local_account_data_boundary.dart';
 import 'network_service.dart';
 
 /// Resultado imediato do envio local. Uma entrega em fila continua persistida
@@ -33,6 +34,7 @@ class SyncService {
 
   static const _queueKey = 'fitaiSyncQueue';
   static const _clientIdKey = 'fitaiSyncClientId';
+  static Future<void> _queueMutation = Future<void>.value();
 
   final NetworkService _networkService;
   final AuthService _authService;
@@ -175,22 +177,11 @@ class SyncService {
         if (!available) {
           _debugLog('Backend offline. ${queue.length} itens pendentes.');
         } else {
-          final remaining = <Map<String, dynamic>>[];
-
           for (final item in queue) {
             final sent = await _trySendQueued(item);
-
-            if (!sent) {
-              final attempts = _int(item['attempts']) + 1;
-              remaining.add({
-                ...item,
-                'attempts': attempts,
-                'lastAttemptAt': DateTime.now().toIso8601String(),
-              });
-            }
+            await _completeQueuedAttempt(item, sent: sent);
           }
-
-          await _saveQueue(remaining);
+          final remaining = await _loadQueue();
 
           if (remaining.isEmpty) {
             _debugLog('Fila sincronizada.');
@@ -220,17 +211,14 @@ class SyncService {
     required Map<String, dynamic> payload,
     Duration timeout = const Duration(seconds: 8),
   }) async {
-    final session = await _authService.restoreSession();
-    if (session == null || session.userId != userId) return null;
-    final clientId = await _clientId();
-    return _networkService.postJson(
-      path,
-      payload,
-      headers: {
-        'Authorization': 'Bearer ${session.token}',
-        'X-FitIA-Client-Id': clientId,
-      },
-      timeout: timeout,
+    return _authenticatedRequest(
+      userId: userId,
+      send: (headers) => _networkService.postJson(
+        path,
+        payload,
+        headers: headers,
+        timeout: timeout,
+      ),
     );
   }
 
@@ -239,17 +227,44 @@ class SyncService {
     required String path,
     Duration timeout = const Duration(seconds: 8),
   }) async {
+    return _authenticatedRequest(
+      userId: userId,
+      send: (headers) =>
+          _networkService.getJson(path, headers: headers, timeout: timeout),
+    );
+  }
+
+  Future<Map<String, dynamic>?> _authenticatedRequest({
+    required String userId,
+    required Future<Map<String, dynamic>> Function(Map<String, String>) send,
+  }) async {
     final session = await _authService.restoreSession();
     if (session == null || session.userId != userId) return null;
+    final lifecycle = AccountSessionLifecycle.revision.value;
     final clientId = await _clientId();
-    return _networkService.getJson(
-      path,
-      headers: {
-        'Authorization': 'Bearer ${session.token}',
-        'X-FitIA-Client-Id': clientId,
-      },
-      timeout: timeout,
-    );
+    Map<String, String> headers(AuthSession value) => {
+      'Authorization': 'Bearer ${value.token}',
+      'X-FitIA-Client-Id': clientId,
+    };
+    try {
+      final result = await send(headers(session));
+      return AccountSessionLifecycle.revision.value == lifecycle
+          ? result
+          : null;
+    } on NetworkException catch (error) {
+      if (error.statusCode != 401) rethrow;
+      if (AccountSessionLifecycle.revision.value != lifecycle) return null;
+      final refreshed = await _authService.refreshSession(session: session);
+      if (refreshed == null ||
+          refreshed.userId != userId ||
+          AccountSessionLifecycle.revision.value != lifecycle) {
+        return null;
+      }
+      final result = await send(headers(refreshed));
+      return AccountSessionLifecycle.revision.value == lifecycle
+          ? result
+          : null;
+    }
   }
 
   Future<void> _sendOrQueue({
@@ -284,11 +299,11 @@ class SyncService {
       'ownerUserId': session?.userId,
       'attempts': 0,
       'createdAt': DateTime.now().toIso8601String(),
+      'operationId': _queueId(type),
     };
 
-    // Uma mutacao entregue tambem confirma que qualquer versao pendente da
-    // mesma definicao foi superada. Isto evita replay tardio apos reconexao.
-    await _removeQueuedById(queueItem['id']!.toString());
+    // Persist before dispatch. A crash or lost ACK must leave a replayable item.
+    await _enqueue(queueItem);
 
     final sent = await _trySend(
       path,
@@ -297,10 +312,8 @@ class SyncService {
       session: session,
     );
 
-    if (!sent) {
-      await _enqueue(queueItem);
-      return false;
-    }
+    await _completeQueuedAttempt(queueItem, sent: sent);
+    if (!sent) return false;
 
     unawaited(flushPending());
     return true;
@@ -352,31 +365,29 @@ class SyncService {
     }
 
     try {
-      await _networkService.postJson(
-        path,
-        payload,
-        headers: {
-          'Authorization': 'Bearer ${session.token}',
-          'X-FitIA-Client-Id': clientId,
-        },
-        timeout: const Duration(seconds: 8),
+      final result = await postAuthenticatedJsonForUser(
+        userId: session.userId,
+        path: path,
+        payload: payload,
       );
+      if (result == null) return false;
 
       _debugLog('Sync enviado: $path');
       return true;
     } catch (error) {
-      _debugLog('Sync pendente para $path: $error');
+      _debugLog('Sync pendente para $path: ${error.runtimeType}');
       return false;
     }
   }
 
   Future<void> _enqueue(Map<String, dynamic> item) async {
-    final queue = await _loadQueue();
-    final id = item['id']?.toString() ?? _queueId('item');
-    final withoutSame = queue.where((entry) => entry['id'] != id).toList();
+    await _mutateQueue((queue) async {
+      final id = item['id']?.toString() ?? _queueId('item');
+      final withoutSame = queue.where((entry) => entry['id'] != id).toList();
 
-    withoutSame.add(item);
-    await _saveQueue(withoutSame);
+      withoutSame.add(item);
+      await _saveQueue(withoutSame);
+    });
     _debugLog('Item marcado como pendente: ${item['type']}');
   }
 
@@ -385,15 +396,44 @@ class SyncService {
       try {
         await entry.value();
       } on Object catch (error) {
-        _debugLog('Sync de dominio pendente (${entry.key}): $error');
+        _debugLog(
+          'Sync de dominio pendente (${entry.key}): ${error.runtimeType}',
+        );
       }
     }
   }
 
-  Future<void> _removeQueuedById(String id) async {
-    final queue = await _loadQueue();
-    final remaining = queue.where((entry) => entry['id'] != id).toList();
-    if (remaining.length != queue.length) await _saveQueue(remaining);
+  Future<void> _completeQueuedAttempt(
+    Map<String, dynamic> snapshot, {
+    required bool sent,
+  }) => _mutateQueue((queue) async {
+    final index = queue.indexWhere(
+      (entry) =>
+          entry['id'] == snapshot['id'] &&
+          jsonEncode(entry) == jsonEncode(snapshot),
+    );
+    if (index < 0) return;
+    if (sent) {
+      queue.removeAt(index);
+    } else {
+      queue[index] = {
+        ...snapshot,
+        'attempts': _int(snapshot['attempts']) + 1,
+        'lastAttemptAt': DateTime.now().toIso8601String(),
+      };
+    }
+    await _saveQueue(queue);
+  });
+
+  Future<T> _mutateQueue<T>(
+    Future<T> Function(List<Map<String, dynamic>>) action,
+  ) {
+    final result = _queueMutation.then((_) async => action(await _loadQueue()));
+    _queueMutation = result.then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stack) {},
+    );
+    return result;
   }
 
   /// Removes only legacy activity items whose canonical v2 identity has been
@@ -406,64 +446,65 @@ class SyncService {
     final owner = userId.trim();
     if (owner.isEmpty || (runningIds.isEmpty && stepDayKeys.isEmpty)) return 0;
 
-    final queue = await _loadQueue();
-    final remaining = <Map<String, dynamic>>[];
-    var removedItems = 0;
+    return _mutateQueue((queue) async {
+      final remaining = <Map<String, dynamic>>[];
+      var removedItems = 0;
 
-    for (final entry in queue) {
-      if (entry['ownerUserId']?.toString().trim() != owner) {
-        remaining.add(entry);
-        continue;
-      }
+      for (final entry in queue) {
+        if (entry['ownerUserId']?.toString().trim() != owner) {
+          remaining.add(entry);
+          continue;
+        }
 
-      final path = entry['path']?.toString() ?? '';
-      final isRunning = path == '/sync/running' && runningIds.isNotEmpty;
-      final isSteps = path == '/steps/sync' && stepDayKeys.isNotEmpty;
-      if (!isRunning && !isSteps) {
-        remaining.add(entry);
-        continue;
-      }
+        final path = entry['path']?.toString() ?? '';
+        final isRunning = path == '/sync/running' && runningIds.isNotEmpty;
+        final isSteps = path == '/steps/sync' && stepDayKeys.isNotEmpty;
+        if (!isRunning && !isSteps) {
+          remaining.add(entry);
+          continue;
+        }
 
-      final payload = _map(entry['payload']);
-      final rawItems = payload['items'];
-      if (rawItems is! List) {
-        final item = _map(payload['item']);
-        final matched = isRunning
-            ? runningIds.contains(_legacyRunId(item))
-            : stepDayKeys.contains(_legacyStepDay(item));
-        if (matched) {
-          removedItems++;
-        } else {
+        final payload = _map(entry['payload']);
+        final rawItems = payload['items'];
+        if (rawItems is! List) {
+          final item = _map(payload['item']);
+          final matched = isRunning
+              ? runningIds.contains(_legacyRunId(item))
+              : stepDayKeys.contains(_legacyStepDay(item));
+          if (matched) {
+            removedItems++;
+          } else {
+            remaining.add(entry);
+          }
+          continue;
+        }
+
+        final kept = <Object?>[];
+        for (final rawItem in rawItems) {
+          final item = _map(rawItem);
+          final matched = isRunning
+              ? runningIds.contains(_legacyRunId(item))
+              : stepDayKeys.contains(_legacyStepDay(item));
+          if (matched) {
+            removedItems++;
+          } else {
+            kept.add(rawItem);
+          }
+        }
+
+        if (kept.isNotEmpty) {
+          remaining.add({
+            ...entry,
+            'payload': {...payload, 'items': kept},
+          });
+        } else if (rawItems.isEmpty) {
           remaining.add(entry);
         }
-        continue;
       }
 
-      final kept = <Object?>[];
-      for (final rawItem in rawItems) {
-        final item = _map(rawItem);
-        final matched = isRunning
-            ? runningIds.contains(_legacyRunId(item))
-            : stepDayKeys.contains(_legacyStepDay(item));
-        if (matched) {
-          removedItems++;
-        } else {
-          kept.add(rawItem);
-        }
-      }
-
-      if (kept.isNotEmpty) {
-        remaining.add({
-          ...entry,
-          'payload': {...payload, 'items': kept},
-        });
-      } else if (rawItems.isEmpty) {
-        remaining.add(entry);
-      }
-    }
-
-    if (removedItems > 0) await _saveQueue(remaining);
-    return removedItems;
+      if (removedItems > 0) await _saveQueue(remaining);
+      return removedItems;
+    });
   }
 
   bool _isLegacyActivityPath(String path) =>
@@ -499,10 +540,11 @@ class SyncService {
 
   Future<void> _saveQueue(List<Map<String, dynamic>> queue) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(
+    final saved = await prefs.setStringList(
       _queueKey,
       queue.map((item) => jsonEncode(item)).toList(),
     );
+    if (!saved) throw StateError('Sync queue persistence failed');
   }
 
   Future<String> _clientId() async {

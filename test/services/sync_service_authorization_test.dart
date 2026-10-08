@@ -97,8 +97,15 @@ void main() {
 
       await accountB.flushPending();
 
-      expect(await accountB.pendingCount(), 1);
+      // A's queue is archived by the account boundary, not copied into B's
+      // active preferences by the completion of a stale flush snapshot.
+      expect(await accountB.pendingCount(), 0);
       expect(onlineClient.postRequests, isEmpty);
+      await AuthService(
+        bypassLogin: false,
+        sessionStore: storeA,
+      ).restoreSession();
+      expect(await offline.pendingCount(), 1);
     },
   );
 

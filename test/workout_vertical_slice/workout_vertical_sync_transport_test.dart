@@ -190,6 +190,68 @@ void main() {
 
     expect(client.closed, isFalse);
   });
+
+  test(
+    'SYNC-19-12: stale workout outbox never dispatches under another owner',
+    () async {
+      final store = InMemoryAuthSessionStore();
+      await store.write(
+        jsonEncode(
+          AuthSession(
+            userId: 'user-b',
+            name: 'B',
+            email: 'b@fitia.test',
+            token: _token(expiry: DateTime.now().add(const Duration(hours: 1))),
+          ).toJson(),
+        ),
+      );
+      final auth = AuthService(bypassLogin: false, sessionStore: store);
+      var requests = 0;
+      final debug = DebugWorkoutSyncTransport();
+      final transport = AdaptiveWorkoutSyncTransport(
+        debugTransport: debug,
+        expectedUserId: 'user-a',
+        allowDebugFallback: false,
+        authService: auth,
+        remoteTransport: HttpWorkoutSyncTransport(
+          authService: auth,
+          expectedUserId: 'user-a',
+          client: MockClient((_) async {
+            requests++;
+            return http.Response('{}', 200);
+          }),
+        ),
+      );
+      await expectLater(
+        transport.dispatch(_event()),
+        throwsA(isA<WorkoutSyncTransportException>()),
+      );
+      expect(requests, 0);
+      expect(debug.receivedIdempotencyKeys, isEmpty);
+    },
+  );
+
+  test(
+    'SYNC-19-13: authenticated journal cannot be acknowledged by debug after logout',
+    () async {
+      final debug = DebugWorkoutSyncTransport();
+      final auth = AuthService(
+        bypassLogin: false,
+        sessionStore: InMemoryAuthSessionStore(),
+      );
+      final transport = AdaptiveWorkoutSyncTransport(
+        debugTransport: debug,
+        expectedUserId: 'user-a',
+        allowDebugFallback: false,
+        authService: auth,
+      );
+      await expectLater(
+        transport.dispatch(_event()),
+        throwsA(isA<WorkoutSyncTransportException>()),
+      );
+      expect(debug.receivedIdempotencyKeys, isEmpty);
+    },
+  );
 }
 
 class _TrackingClient extends http.BaseClient {

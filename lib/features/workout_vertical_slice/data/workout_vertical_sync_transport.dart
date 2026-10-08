@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:fitai/core/api/api_config.dart';
+import 'package:fitai/core/auth/local_account_data_boundary.dart';
+import 'package:fitai/core/config/dev_config.dart';
 import 'package:fitai/features/auth/data/auth_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -66,6 +68,7 @@ class HttpWorkoutSyncTransport
   HttpWorkoutSyncTransport({
     http.Client? client,
     AuthService? authService,
+    this.expectedUserId,
     Future<SharedPreferences> Function()? preferencesLoader,
   }) : _client = client ?? http.Client(),
        _ownsClient = client == null,
@@ -77,6 +80,7 @@ class HttpWorkoutSyncTransport
   final http.Client _client;
   final bool _ownsClient;
   final AuthService _authService;
+  final String? expectedUserId;
   final Future<SharedPreferences> Function() _preferencesLoader;
   WorkoutSyncConnectionState _connectionState =
       WorkoutSyncConnectionState.unknown;
@@ -92,18 +96,25 @@ class HttpWorkoutSyncTransport
   @override
   Future<SyncDispatchResult> dispatch(OutboxEventLocal event) async {
     final session = await _authService.restoreSession();
-    if (session == null) {
+    if (session == null ||
+        (expectedUserId != null && session.userId != expectedUserId)) {
       throw const WorkoutSyncTransportException(
         'Sessao autenticada necessaria para sincronizar.',
         retryable: true,
       );
     }
+    final lifecycle = AccountSessionLifecycle.revision.value;
     try {
       return await dispatchWithToken(event, session.token);
     } on WorkoutSyncTransportException catch (error) {
       if (error.statusCode != 401 && error.statusCode != 403) rethrow;
-      final refreshed = await _authService.refreshSession();
-      if (refreshed == null) rethrow;
+      if (AccountSessionLifecycle.revision.value != lifecycle) rethrow;
+      final refreshed = await _authService.refreshSession(session: session);
+      if (refreshed == null ||
+          refreshed.userId != session.userId ||
+          AccountSessionLifecycle.revision.value != lifecycle) {
+        rethrow;
+      }
       return dispatchWithToken(event, refreshed.token);
     }
   }
@@ -257,14 +268,23 @@ class AdaptiveWorkoutSyncTransport
         WorkoutSyncTransportDisposer {
   AdaptiveWorkoutSyncTransport({
     required this.debugTransport,
+    this.expectedUserId,
+    this.allowDebugFallback = true,
     HttpWorkoutSyncTransport? remoteTransport,
     AuthService? authService,
-  }) : _remoteTransport = remoteTransport ?? HttpWorkoutSyncTransport(),
+  }) : _remoteTransport =
+           remoteTransport ??
+           HttpWorkoutSyncTransport(
+             authService: authService,
+             expectedUserId: expectedUserId,
+           ),
        _authService = authService ?? AuthService();
 
   final DebugWorkoutSyncTransport debugTransport;
   final HttpWorkoutSyncTransport _remoteTransport;
   final AuthService _authService;
+  final String? expectedUserId;
+  final bool allowDebugFallback;
 
   @override
   void dispose() => _remoteTransport.dispose();
@@ -277,9 +297,24 @@ class AdaptiveWorkoutSyncTransport
 
   @override
   Future<SyncDispatchResult> dispatch(OutboxEventLocal event) async {
-    if (!debugTransport.online) return debugTransport.dispatch(event);
+    final debugAllowed = DevConfig.enabled && allowDebugFallback;
+    if (!debugTransport.online && debugAllowed) {
+      return debugTransport.dispatch(event);
+    }
     final session = await _authService.restoreSession();
-    if (session == null) return debugTransport.dispatch(event);
-    return _remoteTransport.dispatchWithToken(event, session.token);
+    if (session == null) {
+      if (debugAllowed) return debugTransport.dispatch(event);
+      throw const WorkoutSyncTransportException(
+        'Sessao autenticada necessaria para sincronizar.',
+        retryable: true,
+      );
+    }
+    if (expectedUserId != null && session.userId != expectedUserId) {
+      throw const WorkoutSyncTransportException(
+        'Outbox pertence a outra conta.',
+        retryable: true,
+      );
+    }
+    return _remoteTransport.dispatch(event);
   }
 }

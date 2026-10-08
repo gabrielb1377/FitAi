@@ -313,6 +313,10 @@ class AuthService {
       return null;
     }
 
+    final lifecycle = AccountSessionLifecycle.revision.value;
+    final activeUser = AccountSessionLifecycle.activeUserId;
+    if (activeUser != null && activeUser != session.userId) return null;
+
     try {
       final response = await _client
           .post(
@@ -324,6 +328,9 @@ class AuthService {
             body: jsonEncode({'refreshToken': refreshToken}),
           )
           .timeout(ApiConfig.timeout);
+      // A refresh started by A cannot overwrite or revoke B after account
+      // switch/logout while the server response was in flight.
+      if (AccountSessionLifecycle.revision.value != lifecycle) return null;
       final body = _decodeObject(response.body);
       if (response.statusCode == 401 || response.statusCode == 403) {
         await clearSession();

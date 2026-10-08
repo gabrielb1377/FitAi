@@ -8,8 +8,9 @@ import '../core/api/api_config.dart';
 
 class NetworkException implements Exception {
   final String message;
+  final int? statusCode;
 
-  const NetworkException(this.message);
+  const NetworkException(this.message, {this.statusCode});
 
   @override
   String toString() => 'NetworkException: $message';
@@ -72,7 +73,10 @@ class NetworkService {
 
   Map<String, dynamic> _decode(http.Response response) {
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw NetworkException('Status ${response.statusCode}.');
+      throw NetworkException(
+        'Status ${response.statusCode}.',
+        statusCode: response.statusCode,
+      );
     }
 
     if (response.body.trim().isEmpty) {

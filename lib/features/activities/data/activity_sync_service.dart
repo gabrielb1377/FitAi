@@ -48,16 +48,21 @@ class ActivitySyncService {
     registerUser(owner);
     try {
       final cursor = await StorageService.carregarActivitySyncCursor(owner);
-      final pendingRuns = await StorageService.carregarCorridasPendentes(
-        userId: owner,
-      );
+      final pendingRuns =
+          (await StorageService.carregarCorridasPendentes(userId: owner))
+              .where((run) => run.syncStatus != RunningSyncStatus.conflict)
+              .take(50)
+              .toList(growable: false);
       final pendingSteps = (await StorageService.carregarDailyStepsHistory())
           .where(
             (record) =>
                 record.userId == owner &&
                 record.sourceKind != DailyStepsSource.seed &&
-                record.syncStatus != DailyStepsSyncStatus.synced,
+                record.syncStatus != DailyStepsSyncStatus.synced &&
+                record.syncStatus != DailyStepsSyncStatus.conflict &&
+                record.syncStatus != DailyStepsSyncStatus.failed,
           )
+          .take(50)
           .toList(growable: false);
       Map<String, dynamic>? response;
       if (pendingRuns.isNotEmpty || pendingSteps.isNotEmpty) {
@@ -214,6 +219,11 @@ class ActivitySyncService {
           break;
         }
       }
+      // A response for v1 must not replace a v2 observation saved while the
+      // request was in flight. Only that observation's own ACK can clear it.
+      if (local != null && local.syncStatus != DailyStepsSyncStatus.synced) {
+        continue;
+      }
       if (local == null ||
           _revision(remote.remoteRevision) >= _revision(local.remoteRevision)) {
         await StorageService.salvarDailyStepsRemoto(
@@ -223,7 +233,10 @@ class ActivitySyncService {
     }
     final revision = state['revision']?.toString() ?? '';
     if (RegExp(r'^\d+$').hasMatch(revision)) {
-      await StorageService.salvarActivitySyncCursor(userId, revision);
+      final current = await StorageService.carregarActivitySyncCursor(userId);
+      if (_revision(revision) >= _revision(current)) {
+        await StorageService.salvarActivitySyncCursor(userId, revision);
+      }
     }
   }
 

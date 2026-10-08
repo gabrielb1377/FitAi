@@ -747,7 +747,11 @@ class CoreJourneyController extends ChangeNotifier {
       ),
       transport:
           transport ??
-          AdaptiveWorkoutSyncTransport(debugTransport: _debugTransport),
+          AdaptiveWorkoutSyncTransport(
+            debugTransport: _debugTransport,
+            expectedUserId: userId,
+            allowDebugFallback: userId == debugUserId,
+          ),
     );
   }
 
