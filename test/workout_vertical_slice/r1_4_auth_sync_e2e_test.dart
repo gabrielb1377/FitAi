@@ -1,12 +1,16 @@
 import 'dart:convert';
 
 import 'package:fitai/core/api/api_config.dart';
+import 'package:fitai/core/auth/local_account_data_boundary.dart';
+import 'package:fitai/features/plans/data/workout_history_repository.dart';
 import 'package:fitai/features/auth/data/auth_service.dart';
 import 'package:fitai/features/auth/data/auth_session_store.dart';
 import 'package:fitai/features/workout_vertical_slice/data/workout_vertical_local_store.dart';
 import 'package:fitai/features/workout_vertical_slice/data/workout_vertical_repository.dart';
 import 'package:fitai/features/workout_vertical_slice/data/workout_vertical_sync_transport.dart';
 import 'package:fitai/features/workout_vertical_slice/domain/workout_vertical_models.dart';
+import 'package:fitai/models/treino_model.dart';
+import 'package:fitai/services/storage_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -180,6 +184,121 @@ void main() {
       await tamperedRepository.flushOutbox();
       expect((await storeA.read()).outbox, isEmpty);
 
+      // FITAI-20: device B is a fresh journal under A's identity, not a copy of A.
+      for (var index = 2; index < 52; index++) {
+        await repositoryA.registerSet(
+          sessionId: session.id,
+          exerciseId: 'bench-press-example',
+          setIndex: index,
+          weight: 55,
+          reps: 10,
+        );
+      }
+      await repositoryA.finish(session.id);
+      await repositoryA.flushOutbox();
+      final deviceBStore = _MemoryStore();
+      WorkoutVerticalRepository deviceB() => WorkoutVerticalRepository(
+        localStore: deviceBStore,
+        transport: DebugWorkoutSyncTransport(),
+        historyReader: (revision, setId) => _authenticatedGet(
+          userA,
+          '/workout-sync/history?afterRevision=$revision&afterSetId=${Uri.encodeQueryComponent(setId)}',
+        ),
+      );
+      await deviceB().pullHistory(maxPages: 1);
+      expect((await deviceBStore.read()).sets, hasLength(50));
+      expect(
+        (await WorkoutHistoryRepository(
+          localStore: deviceBStore,
+        ).load()).workouts,
+        isEmpty,
+      );
+      await deviceB().pullHistory();
+      await deviceB()
+          .pullHistory(); // Reconstructing the repository models restart.
+      final imported = await deviceBStore.read();
+      expect(imported.sessions.single.id, session.id);
+      expect(
+        imported.sets.map((set) => set.id).toSet(),
+        (await storeA.read()).sets.map((set) => set.id).toSet(),
+      );
+      expect(imported.outbox, isEmpty);
+      expect(
+        (await WorkoutHistoryRepository(
+          localStore: deviceBStore,
+        ).load()).workouts,
+        hasLength(1),
+      );
+      final otherOwnerStore = _MemoryStore();
+      await WorkoutVerticalRepository(
+        localStore: otherOwnerStore,
+        transport: DebugWorkoutSyncTransport(),
+        historyReader: (revision, setId) => _authenticatedGet(
+          userB,
+          '/workout-sync/history?afterRevision=$revision&afterSetId=$setId',
+        ),
+      ).pullHistory();
+      expect((await otherOwnerStore.read()).sessions, isEmpty);
+
+      // Real API plan definition -> device B -> tombstone, without deleting history.
+      final plan = TreinoModel.fromJson({
+        'id': session.planId,
+        'nome': 'R7 Plan',
+      });
+      await _authenticatedPost(userA, '/sync/workouts', {
+        'items': [plan.toJson()],
+      });
+      final definitions = await _authenticatedGet(userA, '/sync/workouts');
+      expect((definitions['workouts'] as List).single['id'], plan.id);
+      AccountSessionLifecycle.setActiveUser(userA.session.userId);
+      await tamperedPreferences.setStringList('treinos', [
+        jsonEncode(plan.toJson()),
+      ]);
+      expect(await StorageService.carregarTreinos(), hasLength(1));
+      final deletion = await _authenticatedPost(
+        userA,
+        '/sync/workouts/delete',
+        {'id': plan.id},
+      );
+      expect(deletion['deleted'], isTrue);
+      final lostAckRetry = await _authenticatedPost(
+        userA,
+        '/sync/workouts/delete',
+        {'id': plan.id},
+      );
+      expect(lostAckRetry['alreadyDeleted'], isTrue);
+      final tombstones = await _authenticatedGet(
+        userA,
+        '/sync/workouts/deletions?afterRevision=0',
+      );
+      await StorageService.applyPlanDeletions(userA.session.userId, tombstones);
+      await StorageService.applyPlanDeletions(userA.session.userId, tombstones);
+      expect(await StorageService.carregarTreinos(), isEmpty);
+      await expectLater(StorageService.salvarTreino(plan), throwsStateError);
+      final stale = await _authenticatedPost(userA, '/sync/workouts', {
+        'items': [plan.toJson()],
+      });
+      expect((stale['workouts'] as List).single['deletedAt'], isNotNull);
+      expect(
+        (await _authenticatedGet(userA, '/sync/workouts'))['workouts'],
+        isEmpty,
+      );
+      expect(
+        (await _authenticatedGet(
+          userB,
+          '/sync/workouts/deletions?afterRevision=0',
+        ))['deletions'],
+        isEmpty,
+      );
+      expect(
+        (await WorkoutHistoryRepository(
+          localStore: deviceBStore,
+        ).load()).workouts,
+        hasLength(1),
+      );
+      expect((await deviceBStore.read()).sets, hasLength(52));
+      AccountSessionLifecycle.setActiveUser(null);
+
       primaryTransport.dispose();
       repositoryA.dispose();
       userBRepository.dispose();
@@ -191,6 +310,35 @@ void main() {
         ? 'Executado por npm run test:r1-4:auth-sync-e2e contra o PostgreSQL de teste.'
         : false,
   );
+}
+
+Future<Map<String, dynamic>> _authenticatedGet(
+  _AuthenticatedUser user,
+  String path,
+) async {
+  final response = await http.get(
+    ApiConfig.endpoint(path),
+    headers: {'Authorization': 'Bearer ${user.session.token}'},
+  );
+  expect(response.statusCode, 200, reason: path);
+  return jsonDecode(response.body) as Map<String, dynamic>;
+}
+
+Future<Map<String, dynamic>> _authenticatedPost(
+  _AuthenticatedUser user,
+  String path,
+  Map<String, dynamic> payload,
+) async {
+  final response = await http.post(
+    ApiConfig.endpoint(path),
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ${user.session.token}',
+    },
+    body: jsonEncode(payload),
+  );
+  expect(response.statusCode, 200, reason: path);
+  return jsonDecode(response.body) as Map<String, dynamic>;
 }
 
 Future<_AuthenticatedUser> _register(String user) async {

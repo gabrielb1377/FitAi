@@ -35,6 +35,8 @@ class WorkoutSessionLocal {
     this.workoutName,
     this.calories,
     this.workoutSnapshot,
+    this.remoteImported = false,
+    this.remoteHistoryComplete = true,
   });
 
   final String id;
@@ -53,6 +55,8 @@ class WorkoutSessionLocal {
   final String? workoutName;
   final double? calories;
   final Map<String, dynamic>? workoutSnapshot;
+  final bool remoteImported;
+  final bool remoteHistoryComplete;
 
   bool get isOpen =>
       status == WorkoutSessionStatus.active ||
@@ -72,6 +76,7 @@ class WorkoutSessionLocal {
     String? workoutName,
     double? calories,
     Map<String, dynamic>? workoutSnapshot,
+    bool? remoteHistoryComplete,
   }) {
     return WorkoutSessionLocal(
       id: id,
@@ -90,6 +95,9 @@ class WorkoutSessionLocal {
       workoutName: workoutName ?? this.workoutName,
       calories: calories ?? this.calories,
       workoutSnapshot: workoutSnapshot ?? this.workoutSnapshot,
+      remoteImported: remoteImported,
+      remoteHistoryComplete:
+          remoteHistoryComplete ?? this.remoteHistoryComplete,
     );
   }
 
@@ -110,6 +118,8 @@ class WorkoutSessionLocal {
     'workoutName': workoutName,
     'calories': calories,
     'workoutSnapshot': workoutSnapshot,
+    'remoteImported': remoteImported,
+    'remoteHistoryComplete': remoteHistoryComplete,
   };
 
   factory WorkoutSessionLocal.fromJson(Map<String, dynamic> json) {
@@ -130,6 +140,8 @@ class WorkoutSessionLocal {
       workoutName: _nullableString(json['workoutName']),
       calories: _nullableDouble(json['calories']),
       workoutSnapshot: _nullableMap(json['workoutSnapshot']),
+      remoteImported: json['remoteImported'] == true,
+      remoteHistoryComplete: json['remoteHistoryComplete'] != false,
     );
   }
 }
@@ -328,32 +340,44 @@ class WorkoutSliceSnapshot {
     required this.sets,
     required this.outbox,
     required this.schemaVersion,
+    this.remoteHistoryRevision = '0',
+    this.remoteHistorySetId = '',
   });
 
   const WorkoutSliceSnapshot.empty()
     : sessions = const [],
       sets = const [],
       outbox = const [],
-      schemaVersion = 1;
+      schemaVersion = 1,
+      remoteHistoryRevision = '0',
+      remoteHistorySetId = '';
 
   final List<WorkoutSessionLocal> sessions;
   final List<WorkoutSetLocal> sets;
   final List<OutboxEventLocal> outbox;
   final int schemaVersion;
+  final String remoteHistoryRevision;
+  final String remoteHistorySetId;
 
   WorkoutSliceSnapshot copyWith({
     List<WorkoutSessionLocal>? sessions,
     List<WorkoutSetLocal>? sets,
     List<OutboxEventLocal>? outbox,
+    String? remoteHistoryRevision,
+    String? remoteHistorySetId,
   }) => WorkoutSliceSnapshot(
     sessions: sessions ?? this.sessions,
     sets: sets ?? this.sets,
     outbox: outbox ?? this.outbox,
     schemaVersion: schemaVersion,
+    remoteHistoryRevision: remoteHistoryRevision ?? this.remoteHistoryRevision,
+    remoteHistorySetId: remoteHistorySetId ?? this.remoteHistorySetId,
   );
 
   Map<String, dynamic> toJson() => {
     'schemaVersion': schemaVersion,
+    'remoteHistoryRevision': remoteHistoryRevision,
+    'remoteHistorySetId': remoteHistorySetId,
     'sessions': sessions.map((item) => item.toJson()).toList(),
     'sets': sets.map((item) => item.toJson()).toList(),
     'outbox': outbox.map((item) => item.toJson()).toList(),
@@ -363,6 +387,8 @@ class WorkoutSliceSnapshot {
     Map<String, dynamic> json,
   ) => WorkoutSliceSnapshot(
     schemaVersion: json['schemaVersion'] as int? ?? 1,
+    remoteHistoryRevision: json['remoteHistoryRevision'] as String? ?? '0',
+    remoteHistorySetId: json['remoteHistorySetId'] as String? ?? '',
     sessions: (json['sessions'] as List<dynamic>? ?? const [])
         .map(
           (item) => WorkoutSessionLocal.fromJson(

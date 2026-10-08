@@ -19,6 +19,7 @@ import '../../../features/workout_vertical_slice/domain/workout_vertical_models.
 import '../../../models/exercicio_model.dart';
 import '../../../models/treino_model.dart';
 import '../../../services/storage_service.dart';
+import '../../../services/sync_service.dart';
 import '../../../services/treino_service.dart';
 
 /// Identidade minima usada apenas para escolher o namespace local do treino.
@@ -51,7 +52,11 @@ class CoreJourneyController extends ChangeNotifier {
     this.repositoryFactory,
     this.transport,
     DebugWorkoutSyncTransport? debugTransport,
-  }) : _debugTransport = debugTransport ?? DebugWorkoutSyncTransport();
+  }) : _debugTransport = debugTransport ?? DebugWorkoutSyncTransport() {
+    if (repositoryFactory == null) {
+      SyncService.instance.registerDomainFlusher(_syncFlusherKey, _flushOutbox);
+    }
+  }
 
   static const debugUserId = 'debug-gabriel';
 
@@ -60,6 +65,8 @@ class CoreJourneyController extends ChangeNotifier {
   final CoreJourneyRepositoryFactory? repositoryFactory;
   final WorkoutVerticalSyncTransport? transport;
   final DebugWorkoutSyncTransport _debugTransport;
+  late final String _syncFlusherKey =
+      'workout-history:${identityHashCode(this)}';
 
   WorkoutVerticalRepository? _repository;
   WorkoutSliceSnapshot snapshot = const WorkoutSliceSnapshot.empty();
@@ -222,7 +229,7 @@ class CoreJourneyController extends ChangeNotifier {
       await _requiredRepository.recoverInterruptedSync();
       snapshot = await _requiredRepository.load();
       plans = await (planLoader ?? _loadPlans)();
-      if (hasPendingSync) unawaited(_flushOutbox());
+      unawaited(_flushOutbox());
       WorkoutVerticalLog.event(
         'journey.initialize_completed',
         fields: {'plans': plans.length, 'pendingSync': hasPendingSync},
@@ -628,6 +635,9 @@ class CoreJourneyController extends ChangeNotifier {
         if (_disposed) return;
         await _reload();
       } while (_hasDueOutboxEvents());
+      final repository = _requiredRepository;
+      await repository.pullHistory();
+      if (!_disposed && identical(repository, _repository)) await _reload();
     } on Object catch (error) {
       WorkoutVerticalLog.failure('journey.sync_failed', error);
       // A outbox persistida e a fonte da recuperacao; a interface mostrara
@@ -745,6 +755,12 @@ class CoreJourneyController extends ChangeNotifier {
         preferences,
         userScope: userId,
       ),
+      historyReader: (revision, setId) =>
+          SyncService.instance.getAuthenticatedJsonForUser(
+            userId: userId,
+            path:
+                '/workout-sync/history?afterRevision=$revision&afterSetId=${Uri.encodeQueryComponent(setId)}',
+          ),
       transport:
           transport ??
           AdaptiveWorkoutSyncTransport(
@@ -792,6 +808,9 @@ class CoreJourneyController extends ChangeNotifier {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    if (repositoryFactory == null) {
+      SyncService.instance.unregisterDomainFlusher(_syncFlusherKey);
+    }
     _cancelAutomaticSyncRetry();
     _repository?.dispose();
     _repository = null;

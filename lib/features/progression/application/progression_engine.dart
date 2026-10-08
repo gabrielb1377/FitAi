@@ -88,7 +88,7 @@ class ProgressionEngine {
   Future<ProgressionRemoteSyncResult> syncRemote({String? userId}) =>
       _serialize(() async {
         final resolvedUserId = await _resolveUserId(userId);
-        final snapshot = await _loadOrMigrate(resolvedUserId);
+        var snapshot = await _loadOrMigrate(resolvedUserId);
         final gateway = remoteGateway;
         if (gateway == null) {
           return ProgressionRemoteSyncResult(
@@ -107,6 +107,7 @@ class ProgressionEngine {
             .take(50)
             .toList(growable: false);
 
+        var changed = false;
         try {
           ProgressionRemoteState? remoteState;
           ProgressionRemoteAcknowledgement? acknowledgement;
@@ -137,25 +138,67 @@ class ProgressionEngine {
             }
           }
 
-          final reconciled = _reconcileRemote(
+          var pageState = remoteState;
+          _validateRemotePage(pageState, snapshot.remoteRevision);
+          var reconciled = _reconcileRemote(
             snapshot: snapshot,
-            remoteState: remoteState,
+            remoteState: pageState,
             acknowledgement: acknowledgement,
           );
-          if (!identical(reconciled, snapshot)) await _persist(reconciled);
+          changed = !identical(reconciled, snapshot);
+          if (changed) await _persist(reconciled);
+          snapshot = reconciled;
+          for (var page = 1; pageState.hasMore && page < 20; page++) {
+            final next = await gateway.pull(
+              userId: resolvedUserId,
+              afterRevision: snapshot.remoteRevision,
+            );
+            if (next == null) {
+              return ProgressionRemoteSyncResult(
+                snapshot: snapshot,
+                status: ProgressionRemoteSyncState.unauthenticated,
+                changed: changed,
+                hasMore: true,
+              );
+            }
+            _validateRemotePage(next, snapshot.remoteRevision);
+            reconciled = _reconcileRemote(
+              snapshot: snapshot,
+              remoteState: next,
+              acknowledgement: null,
+            );
+            if (!identical(reconciled, snapshot)) {
+              await _persist(reconciled);
+              changed = true;
+            }
+            snapshot = reconciled;
+            pageState = next;
+          }
           return ProgressionRemoteSyncResult(
             snapshot: reconciled,
             status: ProgressionRemoteSyncState.synchronized,
-            changed: !identical(reconciled, snapshot),
+            changed: changed,
+            hasMore: pageState.hasMore,
           );
         } on Object catch (error) {
           return ProgressionRemoteSyncResult(
             snapshot: snapshot,
             status: ProgressionRemoteSyncState.failed,
             error: error,
+            changed: changed,
           );
         }
       });
+
+  void _validateRemotePage(ProgressionRemoteState state, String cursor) {
+    final previous = BigInt.parse(cursor);
+    final next = BigInt.parse(state.revision);
+    if (state.events.length > 50 ||
+        next < previous ||
+        (state.hasMore && (next == previous || state.events.isEmpty))) {
+      throw StateError('Invalid progression page or non-advancing cursor.');
+    }
+  }
 
   Future<ProgressionProcessingResult> recordWorkoutCompletion({
     required String workoutId,
@@ -1047,12 +1090,14 @@ class ProgressionRemoteSyncResult {
     required this.status,
     this.changed = false,
     this.error,
+    this.hasMore = false,
   });
 
   final ProgressionSnapshot snapshot;
   final ProgressionRemoteSyncState status;
   final bool changed;
   final Object? error;
+  final bool hasMore;
 }
 
 class _AchievementUpdate {

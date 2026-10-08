@@ -109,15 +109,21 @@ class ProgressionRemoteEvent {
 }
 
 class ProgressionRemoteState {
-  const ProgressionRemoteState({required this.revision, required this.events});
+  const ProgressionRemoteState({
+    required this.revision,
+    required this.events,
+    this.hasMore = false,
+  });
 
   final String revision;
   final List<ProgressionRemoteEvent> events;
+  final bool hasMore;
 
   factory ProgressionRemoteState.fromJson(Map<String, dynamic> json) =>
       ProgressionRemoteState(
         revision: _revision(json['revision']),
         events: _maps(json['events'], ProgressionRemoteEvent.fromJson),
+        hasMore: json['hasMore'] == true,
       );
 }
 

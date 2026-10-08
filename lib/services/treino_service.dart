@@ -4,9 +4,13 @@ import 'package:flutter/material.dart';
 import '../models/treino_model.dart';
 import 'storage_service.dart';
 import '../core/exercises/plan_mutation_guard.dart';
+import '../core/auth/local_account_data_boundary.dart';
 
 class TreinoService extends ChangeNotifier {
-  TreinoService._();
+  TreinoService._() {
+    StorageService.planDefinitionRevision.addListener(_reloadDefinitions);
+    AccountSessionLifecycle.revision.addListener(_invalidateAccount);
+  }
 
   static final TreinoService instance = TreinoService._();
 
@@ -14,6 +18,23 @@ class TreinoService extends ChangeNotifier {
   bool _initialized = false;
   bool _isLoading = false;
   Object? _loadError;
+  bool _reloadPending = false;
+
+  void _reloadDefinitions() {
+    if (_isLoading) {
+      _reloadPending = true;
+    } else {
+      unawaited(initialize(force: true));
+    }
+  }
+
+  void _invalidateAccount() {
+    _treinos.clear();
+    _initialized = false;
+    _loadError = null;
+    if (_isLoading) _reloadPending = true;
+    notifyListeners();
+  }
 
   List<TreinoModel> get treinos => List.unmodifiable(_treinos);
   bool get isInitialized => _initialized;
@@ -27,8 +48,10 @@ class TreinoService extends ChangeNotifier {
     _loadError = null;
     notifyListeners();
 
+    final accountRevision = AccountSessionLifecycle.revision.value;
     try {
       final saved = await StorageService.carregarTreinos();
+      if (accountRevision != AccountSessionLifecycle.revision.value) return;
       _treinos
         ..clear()
         ..addAll(saved);
@@ -38,6 +61,10 @@ class TreinoService extends ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+      if (_reloadPending) {
+        _reloadPending = false;
+        _reloadDefinitions();
+      }
     }
   }
 

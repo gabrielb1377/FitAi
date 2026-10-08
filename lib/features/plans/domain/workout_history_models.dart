@@ -14,9 +14,11 @@ class WorkoutHistory {
     this.planName,
     this.workoutName,
     this.calories,
+    this.remoteImported = false,
   });
 
   final String id;
+  final bool remoteImported;
   final String planId;
   final String workoutId;
   final String? planName;

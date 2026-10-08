@@ -130,6 +130,7 @@ class LocalAccountDataBoundary {
       key.startsWith('fitia.settings.device.') ||
       key.startsWith('fitia.settings.account.') ||
       key.startsWith('fitia.progression.v2.user.') ||
+      key.startsWith('fitia.planDeletion.v1.user.') ||
       key.startsWith('fitia.aiChat.v1.user.') ||
       key.startsWith('fitia.workoutVerticalSlice.v1.user.');
 

@@ -13,11 +13,14 @@ class WorkoutVerticalRepository {
     required this.transport,
     DateTime Function()? clock,
     Uuid? uuid,
+    this.historyReader,
   }) : _clock = clock ?? DateTime.now,
        _uuid = uuid ?? const Uuid();
 
   final WorkoutVerticalLocalStore localStore;
   final WorkoutVerticalSyncTransport transport;
+  final Future<Map<String, dynamic>?> Function(String revision, String setId)?
+  historyReader;
   final DateTime Function() _clock;
   final Uuid _uuid;
   Future<void> _mutationQueue = Future<void>.value();
@@ -36,6 +39,89 @@ class WorkoutVerticalRepository {
   }
 
   Future<WorkoutSliceSnapshot> load() => localStore.read();
+
+  /// Materializes read-only history and its cursor in the existing journal.
+  /// Imported sessions never dispatch completion events or create outbox items.
+  Future<void> pullHistory({int maxPages = 20}) async {
+    final reader = historyReader;
+    if (reader == null) return;
+    for (var page = 0; page < maxPages; page++) {
+      final snapshot = await load();
+      final response = await reader(
+        snapshot.remoteHistoryRevision,
+        snapshot.remoteHistorySetId,
+      );
+      if (response == null || response['session'] == null) return;
+      final session = WorkoutSessionLocal.fromJson(
+        Map<String, dynamic>.from(response['session'] as Map),
+      );
+      if (!session.remoteImported ||
+          session.isOpen ||
+          session.syncStatus != WorkoutSyncStatus.synced) {
+        throw StateError('Invalid remote history session.');
+      }
+      final remoteSets = (response['sets'] as List)
+          .map(
+            (item) => WorkoutSetLocal.fromJson(
+              Map<String, dynamic>.from(item as Map),
+            ),
+          )
+          .toList();
+      if (remoteSets.length > 50 ||
+          remoteSets.any(
+            (item) =>
+                item.sessionId != session.id ||
+                item.syncStatus != WorkoutSyncStatus.synced,
+          )) {
+        throw StateError('Invalid remote history sets.');
+      }
+      final revision = response['revision'] as String;
+      final setId = response['afterSetId'] as String;
+      if (BigInt.parse(revision) <
+              BigInt.parse(snapshot.remoteHistoryRevision) ||
+          (revision == snapshot.remoteHistoryRevision &&
+              setId == snapshot.remoteHistorySetId)) {
+        throw StateError('Remote history cursor did not advance.');
+      }
+      final applied = await _serial(() async {
+        final current = await load();
+        if (current.remoteHistoryRevision != snapshot.remoteHistoryRevision ||
+            current.remoteHistorySetId != snapshot.remoteHistorySetId) {
+          return true;
+        }
+        final sessions = [...current.sessions];
+        final index = sessions.indexWhere((item) => item.id == session.id);
+        if (index >= 0 &&
+            !sessions[index].remoteImported &&
+            (sessions[index].isOpen ||
+                current.outbox.any((e) => e.sessionId == session.id))) {
+          // A pending local aggregate must be acknowledged before importing it.
+          return false;
+        }
+        if (index < 0) {
+          sessions.add(session);
+        } else if (sessions[index].remoteImported) {
+          sessions[index] = session;
+        }
+        final sets = [...current.sets];
+        final ids = sets.map((item) => item.id).toSet();
+        for (final item in remoteSets) {
+          if (ids.add(item.id)) sets.add(item);
+        }
+        await _persist(
+          current.copyWith(
+            sessions: sessions,
+            sets: sets,
+            remoteHistoryRevision: revision,
+            remoteHistorySetId: setId,
+          ),
+        );
+        return true;
+      });
+      if (!applied) return;
+      if (response['hasMore'] != true) return;
+    }
+  }
 
   Future<WorkoutSessionLocal?> activeSession() async {
     final snapshot = await load();

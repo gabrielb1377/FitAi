@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../features/auth/data/auth_service.dart';
 import '../core/auth/local_account_data_boundary.dart';
 import 'network_service.dart';
+import 'storage_service.dart';
 
 /// Resultado imediato do envio local. Uma entrega em fila continua persistida
 /// e pode ser reenviada sem bloquear o usuario.
@@ -191,6 +192,7 @@ class SyncService {
         }
       }
       await _flushDomains();
+      await _pullPlanDeletions();
     } finally {
       _flushing = false;
     }
@@ -198,6 +200,30 @@ class SyncService {
 
   Future<int> pendingCount() async {
     return (await _loadQueue()).length;
+  }
+
+  Future<void> _pullPlanDeletions() async {
+    final session = await _authService.restoreSession();
+    if (session == null) return;
+    try {
+      for (var page = 0; page < 20; page++) {
+        final revision = await StorageService.planDeletionRevision(
+          session.userId,
+        );
+        final response = await getAuthenticatedJsonForUser(
+          userId: session.userId,
+          path: '/sync/workouts/deletions?afterRevision=$revision',
+        );
+        if (response == null) return;
+        if (response['hasMore'] == true && response['revision'] == revision) {
+          throw StateError('Plan deletion cursor did not advance.');
+        }
+        await StorageService.applyPlanDeletions(session.userId, response);
+        if (response['hasMore'] != true) return;
+      }
+    } on Object catch (error) {
+      _debugLog('Plan deletion pull retained for retry: ${error.runtimeType}');
+    }
   }
 
   Future<String> getClientId() => _clientId();

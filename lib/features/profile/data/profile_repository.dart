@@ -133,13 +133,16 @@ class ProfileRepository {
     if (completedWorkouts > 0) {
       workouts = [
         for (final workout in planHistoryRead.value.workouts)
-          ProgressionWorkoutSource(
-            id: workout.id,
-            completedAt: workout.finishedAt,
-            name: workout.workoutName ?? workout.planName,
-          ),
+          if (!workout.remoteImported)
+            ProgressionWorkoutSource(
+              id: workout.id,
+              completedAt: workout.finishedAt,
+              name: workout.workoutName ?? workout.planName,
+            ),
       ];
-      workoutDates = workouts.map((item) => item.completedAt).toList();
+      workoutDates = planHistoryRead.value.workouts
+          .map((item) => item.finishedAt)
+          .toList();
       final latest = _latestWorkout(planHistoryRead.value.workouts);
       lastWorkoutAt = latest?.finishedAt;
       lastWorkoutName = latest?.workoutName ?? latest?.planName;

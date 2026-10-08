@@ -72,6 +72,7 @@ class WorkoutHistoryRepository {
             .where(
               (session) =>
                   session.status == WorkoutSessionStatus.completed &&
+                  session.remoteHistoryComplete &&
                   session.finishedAt != null,
             )
             .toList()
@@ -378,6 +379,7 @@ class WorkoutHistoryRepository {
     final totalLoad = sets.fold<double>(0, (total, set) => total + set.weight);
     return WorkoutHistory(
       id: session.id,
+      remoteImported: session.remoteImported,
       planId: session.planId,
       workoutId: session.workoutId,
       planName: session.planName,

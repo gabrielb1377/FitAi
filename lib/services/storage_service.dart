@@ -40,6 +40,8 @@ class XpNivelResultado {
 }
 
 class StorageService {
+  /// Invalidates the existing plan cache only after durable remote deletion.
+  static final ValueNotifier<int> planDefinitionRevision = ValueNotifier(0);
   static const int xpPorNivel = 100;
   static const String _runningSessionKey = 'runningSessionActive';
   static const String _dailyStepsHistoryKey = 'dailyStepsHistory';
@@ -1859,6 +1861,13 @@ class StorageService {
   }) => _serializePlanMutation(() async {
     final prefs = await SharedPreferences.getInstance();
 
+    if (_planDeletions(
+      prefs,
+      AccountSessionLifecycle.activeUserId,
+    ).contains(treino.id)) {
+      throw StateError('Este plano foi excluido em outro dispositivo.');
+    }
+
     final lista = prefs.getStringList("treinos") ?? [];
     Map<String, dynamic>? previous;
     for (final raw in lista) {
@@ -1975,11 +1984,73 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
 
     List<String> lista = prefs.getStringList("treinos") ?? [];
+    final deleted = _planDeletions(prefs, AccountSessionLifecycle.activeUserId);
 
-    return lista.map((item) {
-      return TreinoModel.fromJson(jsonDecode(item));
-    }).toList();
+    return lista
+        .map((item) {
+          return TreinoModel.fromJson(jsonDecode(item));
+        })
+        .where((item) => !deleted.contains(item.id))
+        .toList();
   }
+
+  static String _planDeletionKey(String userId) =>
+      'fitia.planDeletion.v1.user.${LocalAccountDataBoundary.scopeForUser(userId)}';
+
+  static Map<String, dynamic> _planDeletionState(
+    SharedPreferences prefs,
+    String userId,
+  ) =>
+      jsonDecode(
+            prefs.getString(_planDeletionKey(userId)) ??
+                '{"revision":"0","ids":[]}',
+          )
+          as Map<String, dynamic>;
+
+  static Set<String> _planDeletions(SharedPreferences prefs, String? userId) =>
+      userId == null
+      ? <String>{}
+      : (_planDeletionState(prefs, userId)['ids'] as List)
+            .cast<String>()
+            .toSet();
+
+  static Future<String> planDeletionRevision(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return _planDeletionState(prefs, userId)['revision'] as String;
+  }
+
+  /// Tombstones and their consumed cursor share one owner-scoped write.
+  /// History and the legacy plan payload remain recoverable, never destroyed.
+  static Future<void> applyPlanDeletions(
+    String userId,
+    Map<String, dynamic> page,
+  ) => _serializePlanMutation(() async {
+    final prefs = await SharedPreferences.getInstance();
+    final state = _planDeletionState(prefs, userId);
+    final revision = page['revision'] as String;
+    if (BigInt.parse(revision) < BigInt.parse(state['revision'] as String)) {
+      throw StateError('Plan deletion cursor moved backwards.');
+    }
+    final deletions = page['deletions'] as List;
+    if (deletions.length > 50) {
+      throw StateError('Unbounded plan deletion page.');
+    }
+    final ids = (state['ids'] as List).cast<String>().toSet();
+    final previousCount = ids.length;
+    for (final item in deletions) {
+      ids.add((item as Map)['id'] as String);
+    }
+    if (!await prefs.setString(
+      _planDeletionKey(userId),
+      jsonEncode({'revision': revision, 'ids': ids.toList()}),
+    )) {
+      throw StateError('Plan deletion journal write failed.');
+    }
+    if (ids.length != previousCount &&
+        AccountSessionLifecycle.activeUserId == userId) {
+      planDefinitionRevision.value += 1;
+    }
+  });
 
   /// Reads the receipt stored atomically with the plan, scoped by authenticated owner.
   static Future<TreinoModel?> carregarPlanoComAcao(
