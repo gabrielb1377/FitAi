@@ -62,6 +62,27 @@ class XpEvent {
   final ProgressionSyncStatus syncStatus;
   final int version;
 
+  /// O contrato remoto v1 cobre apenas origens verificaveis no backend.
+  bool get isRemoteSyncEligible => sourceType != XpSourceType.achievement;
+
+  XpEvent copyWith({
+    int? amount,
+    String? reason,
+    ProgressionSyncStatus? syncStatus,
+    int? version,
+  }) => XpEvent(
+    id: id,
+    userId: userId,
+    sourceType: sourceType,
+    sourceId: sourceId,
+    amount: amount ?? this.amount,
+    reason: reason ?? this.reason,
+    createdAt: createdAt,
+    idempotencyKey: idempotencyKey,
+    syncStatus: syncStatus ?? this.syncStatus,
+    version: version ?? this.version,
+  );
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'userId': userId,
@@ -500,6 +521,7 @@ class ProgressionSnapshot {
     required this.goals,
     required this.streaks,
     required this.milestones,
+    this.remoteRevision = '0',
   });
 
   const ProgressionSnapshot.empty({this.userId = 'local'})
@@ -515,7 +537,8 @@ class ProgressionSnapshot {
       achievements = const [],
       goals = const [],
       streaks = const [],
-      milestones = const [];
+      milestones = const [],
+      remoteRevision = '0';
 
   final int schemaVersion;
   final String userId;
@@ -526,6 +549,7 @@ class ProgressionSnapshot {
   final List<UserGoal> goals;
   final List<UserStreak> streaks;
   final List<Milestone> milestones;
+  final String remoteRevision;
 
   List<XpEvent> get recentEvents {
     final sorted = [...events]
@@ -562,6 +586,7 @@ class ProgressionSnapshot {
     List<UserGoal>? goals,
     List<UserStreak>? streaks,
     List<Milestone>? milestones,
+    String? remoteRevision,
   }) => ProgressionSnapshot(
     schemaVersion: schemaVersion,
     userId: userId,
@@ -572,6 +597,7 @@ class ProgressionSnapshot {
     goals: goals ?? this.goals,
     streaks: streaks ?? this.streaks,
     milestones: milestones ?? this.milestones,
+    remoteRevision: remoteRevision ?? this.remoteRevision,
   );
 
   Map<String, dynamic> toJson() => {
@@ -584,6 +610,7 @@ class ProgressionSnapshot {
     'goals': goals.map((item) => item.toJson()).toList(),
     'streaks': streaks.map((item) => item.toJson()).toList(),
     'milestones': milestones.map((item) => item.toJson()).toList(),
+    'remoteRevision': remoteRevision,
   };
 
   factory ProgressionSnapshot.fromJson(Map<String, dynamic> json) =>
@@ -599,6 +626,7 @@ class ProgressionSnapshot {
         goals: _list(json['goals'], UserGoal.fromJson),
         streaks: _list(json['streaks'], UserStreak.fromJson),
         milestones: _list(json['milestones'], Milestone.fromJson),
+        remoteRevision: _revision(json['remoteRevision']),
       );
 }
 
@@ -657,3 +685,8 @@ DateTime _date(Object? value) =>
 
 DateTime? _nullableDate(Object? value) =>
     value == null ? null : DateTime.tryParse(value.toString())?.toLocal();
+
+String _revision(Object? value) {
+  final revision = value?.toString().trim() ?? '';
+  return RegExp(r'^\d+$').hasMatch(revision) ? revision : '0';
+}

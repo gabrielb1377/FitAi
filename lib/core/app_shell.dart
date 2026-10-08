@@ -117,6 +117,15 @@ class _AppShellState extends State<AppShell> {
 
     if (!mounted) return;
     setState(() {});
+    unawaited(_refreshRemoteProgression(progression.userId));
+  }
+
+  Future<void> _refreshRemoteProgression(String userId) async {
+    final result = await progressionEngine.syncRemote(userId: userId);
+    if (!result.changed || !mounted) return;
+    final activeUserId = AccountSessionLifecycle.activeUserId;
+    if (activeUserId != null && activeUserId != userId) return;
+    setState(() => _applyProgress(result.snapshot.balance));
   }
 
   void _onRunningSessionChanged() {

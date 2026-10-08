@@ -1,6 +1,7 @@
 import '../../../models/corrida_model.dart';
 import '../../../models/daily_steps_model.dart';
 import '../../../models/historico_treino_model.dart';
+import '../../../core/auth/local_account_data_boundary.dart';
 import '../../../services/storage_service.dart';
 import '../../auth/data/auth_permissions_service.dart';
 import '../../plans/domain/workout_history_models.dart';
@@ -59,6 +60,12 @@ class ProfileRepository {
   final ProfilePreferencesLoader _preferencesLoader;
   final ProfileLegacyHistoryLoader _legacyHistoryLoader;
   final ProgressionEngine _progressionEngine;
+
+  bool get supportsRemoteProgressionSync =>
+      _progressionEngine.supportsRemoteSync;
+
+  Future<ProgressionRemoteSyncResult> syncProgressionRemote() =>
+      _progressionEngine.syncRemote();
 
   Future<void> updateGoalTarget({
     required GoalType type,
@@ -167,7 +174,12 @@ class ProfileRepository {
     final runs = runsRead.value
         .where((run) => run.finished)
         .toList(growable: false);
-    final steps = stepsRead.value;
+    final activeUserId = AccountSessionLifecycle.activeUserId;
+    final steps = activeUserId == null
+        ? stepsRead.value
+        : stepsRead.value
+              .where((record) => record.userId == activeUserId)
+              .toList(growable: false);
     final favorites = favoritesRead.value;
     final progressionRead = await _read(
       ProfileDataSource.progression,

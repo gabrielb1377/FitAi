@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../../../core/auth/local_account_data_boundary.dart';
 import '../../../core/config/dev_config.dart';
 import '../../../services/storage_service.dart';
 import '../data/progression_local_store.dart';
+import '../data/progression_remote_gateway.dart';
 import '../domain/progression_models.dart';
 import '../domain/progression_rules.dart';
 
@@ -31,8 +34,10 @@ class ProgressionEngine {
     LegacyProgressionWriter? legacyWriter,
     LegacyProgressionMigrationPolicy? legacyMigrationPolicy,
     DateTime Function()? clock,
+    this.remoteGateway,
     this.userIdResolver,
     this.allowDebugEvents = true,
+    this.autoSync = true,
   }) : _legacyReader = legacyReader ?? _readLegacyProgression,
        _legacyWriter = legacyWriter ?? _writeLegacyProgression,
        _legacyMigrationPolicy = legacyMigrationPolicy ?? _allowLegacyMigration,
@@ -42,6 +47,7 @@ class ProgressionEngine {
     store: SharedPreferencesProgressionStore(),
     legacyMigrationPolicy: _allowOwnedProductionLegacyMigration,
     userIdResolver: _resolveCurrentUserId,
+    remoteGateway: HttpProgressionRemoteGateway(),
   );
 
   static final ProgressionEngine instance = ProgressionEngine.production();
@@ -51,9 +57,13 @@ class ProgressionEngine {
   final LegacyProgressionWriter _legacyWriter;
   final LegacyProgressionMigrationPolicy _legacyMigrationPolicy;
   final DateTime Function() _clock;
+  final ProgressionRemoteGateway? remoteGateway;
   final ProgressionUserIdResolver? userIdResolver;
   final bool allowDebugEvents;
+  final bool autoSync;
   Future<void> _serialQueue = Future<void>.value();
+
+  bool get supportsRemoteSync => remoteGateway != null;
 
   Future<ProgressionSnapshot> load({String? userId}) => _serialize(() async {
     return _loadOrMigrate(await _resolveUserId(userId));
@@ -62,9 +72,90 @@ class ProgressionEngine {
   Future<ProgressionProcessingResult> reconcile({
     required ProgressionSourceData sources,
     String? userId,
-  }) => _serialize(() async {
-    return _reconcile(sources: sources, userId: await _resolveUserId(userId));
-  });
+  }) async {
+    final result = await _serialize(() async {
+      return _reconcile(sources: sources, userId: await _resolveUserId(userId));
+    });
+    if (autoSync &&
+        result.createdEvents.any((event) => event.isRemoteSyncEligible)) {
+      _scheduleRemoteSync(result.snapshot.userId);
+    }
+    return result;
+  }
+
+  /// Envia somente eventos locais verificaveis e reconcilia o delta remoto.
+  /// Falha de rede nunca desfaz o saldo local nem remove a outbox no ledger.
+  Future<ProgressionRemoteSyncResult> syncRemote({String? userId}) =>
+      _serialize(() async {
+        final resolvedUserId = await _resolveUserId(userId);
+        final snapshot = await _loadOrMigrate(resolvedUserId);
+        final gateway = remoteGateway;
+        if (gateway == null) {
+          return ProgressionRemoteSyncResult(
+            snapshot: snapshot,
+            status: ProgressionRemoteSyncState.notConfigured,
+          );
+        }
+
+        final pending = snapshot.events
+            .where(
+              (event) =>
+                  event.isRemoteSyncEligible &&
+                  event.syncStatus != ProgressionSyncStatus.synced &&
+                  event.syncStatus != ProgressionSyncStatus.failed,
+            )
+            .take(50)
+            .toList(growable: false);
+
+        try {
+          ProgressionRemoteState? remoteState;
+          ProgressionRemoteAcknowledgement? acknowledgement;
+          if (pending.isNotEmpty) {
+            final response = await gateway.push(
+              userId: resolvedUserId,
+              events: pending,
+              afterRevision: snapshot.remoteRevision,
+            );
+            if (response == null) {
+              return ProgressionRemoteSyncResult(
+                snapshot: snapshot,
+                status: ProgressionRemoteSyncState.unauthenticated,
+              );
+            }
+            acknowledgement = response.acknowledgement;
+            remoteState = response.state;
+          } else {
+            remoteState = await gateway.pull(
+              userId: resolvedUserId,
+              afterRevision: snapshot.remoteRevision,
+            );
+            if (remoteState == null) {
+              return ProgressionRemoteSyncResult(
+                snapshot: snapshot,
+                status: ProgressionRemoteSyncState.unauthenticated,
+              );
+            }
+          }
+
+          final reconciled = _reconcileRemote(
+            snapshot: snapshot,
+            remoteState: remoteState,
+            acknowledgement: acknowledgement,
+          );
+          if (!identical(reconciled, snapshot)) await _persist(reconciled);
+          return ProgressionRemoteSyncResult(
+            snapshot: reconciled,
+            status: ProgressionRemoteSyncState.synchronized,
+            changed: !identical(reconciled, snapshot),
+          );
+        } on Object catch (error) {
+          return ProgressionRemoteSyncResult(
+            snapshot: snapshot,
+            status: ProgressionRemoteSyncState.failed,
+            error: error,
+          );
+        }
+      });
 
   Future<ProgressionProcessingResult> recordWorkoutCompletion({
     required String workoutId,
@@ -223,7 +314,9 @@ class ProgressionEngine {
         reason: reason,
         createdAt: occurredAt.toLocal(),
         idempotencyKey: key,
-        syncStatus: ProgressionSyncStatus.local,
+        syncStatus: sourceType == XpSourceType.achievement
+            ? ProgressionSyncStatus.local
+            : ProgressionSyncStatus.pending,
         version: 1,
       );
       events.add(event);
@@ -372,6 +465,124 @@ class ProgressionEngine {
     return snapshot;
   }
 
+  ProgressionSnapshot _reconcileRemote({
+    required ProgressionSnapshot snapshot,
+    required ProgressionRemoteState remoteState,
+    required ProgressionRemoteAcknowledgement? acknowledgement,
+  }) {
+    final localEventTotal = snapshot.events.fold<int>(
+      0,
+      (total, event) => total + event.amount,
+    );
+    final localUnrepresentedBase = (snapshot.balance.totalXp - localEventTotal)
+        .clamp(0, 1 << 31)
+        .toInt();
+    final byKey = <String, XpEvent>{
+      for (final event in snapshot.events) event.idempotencyKey: event,
+    };
+
+    if (acknowledgement != null) {
+      for (final ack in [
+        ...acknowledgement.accepted,
+        ...acknowledgement.alreadyApplied,
+      ]) {
+        final key = _idempotencyKey(
+          snapshot.userId,
+          ack.sourceType,
+          ack.sourceId,
+        );
+        final local = byKey[key];
+        if (local != null) {
+          byKey[key] = local.copyWith(
+            amount: ack.xpAwarded,
+            syncStatus: ProgressionSyncStatus.synced,
+            version: ack.rulesVersion,
+          );
+        }
+      }
+
+      for (final rejection in acknowledgement.rejected) {
+        MapEntry<String, XpEvent>? entry;
+        for (final candidate in byKey.entries) {
+          if (candidate.value.id == rejection.eventId) {
+            entry = candidate;
+            break;
+          }
+        }
+        if (entry == null) continue;
+        byKey[entry.key] = entry.value.copyWith(
+          syncStatus: rejection.isRetryable
+              ? ProgressionSyncStatus.pending
+              : ProgressionSyncStatus.failed,
+        );
+      }
+    }
+
+    for (final remote in remoteState.events) {
+      final key = _idempotencyKey(
+        snapshot.userId,
+        remote.sourceType,
+        remote.sourceId,
+      );
+      final local = byKey[key];
+      byKey[key] = XpEvent(
+        id: local?.id ?? key,
+        userId: snapshot.userId,
+        sourceType: remote.sourceType,
+        sourceId: remote.sourceId,
+        amount: remote.xpAwarded,
+        reason: local?.reason ?? _reasonFor(remote.sourceType),
+        createdAt: local?.createdAt ?? remote.occurredAt,
+        idempotencyKey: key,
+        syncStatus: ProgressionSyncStatus.synced,
+        version: remote.rulesVersion,
+      );
+    }
+
+    final events = byKey.values.toList(growable: false)
+      ..sort((left, right) => left.createdAt.compareTo(right.createdAt));
+    final changed =
+        remoteState.revision != snapshot.remoteRevision ||
+        !_sameEvents(events, snapshot.events);
+    if (!changed) return snapshot;
+
+    final totalXp =
+        localUnrepresentedBase +
+        events.fold<int>(0, (total, event) => total + event.amount);
+    return snapshot.copyWith(
+      version: snapshot.version + 1,
+      balance: ProgressionRules.balanceForTotalXp(totalXp),
+      events: events,
+      remoteRevision: remoteState.revision,
+    );
+  }
+
+  void _scheduleRemoteSync(String userId) {
+    unawaited(syncRemote(userId: userId));
+  }
+
+  static bool _sameEvents(List<XpEvent> left, List<XpEvent> right) {
+    if (left.length != right.length) return false;
+    for (var index = 0; index < left.length; index += 1) {
+      final a = left[index];
+      final b = right[index];
+      if (a.idempotencyKey != b.idempotencyKey ||
+          a.amount != b.amount ||
+          a.syncStatus != b.syncStatus ||
+          a.version != b.version) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  static String _reasonFor(XpSourceType sourceType) => switch (sourceType) {
+    XpSourceType.workout => 'Treino concluido',
+    XpSourceType.running => 'Corrida concluida',
+    XpSourceType.stepsGoal => 'Meta diaria de passos atingida',
+    XpSourceType.achievement => 'Conquista registrada',
+  };
+
   Future<String> _resolveUserId(String? requested) async {
     final explicit = requested?.trim();
     if (explicit != null && explicit.isNotEmpty) return explicit;
@@ -404,6 +615,8 @@ class ProgressionEngine {
 
   Future<void> _persist(ProgressionSnapshot snapshot) async {
     await store.save(snapshot);
+    final resolver = userIdResolver;
+    if (resolver != null && await resolver() != snapshot.userId) return;
     try {
       await _legacyWriter(snapshot.balance);
     } on Object {
@@ -819,6 +1032,27 @@ class ProgressionEngine {
         xp: balance.xpIntoCurrentLevel,
         nivel: balance.currentLevel,
       );
+}
+
+enum ProgressionRemoteSyncState {
+  notConfigured,
+  unauthenticated,
+  synchronized,
+  failed,
+}
+
+class ProgressionRemoteSyncResult {
+  const ProgressionRemoteSyncResult({
+    required this.snapshot,
+    required this.status,
+    this.changed = false,
+    this.error,
+  });
+
+  final ProgressionSnapshot snapshot;
+  final ProgressionRemoteSyncState status;
+  final bool changed;
+  final Object? error;
 }
 
 class _AchievementUpdate {

@@ -35,6 +35,7 @@ class ProfileController extends ChangeNotifier {
   final ProfileRepository _repository;
   ProfileViewState _state = const ProfileViewState.initial();
   bool _loading = false;
+  bool _remoteSyncing = false;
 
   ProfileViewState get state => _state;
 
@@ -80,5 +81,19 @@ class ProfileController extends ChangeNotifier {
       _loading = false;
       notifyListeners();
     }
+    if (!refresh && _repository.supportsRemoteProgressionSync) {
+      _syncRemoteAfterLocalLoad();
+    }
+  }
+
+  void _syncRemoteAfterLocalLoad() {
+    if (_remoteSyncing) return;
+    _remoteSyncing = true;
+    _repository
+        .syncProgressionRemote()
+        .then((result) async {
+          if (result.changed) await _load(refresh: true);
+        })
+        .whenComplete(() => _remoteSyncing = false);
   }
 }

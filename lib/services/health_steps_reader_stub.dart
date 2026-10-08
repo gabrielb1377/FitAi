@@ -1,32 +1,25 @@
-class HealthStepsAvailability {
-  const HealthStepsAvailability({
-    required this.platformSupported,
-    required this.available,
-    required this.message,
-  });
+import '../features/activities/domain/steps_health_source.dart';
 
-  final bool platformSupported;
-  final bool available;
-  final String message;
-}
+class PlatformStepsHealthSource implements StepsHealthSource {
+  @override
+  Future<StepsHealthStatus> checkStatus({
+    bool requestPermission = false,
+  }) async => const StepsHealthStatus.notSupported();
 
-class PlatformHealthStepsReader {
-  Future<HealthStepsAvailability> checkAvailability() async {
-    return const HealthStepsAvailability(
-      platformSupported: false,
-      available: false,
-      message: 'Health Connect indisponivel nesta plataforma.',
+  @override
+  Future<StepsHealthReadResult> readDailyTotal({
+    required DateTime start,
+    required DateTime end,
+    bool requestPermission = false,
+  }) async {
+    return StepsHealthReadResult(
+      status: const StepsHealthStatus.notSupported(),
+      readAt: end,
     );
   }
 
-  Future<bool> ensureStepsPermission({required bool requestPermission}) async {
-    return false;
-  }
-
-  Future<int> readSteps({
-    required DateTime start,
-    required DateTime end,
-  }) async {
-    return 0;
-  }
+  @override
+  Future<void> dispose() async {}
 }
+
+typedef PlatformHealthStepsReader = PlatformStepsHealthSource;

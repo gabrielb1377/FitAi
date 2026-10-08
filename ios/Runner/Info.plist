@@ -28,6 +28,8 @@
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>O FitIA usa sua localização durante a corrida para registrar distância e rota.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>O FitIA lê sua contagem de passos para mostrar atividade diária e metas.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

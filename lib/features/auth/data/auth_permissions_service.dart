@@ -83,7 +83,7 @@ class AuthPermissionsService {
       await steps.initialize();
       await steps.syncNow(requestPermission: true);
 
-      if (steps.usingHealthConnect) return AuthPermissionStatus.granted;
+      if (steps.permissionGranted) return AuthPermissionStatus.granted;
       return steps.platformSupported
           ? AuthPermissionStatus.denied
           : AuthPermissionStatus.unavailable;
