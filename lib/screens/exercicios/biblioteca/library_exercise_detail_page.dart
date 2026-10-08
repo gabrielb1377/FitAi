@@ -18,10 +18,10 @@ import '../../../services/storage_service.dart';
 import '../../../widgets/exercicio_gif_viewer.dart';
 import '../../../features/core_journey/presentation/unified_workout_navigation.dart';
 import '../../treinos/widgets/exercise_next_progression_card.dart';
-import 'library_catalog_controller.dart';
 import 'library_comparison_sheet.dart';
 import 'library_plan_actions.dart';
 import 'library_official_widgets.dart';
+import 'muscle_anatomy_map.dart';
 
 typedef LibraryFavoriteToggle = Future<bool> Function(ExercicioModel exercise);
 
@@ -284,71 +284,7 @@ class _BibliotecaExercicioDetalhePageState
   }
 
   Widget _musclesSummary() {
-    final primary = exercise.musculos.isEmpty
-        ? exercise.categoria
-        : exercise.musculos.first;
-    final secondary = exercise.musculosSecundarios.take(2).toList();
-    final group = _groupForExercise();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Músculos trabalhados',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: FitSpacing.s12),
-        Row(
-          children: [
-            SizedBox(
-              width: 92,
-              height: 106,
-              child: LibraryMuscleGlyph(group: group, large: true),
-            ),
-            const SizedBox(width: FitSpacing.s16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _legend(primary, FitColors.primary),
-                  for (var index = 0; index < secondary.length; index++)
-                    _legend(
-                      secondary[index],
-                      index == 0 ? FitColors.danger : FitColors.info,
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _legend(String label, Color color) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: FitSpacing.s4),
-      child: Row(
-        children: [
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(3),
-            ),
-          ),
-          const SizedBox(width: FitSpacing.s8),
-          Expanded(
-            child: Text(
-              label,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ),
-        ],
-      ),
-    );
+    return MuscleAnatomyMap(exercise: exercise);
   }
 
   Widget _description() {
@@ -690,11 +626,6 @@ class _BibliotecaExercicioDetalhePageState
   }
 
   Widget _musclesTab() {
-    final group = _groupForExercise();
-    final primary = exercise.musculos.isEmpty
-        ? <String>[exercise.categoria]
-        : exercise.musculos;
-    final secondary = exercise.musculosSecundarios;
     return ListView(
       key: const ValueKey('LIB-006'),
       physics: const BouncingScrollPhysics(),
@@ -704,60 +635,7 @@ class _BibliotecaExercicioDetalhePageState
         FitSpacing.s16,
         FitSpacing.s32,
       ),
-      children: [
-        SizedBox(
-          height: 230,
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: LibraryMuscleGlyph(group: group, large: true),
-                    ),
-                    Text(
-                      'Frente',
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: LibraryMuscleGlyph(group: group, large: true),
-                    ),
-                    Text(
-                      'Costas',
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: FitSpacing.s12),
-        for (final muscle in primary) _legend(muscle, FitColors.primary),
-        for (var index = 0; index < secondary.length; index++)
-          _legend(
-            secondary[index],
-            index == 0 ? FitColors.danger : FitColors.info,
-          ),
-        const SizedBox(height: FitSpacing.s16),
-        const Divider(),
-        const SizedBox(height: FitSpacing.s12),
-        Text(
-          'Músculos secundários',
-          style: Theme.of(context).textTheme.titleSmall,
-        ),
-        const SizedBox(height: FitSpacing.s8),
-        Text(
-          secondary.isEmpty ? 'Não informado' : secondary.join(', '),
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-      ],
+      children: [MuscleAnatomyMap(exercise: exercise)],
     );
   }
 
@@ -1115,18 +993,6 @@ class _BibliotecaExercicioDetalhePageState
         .map((item) => item.trim())
         .where((item) => item.length > 8)
         .toList(growable: false);
-  }
-
-  LibraryMuscleGroup _groupForExercise() {
-    final text = normalizeLibraryText(
-      [exercise.categoria, ...exercise.musculos].join(' '),
-    );
-    return LibraryCatalogController.muscleGroups.firstWhere(
-      (group) => group.aliases.any(
-        (alias) => text.contains(normalizeLibraryText(alias)),
-      ),
-      orElse: () => LibraryCatalogController.muscleGroups.first,
-    );
   }
 
   String get _difficulty => exercise.dificuldade.trim().isEmpty
