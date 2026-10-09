@@ -17,6 +17,7 @@ import '../../../../services/notification_service.dart';
 import '../../../../services/storage_service.dart';
 import '../../../../services/streak_service.dart';
 import '../../../../services/treino_do_dia_service.dart';
+import '../../data/home_workout_history_reader.dart';
 import '../states/home_state.dart';
 
 typedef HomeHistoryLoader = Future<List<HistoricoTreinoModel>> Function();
@@ -39,8 +40,7 @@ class HomeController extends ChangeNotifier {
     HomeNetworkCheck? networkCheck,
     HomeWorkoutsLoader? workoutsLoader,
     HomeDevDataLoader? devDataLoader,
-  }) : _historyLoader =
-           historyLoader ?? StorageService.carregarHistoricoTreinos,
+  }) : _historyLoader = historyLoader ?? HomeWorkoutHistoryReader().load,
        _coachLoader =
            coachLoader ?? const CoachInsightService().gerarInsightsGerais,
        _goalsLoader = goalsLoader ?? const MetasService().carregarMetas,
