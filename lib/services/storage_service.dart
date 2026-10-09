@@ -40,7 +40,7 @@ class XpNivelResultado {
 }
 
 class StorageService {
-  /// Invalidates the existing plan cache only after durable remote deletion.
+  /// Invalidates the existing plan cache after durable remote materialization.
   static final ValueNotifier<int> planDefinitionRevision = ValueNotifier(0);
   static const int xpPorNivel = 100;
   static const String _runningSessionKey = 'runningSessionActive';
@@ -1996,6 +1996,86 @@ class StorageService {
 
   static String _planDeletionKey(String userId) =>
       'fitia.planDeletion.v1.user.${LocalAccountDataBoundary.scopeForUser(userId)}';
+
+  static String _planPullKey(String userId) =>
+      'fitia.planPull.v1.user.${LocalAccountDataBoundary.scopeForUser(userId)}';
+
+  /// ID cursor for a resumable bounded full scan, not a modification revision.
+  static Future<String> planPullCursor(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_planPullKey(userId)) ?? '';
+  }
+
+  /// Captures serialized definitions to detect local edits while GET is in flight.
+  static Future<Map<String, String>> planPullBaseline() =>
+      _serializePlanMutation(() async {
+        final prefs = await SharedPreferences.getInstance();
+        return {
+          for (final raw in prefs.getStringList('treinos') ?? const <String>[])
+            (jsonDecode(raw) as Map)['id'] as String: raw,
+        };
+      });
+
+  /// Imports without using salvarTreino: no upload, XP or workout replay.
+  /// The cursor is written last. Retry after either write fails is idempotent.
+  static Future<bool> applyRemotePlans({
+    required String userId,
+    required int accountRevision,
+    required String expectedCursor,
+    required String nextCursor,
+    required Map<String, String> baseline,
+    required Set<String> pendingIds,
+    required List<Map<String, dynamic>> plans,
+  }) => _serializePlanMutation(() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (AccountSessionLifecycle.activeUserId != userId ||
+        AccountSessionLifecycle.revision.value != accountRevision) {
+      return false;
+    }
+    if ((prefs.getString(_planPullKey(userId)) ?? '') != expectedCursor) {
+      return false;
+    }
+    if (plans.length > 50) throw StateError('Unbounded active plan page.');
+    final deleted = _planDeletions(prefs, userId);
+    final current = prefs.getStringList('treinos') ?? <String>[];
+    final byId = {
+      for (final raw in current) (jsonDecode(raw) as Map)['id'] as String: raw,
+    };
+    for (final plan in plans) {
+      final id = plan['id'] as String;
+      if (deleted.contains(id) ||
+          pendingIds.contains(id) ||
+          byId[id] != baseline[id]) {
+        continue;
+      }
+      final existing = byId[id] == null
+          ? <String, dynamic>{}
+          : Map<String, dynamic>.from(jsonDecode(byId[id]!) as Map);
+      final oldTime = DateTime.tryParse(
+        existing['_remoteUpdatedAt']?.toString() ?? '',
+      );
+      final newTime = DateTime.tryParse(
+        plan['_remoteUpdatedAt']?.toString() ?? '',
+      );
+      if (oldTime != null && newTime != null && oldTime.isAfter(newTime)) {
+        continue;
+      }
+      final merged = {...existing, ...plan};
+      // Validate with the canonical model before any durable write.
+      TreinoModel.fromJson(merged);
+      byId[id] = jsonEncode(merged);
+    }
+    if (AccountSessionLifecycle.revision.value != accountRevision) return false;
+    if (!await prefs.setStringList('treinos', byId.values.toList())) {
+      throw StateError('Remote plan materialization failed.');
+    }
+    if (AccountSessionLifecycle.revision.value != accountRevision) return false;
+    if (!await prefs.setString(_planPullKey(userId), nextCursor)) {
+      throw StateError('Remote plan cursor write failed.');
+    }
+    planDefinitionRevision.value += 1;
+    return true;
+  });
 
   static Map<String, dynamic> _planDeletionState(
     SharedPreferences prefs,

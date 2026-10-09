@@ -9,6 +9,7 @@ import '../features/auth/data/auth_service.dart';
 import '../core/auth/local_account_data_boundary.dart';
 import 'network_service.dart';
 import 'storage_service.dart';
+import '../features/plans/data/remote_plan_mapper.dart';
 
 /// Resultado imediato do envio local. Uma entrega em fila continua persistida
 /// e pode ser reenviada sem bloquear o usuario.
@@ -41,7 +42,7 @@ class SyncService {
   final AuthService _authService;
   final Map<String, Future<void> Function()> _domainFlushers = {};
   Timer? _timer;
-  bool _flushing = false;
+  Future<void>? _flushPendingFuture;
 
   void startAutoSync() {
     _timer ??= Timer.periodic(const Duration(seconds: 30), (_) {
@@ -166,36 +167,32 @@ class SyncService {
         : StepsSyncDispatchResult.queued;
   }
 
-  Future<void> flushPending() async {
-    if (_flushing) return;
+  Future<void> flushPending() => _flushPendingFuture ??= _flushPending()
+      .whenComplete(() => _flushPendingFuture = null);
 
-    _flushing = true;
+  Future<void> _flushPending() async {
+    final queue = await _loadQueue();
+    if (queue.isNotEmpty) {
+      final available = await _networkService.isBackendAvailable();
+      if (!available) {
+        _debugLog('Backend offline. ${queue.length} itens pendentes.');
+      } else {
+        for (final item in queue) {
+          final sent = await _trySendQueued(item);
+          await _completeQueuedAttempt(item, sent: sent);
+        }
+        final remaining = await _loadQueue();
 
-    try {
-      final queue = await _loadQueue();
-      if (queue.isNotEmpty) {
-        final available = await _networkService.isBackendAvailable();
-        if (!available) {
-          _debugLog('Backend offline. ${queue.length} itens pendentes.');
+        if (remaining.isEmpty) {
+          _debugLog('Fila sincronizada.');
         } else {
-          for (final item in queue) {
-            final sent = await _trySendQueued(item);
-            await _completeQueuedAttempt(item, sent: sent);
-          }
-          final remaining = await _loadQueue();
-
-          if (remaining.isEmpty) {
-            _debugLog('Fila sincronizada.');
-          } else {
-            _debugLog('${remaining.length} itens continuam pendentes.');
-          }
+          _debugLog('${remaining.length} itens continuam pendentes.');
         }
       }
-      await _flushDomains();
-      await _pullPlanDeletions();
-    } finally {
-      _flushing = false;
     }
+    await _flushDomains();
+    await _pullPlanDeletions();
+    await _pullActivePlans();
   }
 
   Future<int> pendingCount() async {
@@ -227,6 +224,61 @@ class SyncService {
   }
 
   Future<String> getClientId() => _clientId();
+
+  Future<void> _pullActivePlans() async {
+    final session = await _authService.restoreSession();
+    if (session == null) return;
+    final accountRevision = AccountSessionLifecycle.revision.value;
+    try {
+      for (var page = 0; page < 20; page++) {
+        final cursor = await StorageService.planPullCursor(session.userId);
+        final baseline = await StorageService.planPullBaseline();
+        final response = await getAuthenticatedJsonForUser(
+          userId: session.userId,
+          path:
+              '/sync/workouts?paged=1&afterId=${Uri.encodeQueryComponent(cursor)}',
+        );
+        if (response == null) return;
+        final next = response['afterId'] as String;
+        if (response['hasMore'] == true && (next.isEmpty || next == cursor)) {
+          throw StateError('Active plan cursor did not advance.');
+        }
+        final pending = <String>{};
+        for (final item in await _loadQueue()) {
+          if (item['type'] != 'workouts' && item['type'] != 'workout-delete') {
+            continue;
+          }
+          final owner = item['ownerUserId'];
+          if (owner != null && owner != session.userId) continue;
+          final payload = _map(item['payload']);
+          if (payload['id'] != null) pending.add(payload['id'].toString());
+          for (final raw in payload['items'] as List? ?? const []) {
+            final id = _map(raw)['id'];
+            if (id != null) pending.add(id.toString());
+          }
+        }
+        final applied = await StorageService.applyRemotePlans(
+          userId: session.userId,
+          accountRevision: accountRevision,
+          expectedCursor: cursor,
+          nextCursor: next,
+          baseline: baseline,
+          pendingIds: pending,
+          plans: (response['workouts'] as List)
+              .map(
+                (row) => RemotePlanMapper.map(
+                  Map<String, dynamic>.from(row as Map),
+                  session.userId,
+                ),
+              )
+              .toList(),
+        );
+        if (!applied || response['hasMore'] != true) return;
+      }
+    } on Object catch (error) {
+      _debugLog('Active plan pull retained for retry: ${error.runtimeType}');
+    }
+  }
 
   /// Transporte autenticado para dominios que precisam consumir o ACK.
   /// Retorna `null` sem enviar quando a sessao nao existe ou pertence a outra
